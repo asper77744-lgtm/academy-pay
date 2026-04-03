@@ -3247,7 +3247,14 @@ function deleteSubjectFromList(s){
   if(!confirm(`'${s}' 과목을 삭제하시겠습니까?`)) return;
   if(!currentAcademy.subjects) currentAcademy.subjects = [];
   currentAcademy.subjects = currentAcademy.subjects.filter(x => x !== s);
-  saveAcademy(); refreshAll(); showToast(`'${s}' 과목이 삭제되었습니다.`,'success');
+  saveAcademy();
+  refreshAll();
+  showToast(`'${s}' 과목이 삭제되었습니다.`,'success');
+  // 과목 추가 모달이 열려있으면 즉시 갱신
+  const modal = document.getElementById('m-add-subject');
+  if(modal && modal.classList.contains('open')){
+    openModal('m-add-subject');
+  }
 }
 
 // 구형 deleteSubject 호환
@@ -4473,7 +4480,7 @@ function openModal(id){
           <span style="display:inline-flex;align-items:center;gap:4px;background:var(--accent);color:#fff;
             padding:4px 10px;border-radius:20px;font-size:12px;font-weight:500">
             ${s}
-            <span onclick="deleteSubjectFromList('${s}');openModal('m-add-subject')"
+            <span onclick="deleteSubjectFromList('${s}')"
               style="cursor:pointer;opacity:.7;font-size:14px;line-height:1" title="삭제">×</span>
           </span>`).join('');
       } else {
