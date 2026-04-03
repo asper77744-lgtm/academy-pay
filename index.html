@@ -10,8 +10,8 @@
 // ══════════════════════════════════════════════════
 // ★ Supabase 설정 — 아래 두 값을 채워넣으세요
 // ══════════════════════════════════════════════════
-const SUPABASE_URL    = 'https://iokxyzljynglifsyrlxg.supabase.co';     // 예: https://xxxx.supabase.co
-const SUPABASE_ANON   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlva3h5emxqeW5nbGlmc3lybHhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNjc5OTUsImV4cCI6MjA5MDc0Mzk5NX0.PJNGvFxztYCeXZs_ZsvxAP5IotbZ3BT6dYveOPk8PZo'; // Supabase > Settings > API > anon key
+const SUPABASE_URL    = 'https://iokxyzljynglifsyrlxg.supabase.co';
+const SUPABASE_ANON   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlva3h5emxqeW5nbGlmc3lybHhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNjc5OTUsImV4cCI6MjA5MDc0Mzk5NX0.PJNGvFxztYCeXZs_ZsvxAP5IotbZ3BT6dYveOPk8PZo';
 // ══════════════════════════════════════════════════
 const _sb = (SUPABASE_URL !== 'YOUR_SUPABASE_URL')
   ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
@@ -1409,36 +1409,22 @@ async function sendLoginOtp(){
   const email = document.getElementById('l-email').value.trim();
   if(!email.includes('@')){ showErr('l-err1','올바른 이메일을 입력해주세요.'); return; }
 
-  // 로딩 표시
-  const btn = document.querySelector('#panel-login button');
-  const origText = btn.textContent; btn.textContent='확인 중...'; btn.disabled=true;
+  const btn = document.querySelector('#panel-login .btn-auth.btn-main');
+  if(btn){ btn.textContent='확인 중...'; btn.disabled=true; }
 
   const found = await sbFindByEmail(email);
-  btn.textContent=origText; btn.disabled=false;
+
+  if(btn){ btn.textContent='인증 코드 발송'; btn.disabled=false; }
 
   if(!found){ showErr('l-err1','등록되지 않은 이메일입니다.'); return; }
 
+  // 자체 OTP 생성 (6자리 숫자)
   _pendingEmail = email;
   _otp = String(Math.floor(100000+Math.random()*900000));
 
-  // Supabase 연동 시 실제 이메일 발송
-  if(_sb){
-    const { error } = await _sb.auth.signInWithOtp({ email, options:{ shouldCreateUser:false } });
-    if(error){
-      // Supabase OTP 실패 시 시연용 코드 폴백
-      console.warn('Supabase OTP 오류, 시연 모드로 전환:', error.message);
-    } else {
-      const prev = document.getElementById('l-otp-preview');
-      prev.textContent = '📨 이메일로 인증코드가 발송되었습니다. 받은 메일함을 확인해주세요.';
-      prev.style.display='block'; prev.style.color='#10b981';
-      document.getElementById('login-step1').style.display='none';
-      document.getElementById('login-step2').style.display='block';
-      return;
-    }
-  }
-  // localStorage 모드 또는 폴백: 시연용 코드 화면 표시
   const prev = document.getElementById('l-otp-preview');
-  prev.textContent = '📨 인증코드: '+_otp+' (시연용)'; prev.style.display='block';
+  prev.textContent = '📨 인증코드: '+_otp+' (화면 확인용)';
+  prev.style.display='block'; prev.style.color='#4361ee';
   document.getElementById('login-step1').style.display='none';
   document.getElementById('login-step2').style.display='block';
 }
@@ -1446,28 +1432,22 @@ async function sendLoginOtp(){
 async function verifyLoginOtp(){
   hideErr('l-err2');
   const inputOtp = document.getElementById('l-otp').value.trim();
-
-  // Supabase OTP 검증
-  if(_sb){
-    const { data, error } = await _sb.auth.verifyOtp({
-      email: _pendingEmail, token: inputOtp, type: 'email'
-    });
-    if(error){
-      // Supabase 검증 실패 시 시연 코드로 폴백
-      if(inputOtp !== _otp){ showErr('l-err2','코드가 올바르지 않습니다.'); return; }
-    }
-  } else {
-    if(inputOtp !== _otp){ showErr('l-err2','코드가 올바르지 않습니다.'); return; }
-  }
+  if(inputOtp !== _otp){ showErr('l-err2','코드가 올바르지 않습니다.'); return; }
 
   const found = await sbFindByEmail(_pendingEmail);
   if(!found){ showErr('l-err2','계정을 찾을 수 없습니다.'); return; }
 
-  currentUser = found.user;
+  currentUser    = found.user;
   currentAcademy = found.academy;
   currentUser.lastLogin = now().toISOString();
 
-  await sbSaveAcademy(currentAcademy);
+  // 최신 데이터 Supabase에서 다시 로드
+  if(_sb){
+    const fresh = await sbLoadAcademy(currentAcademy.id);
+    if(fresh){ currentAcademy = fresh; }
+  }
+
+  localSaveAcademy(currentAcademy);
   S.set('session',{userId:currentUser.id, academyId:currentAcademy.id});
   bootApp();
 }
@@ -1479,30 +1459,21 @@ async function sendRegOtp(){
   const email     = document.getElementById('r-email').value.trim();
   if(!name||!ownerName||!email.includes('@')){ showErr('r-err1','필수 항목을 모두 입력해주세요.'); return; }
 
-  const btn = document.querySelector('#reg-step1 button');
-  const origText = btn.textContent; btn.textContent='확인 중...'; btn.disabled=true;
+  const btn = document.querySelector('#reg-step1 .btn-auth.btn-main');
+  if(btn){ btn.textContent='확인 중...'; btn.disabled=true; }
 
   const exists = await sbCheckEmailExists(email);
-  btn.textContent=origText; btn.disabled=false;
+
+  if(btn){ btn.textContent='인증 코드 발송'; btn.disabled=false; }
 
   if(exists){ showErr('r-err1','이미 가입된 이메일입니다.'); return; }
 
   _pendingReg = { name, ownerName, phone:document.getElementById('r-phone').value, email };
   _otp = String(Math.floor(100000+Math.random()*900000));
 
-  if(_sb){
-    const { error } = await _sb.auth.signInWithOtp({ email, options:{ shouldCreateUser:true } });
-    if(!error){
-      const prev = document.getElementById('r-otp-preview');
-      prev.textContent='📨 이메일로 인증코드가 발송되었습니다. 받은 메일함을 확인해주세요.';
-      prev.style.display='block'; prev.style.color='#10b981';
-      document.getElementById('reg-step1').style.display='none';
-      document.getElementById('reg-step2').style.display='block';
-      return;
-    }
-  }
   const prev = document.getElementById('r-otp-preview');
-  prev.textContent='📨 인증코드: '+_otp+' (시연용)'; prev.style.display='block';
+  prev.textContent = '📨 인증코드: '+_otp+' (화면 확인용)';
+  prev.style.display='block'; prev.style.color='#4361ee';
   document.getElementById('reg-step1').style.display='none';
   document.getElementById('reg-step2').style.display='block';
 }
@@ -1510,15 +1481,7 @@ async function sendRegOtp(){
 async function verifyRegOtp(){
   hideErr('r-err2');
   const inputOtp = document.getElementById('r-otp').value.trim();
-
-  if(_sb){
-    const { error } = await _sb.auth.verifyOtp({
-      email: _pendingReg.email, token: inputOtp, type: 'email'
-    });
-    if(error && inputOtp !== _otp){ showErr('r-err2','코드가 올바르지 않습니다.'); return; }
-  } else {
-    if(inputOtp !== _otp){ showErr('r-err2','코드가 올바르지 않습니다.'); return; }
-  }
+  if(inputOtp !== _otp){ showErr('r-err2','코드가 올바르지 않습니다.'); return; }
 
   const aid = uid(); const adminId = uid();
   const academy = {
@@ -1538,22 +1501,22 @@ async function verifyRegOtp(){
     ]
   };
 
-  const btn = document.querySelector('#reg-step2 button.btn-main');
+  const btn = document.querySelector('#reg-step2 .btn-auth.btn-main');
   if(btn){ btn.textContent='저장 중...'; btn.disabled=true; }
 
+  // Supabase DB에 저장
   await sbSaveAcademy(academy);
-  localSaveAcademy(academy); // 로컬에도 백업
+  localSaveAcademy(academy);
 
-  currentUser = academy.users[0];
+  if(btn){ btn.textContent='가입 완료'; }
+
+  currentUser    = academy.users[0];
   currentAcademy = academy;
   S.set('session',{userId:adminId, academyId:aid});
-
-  if(btn){ btn.textContent='가입 완료'; btn.disabled=false; }
   bootApp();
 }
 
 function logout(){
-  if(_sb) _sb.auth.signOut();
   S.del('session');
   currentUser=null; currentAcademy=null;
   document.getElementById('app').style.display='none';
