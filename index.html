@@ -34,7 +34,7 @@ body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text);
 
 /* ─── AUTH ─────────────────────────────── */
 #auth-screen{
-  display:flex;min-height:100vh;
+  display:none;min-height:100vh;
   background:linear-gradient(135deg,#667eea 0%,#764ba2 50%,#f72585 100%);
   position:relative;overflow:hidden;
 }
@@ -276,20 +276,26 @@ tbody tr:hover td{background:#f8f9ff}
 .sa-btn-enter{background:#6366f1;color:#fff}
 .sa-btn:hover{opacity:.85}
 
-/* ─── RESPONSIVE ─────────────────────────── */
-@media(max-width:1100px){.stats-grid{grid-template-columns:1fr 1fr}}
-@media(max-width:768px){
-  .auth-split{flex-direction:column;gap:24px;padding:24px}
-  .auth-hero{max-width:100%;text-align:center}
-  .auth-hero h1{font-size:32px}
-  .auth-box{width:100%}
-  .sidebar{display:none}
-  .main{padding:16px}
-  .stats-grid{grid-template-columns:1fr 1fr}
+/* ─── LOADING ─────────────────────────────── */
+#loading-screen{
+  position:fixed;inset:0;background:#0f172a;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;z-index:9999;transition:opacity .3s
 }
+#loading-screen.fade-out{opacity:0;pointer-events:none}
+.loading-spinner{
+  width:48px;height:48px;border:4px solid #334155;border-top-color:#6366f1;
+  border-radius:50%;animation:spin .8s linear infinite;margin-bottom:16px
+}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
+
+<!-- 로딩 스크린 -->
+<div id="loading-screen">
+  <div class="loading-spinner"></div>
+  <div style="color:#64748b;font-size:14px;font-family:'Pretendard',sans-serif">잠시만 기다려주세요...</div>
+</div>
 
 <!-- ══════════════════════════════════════════
      AUTH SCREEN
@@ -1626,15 +1632,33 @@ async function doRegister(){
 function sendRegOtp(){ doRegister(); }
 function verifyRegOtp(){}
 
+// 비밀번호 재설정 실행
+async function doResetPassword(){
+  const pw  = document.getElementById('new-pw')?.value||'';
+  const pw2 = document.getElementById('new-pw2')?.value||'';
+  const err = document.getElementById('new-pw-err');
+  const ok  = document.getElementById('new-pw-ok');
+  if(err) err.style.display='none';
+  if(pw.length<8){ if(err){err.textContent='8자 이상 입력해주세요.';err.style.display='block';} return; }
+  if(pw!==pw2){ if(err){err.textContent='비밀번호가 일치하지 않습니다.';err.style.display='block';} return; }
+  if(!_sb) return;
+  const { error } = await _sb.auth.updateUser({ password:pw });
+  if(error){ if(err){err.textContent='변경 실패: '+error.message;err.style.display='block';} return; }
+  if(ok) ok.style.display='';
+  setTimeout(()=>{ window.location.href = window.location.pathname; }, 2000);
+}
+
 function logout(){
   if(_sb) _sb.auth.signOut();
   S.del('session');
-  currentUser=null; currentAcademy=null;
+  currentUser=null; currentAcademy=null; _isSuperAdmin=false;
   document.getElementById('app').style.display='none';
+  document.getElementById('superadmin-screen').style.display='none';
   document.getElementById('auth-screen').style.display='flex';
   const em=document.getElementById('l-email'); if(em) em.value='';
   const pw=document.getElementById('l-password'); if(pw) pw.value='';
   hideErr('l-err1');
+  hideForgotPassword();
 }
 
 // ════════════════════════════════════════════════════════
@@ -4602,20 +4626,71 @@ function backToSuperAdmin(){
   saLoadAll();
 }
 
+// 로딩 스크린 숨기기
+function hideLoading(){
+  const el = document.getElementById('loading-screen');
+  if(!el) return;
+  el.classList.add('fade-out');
+  setTimeout(()=>{ el.style.display='none'; }, 300);
+}
+
+// 로그인 화면 표시
+function showAuthScreen(){
+  hideLoading();
+  document.getElementById('auth-screen').style.display='flex';
+}
+
 // ════════════════════════════════════════════════════════
 // INIT — 세션 복원 (Supabase 우선, localStorage 폴백)
 // ════════════════════════════════════════════════════════
 (async function init(){
   const sess = S.get('session');
 
-  // ★ 0) 세션의 screen 값으로 명확하게 분기
+  // ── 최우선: 비밀번호 재설정 URL 감지 ─────────────
+  // Reset Password 링크 클릭 시 URL에 type=recovery 포함
+  const hashParams = new URLSearchParams(window.location.hash.replace('#',''));
+  const urlType    = hashParams.get('type');
+  if(urlType === 'recovery'){
+    // 세션 완전 초기화 후 비밀번호 재설정 화면만 표시
+    S.del('session');
+    if(_sb) await _sb.auth.signOut();
+    showAuthScreen();
+    document.getElementById('panel-login').innerHTML = `
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:32px;margin-bottom:8px">🔐</div>
+        <strong style="font-size:16px">새 비밀번호 설정</strong>
+        <p style="font-size:13px;color:var(--text2);margin-top:6px">새로운 비밀번호를 입력해주세요.</p>
+      </div>
+      <div class="field"><label>새 비밀번호 (8자 이상)</label>
+        <input type="password" id="new-pw" placeholder="새 비밀번호 입력" onkeydown="if(event.key==='Enter')doResetPassword()"/>
+      </div>
+      <div class="field"><label>비밀번호 확인</label>
+        <input type="password" id="new-pw2" placeholder="비밀번호 재입력" onkeydown="if(event.key==='Enter')doResetPassword()"/>
+      </div>
+      <div class="err-msg" id="new-pw-err"></div>
+      <div id="new-pw-ok" style="display:none;font-size:13px;color:var(--success);margin-bottom:8px">✅ 비밀번호가 변경되었습니다. 잠시 후 로그인 화면으로 이동합니다.</div>
+      <button class="btn-auth btn-main" onclick="doResetPassword()">비밀번호 변경</button>
+    `;
+    // Supabase access_token으로 세션 복원 (비밀번호 변경용)
+    if(_sb){
+      const accessToken  = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+      if(accessToken && refreshToken){
+        await _sb.auth.setSession({ access_token:accessToken, refresh_token:refreshToken });
+      }
+    }
+    window.history.replaceState(null,'',window.location.pathname);
+    return;
+  }
+
+  // ── 0) screen 기반 복원 ───────────────────────────
   if(sess?.screen === 'superadmin' && sess?.email){
-    // 관리자 대시보드 화면이었으면 → 관리자 대시보드로
-    await bootSuperAdmin(sess.email); return;
+    await bootSuperAdmin(sess.email);
+    hideLoading(); return;
   }
 
   if(sess?.screen === 'academy' && sess?.academyId){
-    // 학원 화면이었으면 → 학원으로
+    // localStorage에서 빠르게 로드 (깜빡임 없음)
     const acads = S.get('academies')||{};
     const acad  = acads[sess.academyId];
     if(acad){
@@ -4623,16 +4698,15 @@ function backToSuperAdmin(){
       if(user){
         if(sess?.fromSuperAdmin || sess?.superAdmin) _isSuperAdmin = true;
         currentUser=user; currentAcademy=acad;
-        if(_sb){
-          const fresh = await sbLoadAcademy(acad.id);
-          if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); }
-        }
-        bootApp(); return;
+        bootApp(); hideLoading();
+        // 백그라운드에서 Supabase 최신 데이터 동기화
+        if(_sb){ sbLoadAcademy(acad.id).then(fresh=>{ if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); refreshAll(); } }); }
+        return;
       }
     }
   }
 
-  // 1) screen 없는 기존 세션 호환 처리
+  // ── 1) 기존 세션 호환 (screen 없음) ───────────────
   if(sess?.academyId && !sess?.screen){
     const acads = S.get('academies')||{};
     const acad  = acads[sess.academyId];
@@ -4641,35 +4715,33 @@ function backToSuperAdmin(){
       if(user){
         if(sess?.fromSuperAdmin || sess?.superAdmin) _isSuperAdmin = true;
         currentUser=user; currentAcademy=acad;
-        if(_sb){
-          const fresh = await sbLoadAcademy(acad.id);
-          if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); }
-        }
-        bootApp(); return;
+        bootApp(); hideLoading();
+        if(_sb){ sbLoadAcademy(acad.id).then(fresh=>{ if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); refreshAll(); } }); }
+        return;
       }
     }
   }
 
-  // 2) Supabase 세션 확인 (위에서 못 찾았을 때)
+  // ── 2) Supabase 세션 확인 (로컬 세션 없을 때만) ───
   if(_sb){
     const { data:{ session } } = await _sb.auth.getSession();
     if(session?.user?.email){
       const email = session.user.email;
       const isSA  = await checkSuperAdmin(email);
-      if(isSA){ await bootSuperAdmin(email); return; }
+      if(isSA){ await bootSuperAdmin(email); hideLoading(); return; }
       const found = await sbFindByEmail(email);
       if(found){
         currentUser    = found.user;
         currentAcademy = found.academy;
         const fresh = await sbLoadAcademy(currentAcademy.id);
         if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); }
-        bootApp(); return;
+        bootApp(); hideLoading(); return;
       }
     }
   }
 
-  // 3) 로그인 화면
-  document.getElementById('l-email').placeholder='이메일 입력';
+  // ── 3) 로그인 화면 ────────────────────────────────
+  showAuthScreen();
 })();
 </script>
 </body>
