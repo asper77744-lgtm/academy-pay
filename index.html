@@ -1368,8 +1368,18 @@ tbody tr:hover td{background:#f8f9ff}
 <div class="modal-overlay" id="m-add-subject">
   <div class="modal">
     <h2>📖 과목 추가</h2>
+
+    <!-- 현재 등록된 과목 -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">현재 등록된 과목</div>
+      <div id="msb-current-list" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px;padding:8px;background:var(--surface2);border-radius:8px">
+        <span style="font-size:12px;color:var(--text3)">등록된 과목이 없습니다</span>
+      </div>
+    </div>
+
+    <!-- 추가할 과목 -->
     <div style="font-size:12px;color:var(--text2);margin-bottom:8px">자주 쓰는 과목을 클릭하거나 직접 입력하세요.</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px" id="msb-quick-btns">
       <button class="btn btn-neutral btn-sm" onclick="quickPickSubject('수학')">수학</button>
       <button class="btn btn-neutral btn-sm" onclick="quickPickSubject('영어')">영어</button>
       <button class="btn btn-neutral btn-sm" onclick="quickPickSubject('국어')">국어</button>
@@ -1636,7 +1646,7 @@ async function doRegister(){
     phone:document.getElementById('r-phone').value,
     addr:'', payDay:25,
     sms:{provider:'',key:'',secret:'',from:''},
-    subjects:['수학','영어','국어','과학','사회'],
+    subjects:[],
     classes:[],
     users:[{id:adminId,name:ownerName,email,role:'admin',
       lastLogin:now().toISOString(),active:true,permissions:{all:true}}],
@@ -1768,16 +1778,8 @@ function bootApp(){
   document.getElementById('dash-greeting').textContent='안녕하세요, '+currentUser.name+'님 👋';
   document.getElementById('dash-date').textContent=now().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
 
-  // ── 기존 데이터 마이그레이션: 기본 5과목이 subjects 배열에 없으면 자동 추가 ──
+  // 과목 배열 초기화 (없으면 빈 배열)
   if(!currentAcademy.subjects) currentAcademy.subjects = [];
-  let migrated = false;
-  BASE_SUBJECTS.forEach(s => {
-    if(!currentAcademy.subjects.includes(s)){
-      currentAcademy.subjects.unshift(s); // 앞에 추가해서 기본 과목이 위에 오도록
-      migrated = true;
-    }
-  });
-  if(migrated) saveAcademy();
 
   initStatsYear();
   loadSettings();
@@ -2060,26 +2062,9 @@ const SCHOOL_LEVELS = ['초등','중등','고등'];
 function fillSubjectDropdowns(){
   const sel = document.getElementById('mc-subject');
   if(!sel) return;
-
   const allSubjects = currentAcademy.subjects || [];
-  // 기본 5과목과 나머지 추가 과목 분리
-  const baseInList  = BASE_SUBJECTS.filter(s => allSubjects.includes(s));
-  const extraInList = allSubjects.filter(s => !BASE_SUBJECTS.includes(s));
-
   let html = '<option value="">-- 과목 선택 --</option>';
-
-  if(baseInList.length){
-    html += `<optgroup label="기본 과목">`;
-    baseInList.forEach(s => { html += `<option value="${s}">${s}</option>`; });
-    html += `</optgroup>`;
-  }
-
-  if(extraInList.length){
-    html += `<optgroup label="추가된 과목">`;
-    extraInList.forEach(s => { html += `<option value="${s}">${s}</option>`; });
-    html += `</optgroup>`;
-  }
-
+  allSubjects.forEach(s => { html += `<option value="${s}">${s}</option>`; });
   html += '<option value="__custom__">✏️ 직접 입력...</option>';
   sel.innerHTML = html;
 }
@@ -3218,14 +3203,10 @@ function renderClasses(){
 
   document.getElementById('subj-tbody').innerHTML = allSubjects.length
     ? allSubjects.map(s => {
-        const isBase = BASE_SUBJECTS.includes(s);
         const cnt    = countForSubject(s);
         const canDel = cnt === 0;
         return `<tr>
-          <td>
-            <span class="badge ${isBase?'b-info':'b-purple'}">${s}</span>
-            ${isBase?'<span style="font-size:10px;color:var(--text3);margin-left:3px">기본</span>':''}
-          </td>
+          <td><span class="badge b-purple">${s}</span></td>
           <td>${cnt}명</td>
           <td>${canDel
             ? `<button class="btn btn-danger btn-sm" onclick="deleteSubjectFromList('${s}')">삭제</button>`
@@ -4468,12 +4449,47 @@ function exportAll(){
 // MODAL
 // ════════════════════════════════════════════════════════
 function quickPickSubject(name){
-  document.getElementById('msb-name').value = name;
-  document.getElementById('msb-name').focus();
+  // 이미 있으면 무시
+  if((currentAcademy.subjects||[]).includes(name)){
+    showToast(`'${name}'은 이미 등록된 과목입니다.`,'error'); return;
+  }
+  if(!currentAcademy.subjects) currentAcademy.subjects=[];
+  currentAcademy.subjects.push(name);
+  saveAcademy();
+  // 모달 내 목록 즉시 갱신
+  openModal('m-add-subject');
+  showToast(`'${name}' 과목이 추가되었습니다.`,'success');
 }
 
 function openModal(id){
-  if(id==='m-add-subject'){ document.getElementById('msb-name').value=''; }
+  if(id==='m-add-subject'){
+    document.getElementById('msb-name').value='';
+    // 현재 등록된 과목 목록 렌더링
+    const subjects = currentAcademy?.subjects || [];
+    const listEl   = document.getElementById('msb-current-list');
+    if(listEl){
+      if(subjects.length){
+        listEl.innerHTML = subjects.map(s=>`
+          <span style="display:inline-flex;align-items:center;gap:4px;background:var(--accent);color:#fff;
+            padding:4px 10px;border-radius:20px;font-size:12px;font-weight:500">
+            ${s}
+            <span onclick="deleteSubjectFromList('${s}');openModal('m-add-subject')"
+              style="cursor:pointer;opacity:.7;font-size:14px;line-height:1" title="삭제">×</span>
+          </span>`).join('');
+      } else {
+        listEl.innerHTML = '<span style="font-size:12px;color:var(--text3)">등록된 과목이 없습니다</span>';
+      }
+    }
+    // 이미 등록된 과목은 빠른 선택 버튼 비활성화
+    const btns = document.querySelectorAll('#msb-quick-btns button');
+    btns.forEach(btn=>{
+      const subj = btn.textContent.trim();
+      btn.disabled = subjects.includes(subj);
+      btn.style.opacity = subjects.includes(subj) ? '0.35' : '';
+    });
+  }
+  document.getElementById(id).classList.add('open');
+}
   document.getElementById(id).classList.add('open');
 }
 function closeModal(id){document.getElementById(id).classList.remove('open')}
