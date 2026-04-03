@@ -1665,6 +1665,7 @@ function logout(){
 // BOOT
 // ════════════════════════════════════════════════════════
 function bootApp(){
+  hideLoading(); // ← 로딩 스크린 항상 숨김
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('sb-academy-name').textContent=currentAcademy.name;
@@ -4416,8 +4417,8 @@ async function checkSuperAdmin(email){
 
 async function bootSuperAdmin(email){
   _isSuperAdmin = true;
-  // ★ 관리자 대시보드 진입 시 academyId 없는 순수 SA 세션으로 덮어씀
   S.set('session',{ superAdmin:true, email, screen:'superadmin' });
+  hideLoading(); // ← 로딩 스크린 숨김
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'none';
   document.getElementById('superadmin-screen').style.display = 'block';
@@ -4629,7 +4630,7 @@ function backToSuperAdmin(){
 // 로딩 스크린 숨기기
 function hideLoading(){
   const el = document.getElementById('loading-screen');
-  if(!el) return;
+  if(!el || el.style.display==='none') return;
   el.classList.add('fade-out');
   setTimeout(()=>{ el.style.display='none'; }, 300);
 }
@@ -4639,6 +4640,15 @@ function showAuthScreen(){
   hideLoading();
   document.getElementById('auth-screen').style.display='flex';
 }
+
+// 안전장치: 5초 후에도 로딩중이면 강제로 로그인 화면 표시
+setTimeout(()=>{
+  const el = document.getElementById('loading-screen');
+  if(el && el.style.display !== 'none' && !el.classList.contains('fade-out')){
+    console.warn('로딩 타임아웃 — 로그인 화면으로 이동');
+    showAuthScreen();
+  }
+}, 5000);
 
 // ════════════════════════════════════════════════════════
 // INIT — 세션 복원 (Supabase 우선, localStorage 폴백)
@@ -4686,11 +4696,10 @@ function showAuthScreen(){
   // ── 0) screen 기반 복원 ───────────────────────────
   if(sess?.screen === 'superadmin' && sess?.email){
     await bootSuperAdmin(sess.email);
-    hideLoading(); return;
+    return;
   }
 
   if(sess?.screen === 'academy' && sess?.academyId){
-    // localStorage에서 빠르게 로드 (깜빡임 없음)
     const acads = S.get('academies')||{};
     const acad  = acads[sess.academyId];
     if(acad){
@@ -4698,12 +4707,28 @@ function showAuthScreen(){
       if(user){
         if(sess?.fromSuperAdmin || sess?.superAdmin) _isSuperAdmin = true;
         currentUser=user; currentAcademy=acad;
-        bootApp(); hideLoading();
-        // 백그라운드에서 Supabase 최신 데이터 동기화
-        if(_sb){ sbLoadAcademy(acad.id).then(fresh=>{ if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); refreshAll(); } }); }
+        bootApp();
+        // 백그라운드 Supabase 동기화
+        if(_sb){ sbLoadAcademy(acad.id).then(fresh=>{ if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); refreshAll(); } }).catch(()=>{}); }
         return;
       }
     }
+    // localStorage에 데이터 없음 → Supabase에서 로드 시도
+    if(_sb){
+      const fresh = await sbLoadAcademy(sess.academyId);
+      if(fresh){
+        const user = (fresh.users||[]).find(u=>u.id===sess.userId);
+        if(user){
+          if(sess?.fromSuperAdmin || sess?.superAdmin) _isSuperAdmin = true;
+          currentUser=user; currentAcademy=fresh;
+          localSaveAcademy(fresh);
+          bootApp(); return;
+        }
+      }
+    }
+    // 그래도 못 찾으면 로그인 화면
+    S.del('session');
+    showAuthScreen(); return;
   }
 
   // ── 1) 기존 세션 호환 (screen 없음) ───────────────
@@ -4715,8 +4740,8 @@ function showAuthScreen(){
       if(user){
         if(sess?.fromSuperAdmin || sess?.superAdmin) _isSuperAdmin = true;
         currentUser=user; currentAcademy=acad;
-        bootApp(); hideLoading();
-        if(_sb){ sbLoadAcademy(acad.id).then(fresh=>{ if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); refreshAll(); } }); }
+        bootApp();
+        if(_sb){ sbLoadAcademy(acad.id).then(fresh=>{ if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); refreshAll(); } }).catch(()=>{}); }
         return;
       }
     }
@@ -4728,14 +4753,14 @@ function showAuthScreen(){
     if(session?.user?.email){
       const email = session.user.email;
       const isSA  = await checkSuperAdmin(email);
-      if(isSA){ await bootSuperAdmin(email); hideLoading(); return; }
+      if(isSA){ await bootSuperAdmin(email); return; }
       const found = await sbFindByEmail(email);
       if(found){
         currentUser    = found.user;
         currentAcademy = found.academy;
         const fresh = await sbLoadAcademy(currentAcademy.id);
         if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); }
-        bootApp(); hideLoading(); return;
+        bootApp(); return;
       }
     }
   }
