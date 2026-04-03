@@ -4556,13 +4556,14 @@ async function saEnterAcademy(id){
 async function saGoToMyAcademy(){
   // 내 학원(슈퍼관리자 본인 이메일로 가입된 학원) 로드
   const found = await sbFindByEmail(SUPER_EMAIL);
-  if(!found){ showToast('내 학원이 없습니다. 학원 가입을 먼저 해주세요.','error'); return; }
+  if(!found){ showToast('내 학원이 없습니다. 학원 가입 탭에서 먼저 학원을 등록해주세요.','error'); return; }
   currentUser    = found.user;
+  currentUser.email = SUPER_EMAIL; // 슈퍼관리자 이메일 유지
   currentAcademy = found.academy;
   const fresh = await sbLoadAcademy(currentAcademy.id);
   if(fresh){ currentAcademy=fresh; }
   localSaveAcademy(currentAcademy);
-  S.set('session',{userId:currentUser.id, academyId:currentAcademy.id, fromSuperAdmin:true});
+  S.set('session',{userId:currentUser.id, academyId:currentAcademy.id, superAdmin:true, email:SUPER_EMAIL});
   document.getElementById('superadmin-screen').style.display='none';
   bootApp();
 }
@@ -4575,25 +4576,49 @@ function saLogout(){
   document.getElementById('auth-screen').style.display='flex';
 }
 
-// 일반 앱에서 슈퍼관리자 대시보드로 돌아가기 버튼 (세션에 fromSuperAdmin이 있으면 표시)
+// 일반 앱에서 슈퍼관리자 대시보드로 돌아가기 버튼
+// 슈퍼관리자 이메일로 로그인한 경우 항상 표시
 function checkBackToSuperAdmin(){
+  // 현재 로그인한 사용자가 슈퍼관리자 이메일인지 확인
   const sess = S.get('session');
-  if(sess?.fromSuperAdmin){
-    // 사이드바 하단에 돌아가기 버튼 추가
-    const foot = document.querySelector('.sb-foot');
-    if(foot && !document.getElementById('sa-back-btn')){
-      const btn = document.createElement('button');
-      btn.id='sa-back-btn';
-      btn.textContent='← 관리자 대시보드';
-      btn.style.cssText='width:100%;padding:8px;margin-bottom:8px;background:#1e293b;color:#6366f1;border:1px solid #334155;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer';
-      btn.onclick=()=>{
-        document.getElementById('app').style.display='none';
-        document.getElementById('superadmin-screen').style.display='block';
-        saLoadAll();
-      };
-      foot.insertBefore(btn, foot.firstChild);
-    }
-  }
+  const isSA = currentUser?.email === SUPER_EMAIL ||
+               sess?.superAdmin === true ||
+               sess?.fromSuperAdmin === true;
+
+  if(!isSA) return;
+
+  const foot = document.querySelector('.sb-foot');
+  if(!foot) return;
+
+  // 기존 버튼 제거 후 새로 생성 (중복 방지)
+  const existing = document.getElementById('sa-back-btn');
+  if(existing) existing.remove();
+
+  const btn = document.createElement('div');
+  btn.id = 'sa-back-btn';
+  btn.innerHTML = `
+    <div onclick="backToSuperAdmin()"
+      style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin:8px 0;
+        background:linear-gradient(135deg,#1e293b,#0f172a);
+        border:1px solid #6366f1;border-radius:10px;cursor:pointer;
+        transition:all .15s;user-select:none"
+      onmouseover="this.style.background='linear-gradient(135deg,#312e81,#1e1b4b)'"
+      onmouseout="this.style.background='linear-gradient(135deg,#1e293b,#0f172a)'">
+      <span style="font-size:16px">🛡</span>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#6366f1">관리자 대시보드</div>
+        <div style="font-size:10px;color:#475569">슈퍼관리자 전용</div>
+      </div>
+      <span style="margin-left:auto;color:#6366f1;font-size:14px">→</span>
+    </div>
+  `;
+  foot.insertBefore(btn, foot.firstChild);
+}
+
+function backToSuperAdmin(){
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('superadmin-screen').style.display = 'block';
+  saLoadAll();
 }
 
 // ════════════════════════════════════════════════════════
