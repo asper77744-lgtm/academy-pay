@@ -4601,16 +4601,34 @@ function backToSuperAdmin(){
 // INIT — 세션 복원 (Supabase 우선, localStorage 폴백)
 // ════════════════════════════════════════════════════════
 (async function init(){
-  // 1) Supabase 세션 확인
+  const sess = S.get('session');
+
+  // ★ 0) localStorage에 academyId가 있으면 학원 화면 최우선 복원
+  //      (슈퍼관리자가 학원 화면에서 새로고침해도 학원으로 돌아옴)
+  if(sess?.academyId){
+    const acads = S.get('academies')||{};
+    const acad  = acads[sess.academyId];
+    if(acad){
+      const user = (acad.users||[]).find(u=>u.id===sess.userId);
+      if(user){
+        if(sess?.fromSuperAdmin || sess?.superAdmin) _isSuperAdmin = true;
+        currentUser=user; currentAcademy=acad;
+        if(_sb){
+          const fresh = await sbLoadAcademy(acad.id);
+          if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); }
+        }
+        bootApp(); return;
+      }
+    }
+  }
+
+  // 1) Supabase 세션 확인 (academyId 없을 때만 슈퍼관리자 체크)
   if(_sb){
     const { data:{ session } } = await _sb.auth.getSession();
     if(session?.user?.email){
       const email = session.user.email;
-
-      // 슈퍼관리자 체크
-      const isSA = await checkSuperAdmin(email);
+      const isSA  = await checkSuperAdmin(email);
       if(isSA){ await bootSuperAdmin(email); return; }
-
       const found = await sbFindByEmail(email);
       if(found){
         currentUser    = found.user;
@@ -4622,27 +4640,9 @@ function backToSuperAdmin(){
     }
   }
 
-  // 2) localStorage 세션 폴백
-  const sess = S.get('session');
-  if(sess?.superAdmin && sess?.email){
+  // 2) 순수 superAdmin 세션 (academyId 없음) → 관리자 대시보드
+  if(sess?.superAdmin && sess?.email && !sess?.academyId){
     await bootSuperAdmin(sess.email); return;
-  }
-  if(sess?.academyId){
-    const acads = S.get('academies')||{};
-    const acad  = acads[sess.academyId];
-    if(acad){
-      const user = (acad.users||[]).find(u=>u.id===sess.userId);
-      if(user){
-        // fromSuperAdmin 또는 superAdmin 세션이면 _isSuperAdmin 복원
-        if(sess?.fromSuperAdmin || sess?.superAdmin) _isSuperAdmin = true;
-        currentUser=user; currentAcademy=acad;
-        if(_sb){
-          const fresh = await sbLoadAcademy(acad.id);
-          if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); }
-        }
-        bootApp(); return;
-      }
-    }
   }
 
   // 3) 로그인 화면
