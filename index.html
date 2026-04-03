@@ -294,44 +294,39 @@ tbody tr:hover td{background:#f8f9ff}
 
       <!-- LOGIN -->
       <div class="auth-panel active" id="panel-login">
-        <div id="login-step1">
-          <div class="field"><label>이메일</label><input type="email" id="l-email" placeholder="admin@myacademy.com" onkeydown="if(event.key==='Enter')sendLoginOtp()"/></div>
-          <div class="err-msg" id="l-err1"></div>
-          <button class="btn-auth btn-main" onclick="sendLoginOtp()">인증 코드 발송</button>
-        </div>
-        <div id="login-step2" style="display:none">
-          <div class="otp-preview" id="l-otp-preview"></div>
-          <div class="field"><label>인증 코드 (6자리)</label>
-            <div class="otp-box"><input type="text" maxlength="6" id="l-otp" placeholder="· · · · · ·" oninput="this.value=this.value.replace(/\D/g,'')" onkeydown="if(event.key==='Enter')verifyLoginOtp()"/></div>
-          </div>
-          <div class="err-msg" id="l-err2"></div>
-          <button class="btn-auth btn-main" onclick="verifyLoginOtp()">확인</button>
-          <button class="btn-auth btn-ghost-sm" onclick="document.getElementById('login-step1').style.display='';document.getElementById('login-step2').style.display='none'">← 이메일 다시 입력</button>
-          <p class="auth-hint">코드를 못 받으셨나요? <a onclick="sendLoginOtp()">재발송</a></p>
+        <div class="field"><label>이메일</label><input type="email" id="l-email" placeholder="admin@myacademy.com" onkeydown="if(event.key==='Enter')document.getElementById('l-password').focus()"/></div>
+        <div class="field"><label>비밀번호</label><input type="password" id="l-password" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+        <div class="err-msg" id="l-err1"></div>
+        <button class="btn-auth btn-main" onclick="doLogin()">로그인</button>
+        <p class="auth-hint" style="text-align:center;margin-top:12px">
+          <a onclick="showForgotPassword()" style="cursor:pointer;color:var(--accent)">비밀번호를 잊으셨나요?</a>
+        </p>
+        <!-- 비밀번호 찾기 -->
+        <div id="forgot-panel" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <div class="field"><label>가입한 이메일</label><input type="email" id="forgot-email" placeholder="admin@myacademy.com"/></div>
+          <div class="err-msg" id="forgot-err"></div>
+          <div id="forgot-ok" style="display:none;font-size:13px;color:var(--success);margin-bottom:8px">✅ 비밀번호 재설정 이메일을 발송했습니다. 메일함을 확인해주세요.</div>
+          <button class="btn-auth btn-main" onclick="doForgotPassword()">재설정 이메일 발송</button>
+          <button class="btn-auth btn-ghost-sm" onclick="hideForgotPassword()">← 로그인으로</button>
         </div>
       </div>
 
       <!-- REGISTER -->
       <div class="auth-panel" id="panel-register">
-        <div id="reg-step1">
-          <div class="field"><label>학원 이름 *</label><input id="r-academy" placeholder="예) 빛나라 수학학원"/></div>
-          <div class="frow">
-            <div class="field"><label>원장(운영자) 이름 *</label><input id="r-name" placeholder="홍길동"/></div>
-            <div class="field"><label>연락처</label><input id="r-phone" placeholder="010-0000-0000"/></div>
-          </div>
-          <div class="field"><label>이메일 *</label><input type="email" id="r-email" placeholder="admin@academy.com"/></div>
-          <div class="err-msg" id="r-err1"></div>
-          <button class="btn-auth btn-main" onclick="sendRegOtp()">인증 코드 발송</button>
+        <div class="field"><label>학원 이름 *</label><input id="r-academy" placeholder="예) 빛나라 수학학원"/></div>
+        <div class="frow">
+          <div class="field"><label>원장(운영자) 이름 *</label><input id="r-name" placeholder="홍길동"/></div>
+          <div class="field"><label>연락처</label><input id="r-phone" placeholder="010-0000-0000"/></div>
         </div>
-        <div id="reg-step2" style="display:none">
-          <div class="otp-preview" id="r-otp-preview"></div>
-          <div class="field"><label>인증 코드 (6자리)</label>
-            <div class="otp-box"><input type="text" maxlength="6" id="r-otp" placeholder="· · · · · ·" oninput="this.value=this.value.replace(/\D/g,'')"/></div>
-          </div>
-          <div class="err-msg" id="r-err2"></div>
-          <button class="btn-auth btn-main" onclick="verifyRegOtp()">가입 완료</button>
-          <button class="btn-auth btn-ghost-sm" onclick="document.getElementById('reg-step1').style.display='';document.getElementById('reg-step2').style.display='none'">← 뒤로</button>
+        <div class="field"><label>이메일 *</label><input type="email" id="r-email" placeholder="admin@academy.com"/></div>
+        <div class="field"><label>비밀번호 * <span style="font-size:11px;color:var(--text3);font-weight:400">(8자 이상)</span></label>
+          <input type="password" id="r-password" placeholder="비밀번호 설정 (8자 이상)"/>
         </div>
+        <div class="field"><label>비밀번호 확인 *</label>
+          <input type="password" id="r-password2" placeholder="비밀번호 재입력"/>
+        </div>
+        <div class="err-msg" id="r-err1"></div>
+        <button class="btn-auth btn-main" onclick="doRegister()">학원 가입</button>
       </div>
     </div>
   </div>
@@ -1404,44 +1399,29 @@ function switchAuthTab(t){
 function showErr(id,msg){const el=document.getElementById(id);el.textContent=msg;el.style.display='block'}
 function hideErr(id){const el=document.getElementById(id);if(el)el.style.display='none'}
 
-async function sendLoginOtp(){
+// ── 이메일 + 비밀번호 로그인 ──────────────────────
+async function doLogin(){
   hideErr('l-err1');
-  const email = document.getElementById('l-email').value.trim();
-  if(!email.includes('@')){ showErr('l-err1','올바른 이메일을 입력해주세요.'); return; }
+  const email    = document.getElementById('l-email').value.trim();
+  const password = document.getElementById('l-password').value;
+  if(!email||!password){ showErr('l-err1','이메일과 비밀번호를 입력해주세요.'); return; }
 
   const btn = document.querySelector('#panel-login .btn-auth.btn-main');
-  if(btn){ btn.textContent='확인 중...'; btn.disabled=true; }
+  if(btn){ btn.textContent='로그인 중...'; btn.disabled=true; }
+
+  if(_sb){
+    const { error } = await _sb.auth.signInWithPassword({ email, password });
+    if(btn){ btn.textContent='로그인'; btn.disabled=false; }
+    if(error){ showErr('l-err1','이메일 또는 비밀번호가 올바르지 않습니다.'); return; }
+  }
 
   const found = await sbFindByEmail(email);
-
-  if(btn){ btn.textContent='인증 코드 발송'; btn.disabled=false; }
-
-  if(!found){ showErr('l-err1','등록되지 않은 이메일입니다.'); return; }
-
-  // 자체 OTP 생성 (6자리 숫자)
-  _pendingEmail = email;
-  _otp = String(Math.floor(100000+Math.random()*900000));
-
-  const prev = document.getElementById('l-otp-preview');
-  prev.textContent = '📨 인증코드: '+_otp+' (화면 확인용)';
-  prev.style.display='block'; prev.style.color='#4361ee';
-  document.getElementById('login-step1').style.display='none';
-  document.getElementById('login-step2').style.display='block';
-}
-
-async function verifyLoginOtp(){
-  hideErr('l-err2');
-  const inputOtp = document.getElementById('l-otp').value.trim();
-  if(inputOtp !== _otp){ showErr('l-err2','코드가 올바르지 않습니다.'); return; }
-
-  const found = await sbFindByEmail(_pendingEmail);
-  if(!found){ showErr('l-err2','계정을 찾을 수 없습니다.'); return; }
+  if(!found){ showErr('l-err1','등록된 학원 정보를 찾을 수 없습니다.'); return; }
 
   currentUser    = found.user;
   currentAcademy = found.academy;
   currentUser.lastLogin = now().toISOString();
 
-  // 최신 데이터 Supabase에서 다시 로드
   if(_sb){
     const fresh = await sbLoadAcademy(currentAcademy.id);
     if(fresh){ currentAcademy = fresh; }
@@ -1452,80 +1432,104 @@ async function verifyLoginOtp(){
   bootApp();
 }
 
-async function sendRegOtp(){
+// 하위 호환
+function sendLoginOtp(){ doLogin(); }
+function verifyLoginOtp(){}
+
+// ── 비밀번호 찾기 ──────────────────────────────────
+function showForgotPassword(){
+  document.getElementById('forgot-panel').style.display='';
+  const em = document.getElementById('l-email').value;
+  if(em) document.getElementById('forgot-email').value=em;
+}
+function hideForgotPassword(){
+  document.getElementById('forgot-panel').style.display='none';
+  const e=document.getElementById('forgot-err'); if(e) e.style.display='none';
+  const o=document.getElementById('forgot-ok');  if(o) o.style.display='none';
+}
+async function doForgotPassword(){
+  const email  = document.getElementById('forgot-email').value.trim();
+  const errEl  = document.getElementById('forgot-err');
+  const okEl   = document.getElementById('forgot-ok');
+  errEl.style.display='none'; okEl.style.display='none';
+  if(!email.includes('@')){ showErr('forgot-err','올바른 이메일을 입력해주세요.'); return; }
+  if(!_sb){ showErr('forgot-err','Supabase 연결이 필요합니다.'); return; }
+  const { error } = await _sb.auth.resetPasswordForEmail(email,{
+    redirectTo: window.location.origin + window.location.pathname
+  });
+  if(error){ showErr('forgot-err','이메일 발송 실패. 가입된 이메일인지 확인해주세요.'); return; }
+  okEl.style.display='';
+}
+
+// ── 학원 가입 ──────────────────────────────────────
+async function doRegister(){
   hideErr('r-err1');
   const name      = document.getElementById('r-academy').value.trim();
   const ownerName = document.getElementById('r-name').value.trim();
   const email     = document.getElementById('r-email').value.trim();
-  if(!name||!ownerName||!email.includes('@')){ showErr('r-err1','필수 항목을 모두 입력해주세요.'); return; }
+  const password  = document.getElementById('r-password').value;
+  const password2 = document.getElementById('r-password2').value;
 
-  const btn = document.querySelector('#reg-step1 .btn-auth.btn-main');
-  if(btn){ btn.textContent='확인 중...'; btn.disabled=true; }
+  if(!name||!ownerName||!email.includes('@')){ showErr('r-err1','필수 항목을 모두 입력해주세요.'); return; }
+  if(password.length<8){ showErr('r-err1','비밀번호는 8자 이상이어야 합니다.'); return; }
+  if(password!==password2){ showErr('r-err1','비밀번호가 일치하지 않습니다.'); return; }
+
+  const btn = document.querySelector('#panel-register .btn-auth.btn-main');
+  if(btn){ btn.textContent='가입 중...'; btn.disabled=true; }
 
   const exists = await sbCheckEmailExists(email);
+  if(exists){
+    if(btn){ btn.textContent='학원 가입'; btn.disabled=false; }
+    showErr('r-err1','이미 가입된 이메일입니다.'); return;
+  }
 
-  if(btn){ btn.textContent='인증 코드 발송'; btn.disabled=false; }
+  if(_sb){
+    const { error } = await _sb.auth.signUp({ email, password });
+    if(error){
+      if(btn){ btn.textContent='학원 가입'; btn.disabled=false; }
+      showErr('r-err1','가입 오류: '+error.message); return;
+    }
+    await _sb.auth.signInWithPassword({ email, password });
+  }
 
-  if(exists){ showErr('r-err1','이미 가입된 이메일입니다.'); return; }
-
-  _pendingReg = { name, ownerName, phone:document.getElementById('r-phone').value, email };
-  _otp = String(Math.floor(100000+Math.random()*900000));
-
-  const prev = document.getElementById('r-otp-preview');
-  prev.textContent = '📨 인증코드: '+_otp+' (화면 확인용)';
-  prev.style.display='block'; prev.style.color='#4361ee';
-  document.getElementById('reg-step1').style.display='none';
-  document.getElementById('reg-step2').style.display='block';
-}
-
-async function verifyRegOtp(){
-  hideErr('r-err2');
-  const inputOtp = document.getElementById('r-otp').value.trim();
-  if(inputOtp !== _otp){ showErr('r-err2','코드가 올바르지 않습니다.'); return; }
-
-  const aid = uid(); const adminId = uid();
-  const academy = {
-    id:aid, name:_pendingReg.name, ownerName:_pendingReg.ownerName,
-    phone:_pendingReg.phone, addr:'', payDay:25,
+  const aid=uid(), adminId=uid();
+  const academy={
+    id:aid, name, ownerName,
+    phone:document.getElementById('r-phone').value,
+    addr:'', payDay:25,
     sms:{provider:'',key:'',secret:'',from:''},
     subjects:['수학','영어','국어','과학','사회'],
-    classes:[
-      {id:'c1',name:'중등 수학 A반',subject:'수학',fee:30,schedule:'월·수 4시',teacher:''},
-      {id:'c2',name:'중등 영어 B반',subject:'영어',fee:28,schedule:'화·목 4시',teacher:''},
-    ],
-    users:[{id:adminId,name:_pendingReg.ownerName,email:_pendingReg.email,role:'admin',
+    classes:[],
+    users:[{id:adminId,name:ownerName,email,role:'admin',
       lastLogin:now().toISOString(),active:true,permissions:{all:true}}],
-    students:[], payments:[], teachers:[], smsLog:[], smsTemplates:[
+    students:[],payments:[],teachers:[],smsLog:[],smsTemplates:[
       {id:'t1',name:'미납 1차 알림',body:'{학원명} {이름} 학생의 {납부월} 수강료 {금액}만원이 미납 중입니다. 빠른 납부 부탁드립니다.'},
       {id:'t2',name:'수납 완료 안내',body:'{학원명} {이름} 학생의 {납부월} 수강료 {금액}만원이 납부 완료되었습니다. 감사합니다.'},
     ]
   };
 
-  const btn = document.querySelector('#reg-step2 .btn-auth.btn-main');
-  if(btn){ btn.textContent='저장 중...'; btn.disabled=true; }
-
-  // Supabase DB에 저장
   await sbSaveAcademy(academy);
   localSaveAcademy(academy);
+  if(btn){ btn.textContent='학원 가입'; btn.disabled=false; }
 
-  if(btn){ btn.textContent='가입 완료'; }
-
-  currentUser    = academy.users[0];
-  currentAcademy = academy;
-  S.set('session',{userId:adminId, academyId:aid});
+  currentUser=academy.users[0]; currentAcademy=academy;
+  S.set('session',{userId:adminId,academyId:aid});
   bootApp();
 }
 
+// 하위 호환
+function sendRegOtp(){ doRegister(); }
+function verifyRegOtp(){}
+
 function logout(){
+  if(_sb) _sb.auth.signOut();
   S.del('session');
   currentUser=null; currentAcademy=null;
   document.getElementById('app').style.display='none';
   document.getElementById('auth-screen').style.display='flex';
-  document.getElementById('login-step1').style.display='';
-  document.getElementById('login-step2').style.display='none';
-  document.getElementById('l-email').value='';
-  document.getElementById('l-otp').value='';
-  document.getElementById('l-otp-preview').style.display='none';
+  const em=document.getElementById('l-email'); if(em) em.value='';
+  const pw=document.getElementById('l-password'); if(pw) pw.value='';
+  hideErr('l-err1');
 }
 
 // ════════════════════════════════════════════════════════
