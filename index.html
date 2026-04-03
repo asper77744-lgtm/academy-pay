@@ -561,7 +561,19 @@ tbody tr:hover td{background:#f8f9ff}
         <div class="card"><div class="card-head"><h3>반 목록</h3></div>
           <div style="padding:0"><table><thead><tr><th>반 이름</th><th>과목</th><th>수강료</th><th>학생수</th><th></th></tr></thead><tbody id="cls-tbody"></tbody></table></div>
         </div>
-        <div class="card"><div class="card-head"><h3>과목 목록</h3><button class="btn btn-neutral btn-sm" onclick="openModal('m-add-subject')">+ 과목 추가</button></div>
+        <div class="card">
+          <div class="card-head"><h3>과목 목록</h3></div>
+          <!-- 인라인 과목 추가 -->
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">
+            <input id="subj-input" placeholder="과목명 입력 (예: 수학, 초등국어...)"
+              style="flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none"
+              onkeydown="if(event.key==='Enter')addSubjectInline()"
+              onfocus="this.style.borderColor='var(--accent)'"
+              onblur="this.style.borderColor='var(--border)'"/>
+            <button class="btn btn-primary btn-sm" onclick="addSubjectInline()" style="white-space:nowrap">+ 과목 추가</button>
+          </div>
+          <!-- 자주 쓰는 과목 빠른 선택 -->
+          <div id="subj-quick-area" style="padding:8px 16px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px"></div>
           <div style="padding:0"><table><thead><tr><th>과목명</th><th>학생수</th><th></th></tr></thead><tbody id="subj-tbody"></tbody></table></div>
         </div>
       </div>
@@ -3215,6 +3227,8 @@ function renderClasses(){
         </tr>`;
       }).join('')
     : `<tr><td colspan="3" class="empty-row"><p>등록된 과목이 없습니다</p></td></tr>`;
+
+  renderQuickSubjects();
 }
 
 
@@ -3222,6 +3236,49 @@ function deleteClass(id){
   if(!confirm('삭제하시겠습니까?'))return;
   currentAcademy.classes=currentAcademy.classes.filter(c=>c.id!==id);
   saveAcademy();refreshAll();showToast('삭제되었습니다.','success');
+}
+
+function addSubjectInline(){
+  const input = document.getElementById('subj-input');
+  if(!input) return;
+  const name = input.value.trim();
+  if(!name){ showToast('과목명을 입력해주세요.','error'); return; }
+  if(!currentAcademy.subjects) currentAcademy.subjects=[];
+  if(currentAcademy.subjects.includes(name)){
+    showToast(`'${name}'은 이미 등록된 과목입니다.`,'error'); return;
+  }
+  currentAcademy.subjects.push(name);
+  saveAcademy(); refreshAll();
+  input.value='';
+  input.focus();
+  showToast(`'${name}' 과목이 추가되었습니다.`,'success');
+}
+
+// 빠른 과목 선택 버튼 렌더링
+const QUICK_SUBJECTS = ['수학','영어','국어','과학','사회','수학+영어','수학+과학','전과목','코딩/SW','논술','예체능'];
+function renderQuickSubjects(){
+  const area = document.getElementById('subj-quick-area');
+  if(!area) return;
+  const registered = currentAcademy.subjects||[];
+  const remaining  = QUICK_SUBJECTS.filter(s=>!registered.includes(s));
+  if(!remaining.length){ area.style.display='none'; return; }
+  area.style.display='flex';
+  area.innerHTML = '<span style="font-size:11px;color:var(--text3);margin-right:2px;align-self:center">빠른 추가:</span>'
+    + remaining.map(s=>`
+      <button onclick="quickAddSubject('${s}')"
+        style="padding:3px 10px;border:1px solid var(--border);border-radius:20px;background:var(--surface2);
+          font-size:12px;cursor:pointer;color:var(--text2);font-family:inherit"
+        onmouseover="this.style.background='var(--accent)';this.style.color='#fff';this.style.borderColor='var(--accent)'"
+        onmouseout="this.style.background='var(--surface2)';this.style.color='var(--text2)';this.style.borderColor='var(--border)'"
+      >${s}</button>`).join('');
+}
+
+function quickAddSubject(name){
+  if(!currentAcademy.subjects) currentAcademy.subjects=[];
+  if(currentAcademy.subjects.includes(name)) return;
+  currentAcademy.subjects.push(name);
+  saveAcademy(); refreshAll();
+  showToast(`'${name}' 과목이 추가되었습니다.`,'success');
 }
 
 function saveSubject(){
