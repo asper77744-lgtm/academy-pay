@@ -1643,7 +1643,6 @@ async function doResetPassword(){
   if(pw!==pw2){ if(err){err.textContent='비밀번호가 일치하지 않습니다.';err.style.display='block';} return; }
   if(!_sb) return;
 
-  // 버튼 비활성화
   const btn = document.querySelector('#panel-login .btn-auth.btn-main');
   if(btn){ btn.textContent='변경 중...'; btn.disabled=true; }
 
@@ -1654,16 +1653,16 @@ async function doResetPassword(){
     return;
   }
 
+  // ★ 변경 즉시 Supabase 세션 종료 (자동 로그인 방지)
+  await _sb.auth.signOut();
+  S.del('session');
+
   // 성공 메시지 표시
   if(ok) ok.style.display='';
-  if(btn){ btn.style.display='none'; }
+  if(btn) btn.style.display='none';
 
-  // 2초 후 Supabase 세션 종료 → 로그인 화면으로 (이메일/비번 빈칸)
-  setTimeout(async ()=>{
-    await _sb.auth.signOut();
-    S.del('session');
-
-    // 로그인 패널을 원래 형태로 복원
+  // 1초 후 로그인 화면으로
+  setTimeout(()=>{
     document.getElementById('panel-login').innerHTML = `
       <div class="field"><label>이메일</label>
         <input type="email" id="l-email" placeholder="admin@myacademy.com" onkeydown="if(event.key==='Enter')document.getElementById('l-password').focus()"/>
@@ -1684,10 +1683,8 @@ async function doResetPassword(){
         <button class="btn-auth btn-ghost-sm" onclick="hideForgotPassword()">← 로그인으로</button>
       </div>
     `;
-
-    // 성공 안내 토스트
     showToast('비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.', 'success');
-  }, 2000);
+  }, 1000);
 }
 
 function logout(){
