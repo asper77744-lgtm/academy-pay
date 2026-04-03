@@ -1524,7 +1524,7 @@ async function doLogin(){
   }
 
   localSaveAcademy(currentAcademy);
-  S.set('session',{userId:currentUser.id, academyId:currentAcademy.id});
+  S.set('session',{userId:currentUser.id, academyId:currentAcademy.id, screen:'academy'});
   bootApp();
 }
 
@@ -1618,7 +1618,7 @@ async function doRegister(){
   if(btn){ btn.textContent='학원 가입'; btn.disabled=false; }
 
   currentUser=academy.users[0]; currentAcademy=academy;
-  S.set('session',{userId:adminId,academyId:aid});
+  S.set('session',{userId:adminId, academyId:aid, screen:'academy'});
   bootApp();
 }
 
@@ -4392,6 +4392,8 @@ async function checkSuperAdmin(email){
 
 async function bootSuperAdmin(email){
   _isSuperAdmin = true;
+  // ★ 관리자 대시보드 진입 시 academyId 없는 순수 SA 세션으로 덮어씀
+  S.set('session',{ superAdmin:true, email, screen:'superadmin' });
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'none';
   document.getElementById('superadmin-screen').style.display = 'block';
@@ -4557,7 +4559,7 @@ async function saEnterAcademy(id){
   currentUser    = adminUser;
   currentAcademy = academy;
   localSaveAcademy(academy);
-  S.set('session',{userId:adminUser.id, academyId:academy.id, fromSuperAdmin:true});
+  S.set('session',{userId:adminUser.id, academyId:academy.id, fromSuperAdmin:true, screen:'academy'});
   document.getElementById('superadmin-screen').style.display='none';
   bootApp();
 }
@@ -4572,7 +4574,7 @@ async function saGoToMyAcademy(){
   const fresh = await sbLoadAcademy(currentAcademy.id);
   if(fresh){ currentAcademy=fresh; }
   localSaveAcademy(currentAcademy);
-  S.set('session',{userId:currentUser.id, academyId:currentAcademy.id, superAdmin:true, email:SUPER_EMAIL});
+  S.set('session',{userId:currentUser.id, academyId:currentAcademy.id, superAdmin:true, email:SUPER_EMAIL, screen:'academy'});
   document.getElementById('superadmin-screen').style.display='none';
   bootApp();
 }
@@ -4592,6 +4594,9 @@ function checkBackToSuperAdmin(){
 }
 
 function backToSuperAdmin(){
+  // 학원 화면에서 관리자 대시보드로 돌아갈 때 세션 갱신
+  const sess = S.get('session');
+  S.set('session',{ superAdmin:true, email: SUPER_EMAIL, screen:'superadmin' });
   document.getElementById('app').style.display = 'none';
   document.getElementById('superadmin-screen').style.display = 'block';
   saLoadAll();
@@ -4603,9 +4608,14 @@ function backToSuperAdmin(){
 (async function init(){
   const sess = S.get('session');
 
-  // ★ 0) localStorage에 academyId가 있으면 학원 화면 최우선 복원
-  //      (슈퍼관리자가 학원 화면에서 새로고침해도 학원으로 돌아옴)
-  if(sess?.academyId){
+  // ★ 0) 세션의 screen 값으로 명확하게 분기
+  if(sess?.screen === 'superadmin' && sess?.email){
+    // 관리자 대시보드 화면이었으면 → 관리자 대시보드로
+    await bootSuperAdmin(sess.email); return;
+  }
+
+  if(sess?.screen === 'academy' && sess?.academyId){
+    // 학원 화면이었으면 → 학원으로
     const acads = S.get('academies')||{};
     const acad  = acads[sess.academyId];
     if(acad){
@@ -4622,7 +4632,25 @@ function backToSuperAdmin(){
     }
   }
 
-  // 1) Supabase 세션 확인 (academyId 없을 때만 슈퍼관리자 체크)
+  // 1) screen 없는 기존 세션 호환 처리
+  if(sess?.academyId && !sess?.screen){
+    const acads = S.get('academies')||{};
+    const acad  = acads[sess.academyId];
+    if(acad){
+      const user = (acad.users||[]).find(u=>u.id===sess.userId);
+      if(user){
+        if(sess?.fromSuperAdmin || sess?.superAdmin) _isSuperAdmin = true;
+        currentUser=user; currentAcademy=acad;
+        if(_sb){
+          const fresh = await sbLoadAcademy(acad.id);
+          if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); }
+        }
+        bootApp(); return;
+      }
+    }
+  }
+
+  // 2) Supabase 세션 확인 (위에서 못 찾았을 때)
   if(_sb){
     const { data:{ session } } = await _sb.auth.getSession();
     if(session?.user?.email){
@@ -4638,11 +4666,6 @@ function backToSuperAdmin(){
         bootApp(); return;
       }
     }
-  }
-
-  // 2) 순수 superAdmin 세션 (academyId 없음) → 관리자 대시보드
-  if(sess?.superAdmin && sess?.email && !sess?.academyId){
-    await bootSuperAdmin(sess.email); return;
   }
 
   // 3) 로그인 화면
