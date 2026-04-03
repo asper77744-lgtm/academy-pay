@@ -4657,13 +4657,12 @@ setTimeout(()=>{
   const sess = S.get('session');
 
   // ── 최우선: 비밀번호 재설정 URL 감지 ─────────────
-  // Reset Password 링크 클릭 시 URL에 type=recovery 포함
   const hashParams = new URLSearchParams(window.location.hash.replace('#',''));
   const urlType    = hashParams.get('type');
-  if(urlType === 'recovery'){
-    // 세션 완전 초기화 후 비밀번호 재설정 화면만 표시
-    S.del('session');
-    if(_sb) await _sb.auth.signOut();
+  const urlCode    = new URLSearchParams(window.location.search).get('code'); // 새 방식
+
+  if(urlType === 'recovery' || urlCode){
+    S.del('session'); // 로컬 세션만 삭제 (Supabase 세션은 건드리지 않음)
     showAuthScreen();
     document.getElementById('panel-login').innerHTML = `
       <div style="text-align:center;margin-bottom:20px">
@@ -4672,23 +4671,35 @@ setTimeout(()=>{
         <p style="font-size:13px;color:var(--text2);margin-top:6px">새로운 비밀번호를 입력해주세요.</p>
       </div>
       <div class="field"><label>새 비밀번호 (8자 이상)</label>
-        <input type="password" id="new-pw" placeholder="새 비밀번호 입력" onkeydown="if(event.key==='Enter')doResetPassword()"/>
+        <input type="password" id="new-pw" placeholder="새 비밀번호 입력" autocomplete="new-password" onkeydown="if(event.key==='Enter')doResetPassword()"/>
       </div>
       <div class="field"><label>비밀번호 확인</label>
-        <input type="password" id="new-pw2" placeholder="비밀번호 재입력" onkeydown="if(event.key==='Enter')doResetPassword()"/>
+        <input type="password" id="new-pw2" placeholder="비밀번호 재입력" autocomplete="new-password" onkeydown="if(event.key==='Enter')doResetPassword()"/>
       </div>
       <div class="err-msg" id="new-pw-err"></div>
       <div id="new-pw-ok" style="display:none;font-size:13px;color:var(--success);margin-bottom:8px">✅ 비밀번호가 변경되었습니다. 잠시 후 로그인 화면으로 이동합니다.</div>
       <button class="btn-auth btn-main" onclick="doResetPassword()">비밀번호 변경</button>
     `;
-    // Supabase access_token으로 세션 복원 (비밀번호 변경용)
+
+    // Supabase 세션 설정 (URL에 토큰이 있는 경우)
     if(_sb){
-      const accessToken  = hashParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token');
-      if(accessToken && refreshToken){
-        await _sb.auth.setSession({ access_token:accessToken, refresh_token:refreshToken });
+      if(urlCode){
+        // 새 방식: code → session 교환
+        try {
+          await _sb.auth.exchangeCodeForSession(urlCode);
+        } catch(e){ console.warn('code exchange:', e.message); }
+      } else {
+        // 구 방식: access_token + refresh_token
+        const accessToken  = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        if(accessToken && refreshToken){
+          try {
+            await _sb.auth.setSession({ access_token:accessToken, refresh_token:refreshToken });
+          } catch(e){ console.warn('setSession:', e.message); }
+        }
       }
     }
+    // URL 정리
     window.history.replaceState(null,'',window.location.pathname);
     return;
   }
