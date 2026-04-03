@@ -345,7 +345,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div class="field"><label>학원 이름 *</label><input id="r-academy" placeholder="예) 빛나라 수학학원"/></div>
         <div class="frow">
           <div class="field"><label>원장(운영자) 이름 *</label><input id="r-name" placeholder="홍길동"/></div>
-          <div class="field"><label>연락처</label><input id="r-phone" placeholder="010-0000-0000"/></div>
+          <div class="field"><label>연락처</label><input id="r-phone" placeholder="010-0000-0000" inputmode="tel" maxlength="13" oninput="onPhoneInput(this)"/></div>
         </div>
         <div class="field"><label>이메일 *</label><input type="email" id="r-email" placeholder="admin@academy.com"/></div>
         <div class="field"><label>비밀번호 * <span style="font-size:11px;color:var(--text3);font-weight:400">(8자 이상)</span></label>
@@ -779,7 +779,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div class="card"><div class="card-head"><h3>🏫 학원 기본 정보</h3></div><div class="card-body">
           <div class="ff"><label>학원 이름 *</label><input id="cfg-academy-name" placeholder="빛나라 수학학원"/></div>
           <div class="ff"><label>원장 이름</label><input id="cfg-owner-name" placeholder="홍길동"/></div>
-          <div class="ff"><label>학원 전화번호</label><input id="cfg-phone" placeholder="031-000-0000"/></div>
+          <div class="ff"><label>학원 전화번호</label><input id="cfg-phone" placeholder="031-000-0000" inputmode="tel" maxlength="13" oninput="onPhoneInput(this)"/></div>
           <div class="ff"><label>주소</label><input id="cfg-addr" placeholder="경기도 수원시 ..."/></div>
           <div class="ff"><label>수납일 (매월 며칠)</label><input id="cfg-pay-day" type="number" min="1" max="31" placeholder="25"/></div>
           <button class="btn btn-primary" onclick="saveSettings()">설정 저장</button>
@@ -909,7 +909,7 @@ tbody tr:hover td{background:#f8f9ff}
     <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px">기본 신상 정보</div>
     <div class="frow">
       <div class="ff"><label>이름 *</label><input id="mt-name" placeholder="김선생님"/></div>
-      <div class="ff"><label>연락처 *</label><input id="mt-phone" placeholder="010-0000-0000"/></div>
+      <div class="ff"><label>연락처 *</label><input id="mt-phone" placeholder="010-0000-0000" inputmode="tel" maxlength="13" oninput="onPhoneInput(this)"/></div>
     </div>
     <div class="frow">
       <div class="ff"><label>이메일</label><input id="mt-email" type="email" placeholder="teacher@academy.com"/></div>
@@ -995,7 +995,7 @@ tbody tr:hover td{background:#f8f9ff}
     <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:10px">기본 정보</div>
     <div class="frow">
       <div class="ff"><label>이름 *</label><input id="ms-name" placeholder="홍길동"/></div>
-      <div class="ff"><label>연락처 *</label><input id="ms-phone" placeholder="010-0000-0000"/></div>
+      <div class="ff"><label>연락처 *</label><input id="ms-phone" placeholder="010-0000-0000" inputmode="tel" maxlength="13" oninput="onPhoneInput(this)"/></div>
     </div>
     <div class="frow">
       <div class="ff">
@@ -1424,6 +1424,42 @@ const now = ()=>new Date();
 const ym = (d=now())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 const uid = ()=>'id'+Date.now()+Math.random().toString(36).slice(2,6);
 const fmt = (n)=>Number(n).toLocaleString('ko-KR');
+
+// 전화번호 자동 포맷팅
+function formatPhone(val){
+  const d = val.replace(/\D/g,''); // 숫자만 추출
+  if(d.length <= 3)  return d;
+  // 02 지역번호 (서울)
+  if(d.startsWith('02')){
+    if(d.length <= 5)  return d.slice(0,2)+'-'+d.slice(2);
+    if(d.length <= 9)  return d.slice(0,2)+'-'+d.slice(2,6)+'-'+d.slice(6);
+    return d.slice(0,2)+'-'+d.slice(2,6)+'-'+d.slice(6,10);
+  }
+  // 010, 011, 031 등 3자리 지역번호
+  if(d.length <= 6)  return d.slice(0,3)+'-'+d.slice(3);
+  if(d.length <= 10) return d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6);
+  return d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7,11);
+}
+
+function onPhoneInput(el){
+  const pos = el.selectionStart;
+  const old = el.value;
+  el.value = formatPhone(old);
+  // 커서 위치 보정
+  const diff = el.value.length - old.length;
+  el.setSelectionRange(pos+diff, pos+diff);
+}
+
+// 전화번호 입력창 초기화 (id 또는 element)
+function initPhoneInput(elOrId){
+  const el = typeof elOrId==='string' ? document.getElementById(elOrId) : elOrId;
+  if(!el) return;
+  el.setAttribute('inputmode','tel');
+  el.setAttribute('maxlength','13');
+  el.oninput = ()=>onPhoneInput(el);
+  // 기존 값이 있으면 포맷 적용
+  if(el.value) el.value = formatPhone(el.value);
+}
 
 // ── Supabase DB 함수들 ──────────────────────────────────
 async function sbSaveAcademy(academy){
@@ -2167,18 +2203,23 @@ function fillPaymentStudent(){
 // ── 보호자 연락처 (다중) ──────────────────────────
 function addParentRow(name='', phone=''){
   const id = 'par'+Date.now()+Math.random().toString(36).slice(2,5);
+  const phoneId = id+'-phone';
   const div = document.createElement('div');
   div.id = id;
   div.style.cssText = 'display:flex;gap:6px;align-items:center;margin-bottom:6px';
   div.innerHTML = `
     <input placeholder="보호자 이름 (예: 아버지)" value="${name}"
       style="width:110px;padding:9px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none;flex-shrink:0"/>
-    <input placeholder="010-0000-0000" value="${phone}"
+    <input id="${phoneId}" placeholder="010-0000-0000" value="${formatPhone(phone)}"
+      inputmode="tel" maxlength="13"
       style="flex:1;padding:9px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;outline:none"/>
     <button type="button" onclick="document.getElementById('${id}').remove()"
       style="width:28px;height:28px;border:none;background:#fef2f2;color:var(--danger);border-radius:6px;cursor:pointer;font-size:16px;flex-shrink:0">×</button>
   `;
   document.getElementById('ms-parents-list').appendChild(div);
+  // 포맷팅 이벤트 연결
+  const phoneEl = document.getElementById(phoneId);
+  if(phoneEl) phoneEl.oninput = ()=>onPhoneInput(phoneEl);
 }
 
 function getParentsData(){
@@ -2485,7 +2526,7 @@ function openAddStudent(defaultStatus='active'){
   if(document.getElementById('ms-withdraw-memo')) document.getElementById('ms-withdraw-memo').value='';
   document.getElementById('ms-readmit-date').value='';
   onStatusChange();
-  openModal('m-student');
+  openModal('m-student'); setTimeout(()=>initPhoneInput('ms-phone'),50);
 }
 
 function editStudent(id){
@@ -2530,7 +2571,7 @@ function editStudent(id){
   document.getElementById('ms-readmit-reason').value =s.readmitReason||'';
   document.getElementById('ms-readmit-memo').value   =s.readmitMemo||'';
   onStatusChange();
-  openModal('m-student');
+  openModal('m-student'); setTimeout(()=>initPhoneInput('ms-phone'),50);
 }
 
 function saveStudent(){
@@ -2918,7 +2959,7 @@ function openTeacherModal(id=''){
     document.getElementById('mt-status').value = 'active';
     renderTeacherClassPicker([]);
   }
-  openModal('m-teacher');
+  openModal('m-teacher'); setTimeout(()=>initPhoneInput('mt-phone'),50);
 }
 
 function renderTeacherClassPicker(selected=[]){
@@ -4218,7 +4259,8 @@ function loadSettings(){
   const a=currentAcademy;
   document.getElementById('cfg-academy-name').value=a.name||'';
   document.getElementById('cfg-owner-name').value=a.ownerName||'';
-  document.getElementById('cfg-phone').value=a.phone||'';
+  document.getElementById('cfg-phone').value=formatPhone(a.phone||'');
+  initPhoneInput('cfg-phone');
   document.getElementById('cfg-addr').value=a.addr||'';
   document.getElementById('cfg-pay-day').value=a.payDay||25;
   // SMS
