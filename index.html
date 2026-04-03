@@ -442,6 +442,10 @@ tbody tr:hover td{background:#f8f9ff}
       <div class="sb-section-label" id="sb-admin-label">관리</div>
       <div class="sb-item" id="sb-settings-item" onclick="nav('settings',this)"><span class="ico">⚙️</span>학원 설정</div>
       <div class="sb-item" id="sb-users-item" onclick="nav('users',this)"><span class="ico">🔑</span>사용자 관리</div>
+      <!-- 슈퍼관리자 전용 메뉴 -->
+      <div class="sb-item" id="sb-superadmin-item" onclick="backToSuperAdmin()" style="display:none;background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(139,92,246,.1));border:1px solid rgba(99,102,241,.3);margin:4px 8px;border-radius:8px">
+        <span class="ico">🛡</span><span style="color:#818cf8;font-weight:600">관리자 대시보드</span>
+      </div>
     </div>
     <div class="sb-foot">
       <div class="sb-user">
@@ -1646,8 +1650,7 @@ function bootApp(){
   const isAdmin=currentUser.role==='admin';
   document.getElementById('sb-admin-label').style.display=isAdmin?'':'none';
   document.getElementById('sb-settings-item').style.display=isAdmin?'':'none';
-  document.getElementById('sb-users-item').style.display=isAdmin?'':'none';
-  document.getElementById('dash-greeting').textContent='안녕하세요, '+currentUser.name+'님 👋';
+  document.getElementById('sb-users-item').style.display=isAdmin?'':'none';  document.getElementById('dash-greeting').textContent='안녕하세요, '+currentUser.name+'님 👋';
   document.getElementById('dash-date').textContent=now().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
 
   // ── 기존 데이터 마이그레이션: 기본 5과목이 subjects 배열에 없으면 자동 추가 ──
@@ -4576,43 +4579,15 @@ function saLogout(){
   document.getElementById('auth-screen').style.display='flex';
 }
 
-// 일반 앱에서 슈퍼관리자 대시보드로 돌아가기 버튼
-// 슈퍼관리자 이메일로 로그인한 경우 항상 표시
+// 슈퍼관리자 전용 사이드바 메뉴 표시/숨김
 function checkBackToSuperAdmin(){
-  // 현재 로그인한 사용자가 슈퍼관리자 이메일인지 확인
-  const sess = S.get('session');
-  const isSA = currentUser?.email === SUPER_EMAIL ||
-               sess?.superAdmin === true ||
-               sess?.fromSuperAdmin === true;
+  const sess   = S.get('session');
+  const isSA   = currentUser?.email === SUPER_EMAIL
+              || sess?.superAdmin === true
+              || sess?.fromSuperAdmin === true;
 
-  if(!isSA) return;
-
-  const foot = document.querySelector('.sb-foot');
-  if(!foot) return;
-
-  // 기존 버튼 제거 후 새로 생성 (중복 방지)
-  const existing = document.getElementById('sa-back-btn');
-  if(existing) existing.remove();
-
-  const btn = document.createElement('div');
-  btn.id = 'sa-back-btn';
-  btn.innerHTML = `
-    <div onclick="backToSuperAdmin()"
-      style="display:flex;align-items:center;gap:8px;padding:10px 14px;margin:8px 0;
-        background:linear-gradient(135deg,#1e293b,#0f172a);
-        border:1px solid #6366f1;border-radius:10px;cursor:pointer;
-        transition:all .15s;user-select:none"
-      onmouseover="this.style.background='linear-gradient(135deg,#312e81,#1e1b4b)'"
-      onmouseout="this.style.background='linear-gradient(135deg,#1e293b,#0f172a)'">
-      <span style="font-size:16px">🛡</span>
-      <div>
-        <div style="font-size:12px;font-weight:700;color:#6366f1">관리자 대시보드</div>
-        <div style="font-size:10px;color:#475569">슈퍼관리자 전용</div>
-      </div>
-      <span style="margin-left:auto;color:#6366f1;font-size:14px">→</span>
-    </div>
-  `;
-  foot.insertBefore(btn, foot.firstChild);
+  const menuItem = document.getElementById('sb-superadmin-item');
+  if(menuItem) menuItem.style.display = isSA ? '' : 'none';
 }
 
 function backToSuperAdmin(){
