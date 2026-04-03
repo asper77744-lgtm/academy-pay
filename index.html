@@ -1650,7 +1650,13 @@ function bootApp(){
   const isAdmin=currentUser.role==='admin';
   document.getElementById('sb-admin-label').style.display=isAdmin?'':'none';
   document.getElementById('sb-settings-item').style.display=isAdmin?'':'none';
-  document.getElementById('sb-users-item').style.display=isAdmin?'':'none';  document.getElementById('dash-greeting').textContent='안녕하세요, '+currentUser.name+'님 👋';
+  document.getElementById('sb-users-item').style.display=isAdmin?'':'none';
+
+  // 슈퍼관리자 메뉴 표시 여부
+  const saItem = document.getElementById('sb-superadmin-item');
+  if(saItem) saItem.style.display = _isSuperAdmin ? '' : 'none';
+
+  document.getElementById('dash-greeting').textContent='안녕하세요, '+currentUser.name+'님 👋';
   document.getElementById('dash-date').textContent=now().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
 
   // ── 기존 데이터 마이그레이션: 기본 5과목이 subjects 배열에 없으면 자동 추가 ──
@@ -4543,11 +4549,11 @@ async function saSuspend(id){
 }
 
 async function saEnterAcademy(id){
-  // 해당 학원 데이터 로드 후 일반 앱으로 전환
   const academy = _saAllAcademies.find(a=>a.id===id);
   if(!academy){ showToast('학원 데이터를 찾을 수 없습니다.','error'); return; }
   const adminUser = (academy.users||[]).find(u=>u.role==='admin');
   if(!adminUser) return;
+  _isSuperAdmin  = true;  // ★ 반드시 설정
   currentUser    = adminUser;
   currentAcademy = academy;
   localSaveAcademy(academy);
@@ -4557,11 +4563,11 @@ async function saEnterAcademy(id){
 }
 
 async function saGoToMyAcademy(){
-  // 내 학원(슈퍼관리자 본인 이메일로 가입된 학원) 로드
   const found = await sbFindByEmail(SUPER_EMAIL);
   if(!found){ showToast('내 학원이 없습니다. 학원 가입 탭에서 먼저 학원을 등록해주세요.','error'); return; }
+  _isSuperAdmin = true;  // ★ 반드시 설정
   currentUser    = found.user;
-  currentUser.email = SUPER_EMAIL; // 슈퍼관리자 이메일 유지
+  currentUser.email = SUPER_EMAIL;
   currentAcademy = found.academy;
   const fresh = await sbLoadAcademy(currentAcademy.id);
   if(fresh){ currentAcademy=fresh; }
@@ -4581,13 +4587,8 @@ function saLogout(){
 
 // 슈퍼관리자 전용 사이드바 메뉴 표시/숨김
 function checkBackToSuperAdmin(){
-  const sess   = S.get('session');
-  const isSA   = currentUser?.email === SUPER_EMAIL
-              || sess?.superAdmin === true
-              || sess?.fromSuperAdmin === true;
-
-  const menuItem = document.getElementById('sb-superadmin-item');
-  if(menuItem) menuItem.style.display = isSA ? '' : 'none';
+  const saItem = document.getElementById('sb-superadmin-item');
+  if(saItem) saItem.style.display = _isSuperAdmin ? '' : 'none';
 }
 
 function backToSuperAdmin(){
@@ -4632,6 +4633,8 @@ function backToSuperAdmin(){
     if(acad){
       const user = (acad.users||[]).find(u=>u.id===sess.userId);
       if(user){
+        // fromSuperAdmin 또는 superAdmin 세션이면 _isSuperAdmin 복원
+        if(sess?.fromSuperAdmin || sess?.superAdmin) _isSuperAdmin = true;
         currentUser=user; currentAcademy=acad;
         if(_sb){
           const fresh = await sbLoadAcademy(acad.id);
