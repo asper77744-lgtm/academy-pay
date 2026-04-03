@@ -1642,10 +1642,52 @@ async function doResetPassword(){
   if(pw.length<8){ if(err){err.textContent='8자 이상 입력해주세요.';err.style.display='block';} return; }
   if(pw!==pw2){ if(err){err.textContent='비밀번호가 일치하지 않습니다.';err.style.display='block';} return; }
   if(!_sb) return;
+
+  // 버튼 비활성화
+  const btn = document.querySelector('#panel-login .btn-auth.btn-main');
+  if(btn){ btn.textContent='변경 중...'; btn.disabled=true; }
+
   const { error } = await _sb.auth.updateUser({ password:pw });
-  if(error){ if(err){err.textContent='변경 실패: '+error.message;err.style.display='block';} return; }
+  if(error){
+    if(btn){ btn.textContent='비밀번호 변경'; btn.disabled=false; }
+    if(err){err.textContent='변경 실패: '+error.message;err.style.display='block';}
+    return;
+  }
+
+  // 성공 메시지 표시
   if(ok) ok.style.display='';
-  setTimeout(()=>{ window.location.href = window.location.pathname; }, 2000);
+  if(btn){ btn.style.display='none'; }
+
+  // 2초 후 Supabase 세션 종료 → 로그인 화면으로 (이메일/비번 빈칸)
+  setTimeout(async ()=>{
+    await _sb.auth.signOut();
+    S.del('session');
+
+    // 로그인 패널을 원래 형태로 복원
+    document.getElementById('panel-login').innerHTML = `
+      <div class="field"><label>이메일</label>
+        <input type="email" id="l-email" placeholder="admin@myacademy.com" onkeydown="if(event.key==='Enter')document.getElementById('l-password').focus()"/>
+      </div>
+      <div class="field"><label>비밀번호</label>
+        <input type="password" id="l-password" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <div class="err-msg" id="l-err1"></div>
+      <button class="btn-auth btn-main" onclick="doLogin()">로그인</button>
+      <p class="auth-hint" style="text-align:center;margin-top:12px">
+        <a onclick="showForgotPassword()" style="cursor:pointer;color:var(--accent)">비밀번호를 잊으셨나요?</a>
+      </p>
+      <div id="forgot-panel" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <div class="field"><label>가입한 이메일</label><input type="email" id="forgot-email" placeholder="admin@myacademy.com"/></div>
+        <div class="err-msg" id="forgot-err"></div>
+        <div id="forgot-ok" style="display:none;font-size:13px;color:var(--success);margin-bottom:8px">✅ 비밀번호 재설정 이메일을 발송했습니다.</div>
+        <button class="btn-auth btn-main" onclick="doForgotPassword()">재설정 이메일 발송</button>
+        <button class="btn-auth btn-ghost-sm" onclick="hideForgotPassword()">← 로그인으로</button>
+      </div>
+    `;
+
+    // 성공 안내 토스트
+    showToast('비밀번호가 변경되었습니다. 새 비밀번호로 로그인해주세요.', 'success');
+  }, 2000);
 }
 
 function logout(){
