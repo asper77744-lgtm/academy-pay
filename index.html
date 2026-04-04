@@ -558,8 +558,21 @@ tbody tr:hover td{background:#f8f9ff}
         <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="openClassModal()">+ 반 추가</button></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        <div class="card"><div class="card-head"><h3>반 목록</h3></div>
-          <div style="padding:0"><table><thead><tr><th>반 이름</th><th>과목</th><th>수강료</th><th>학생수</th><th></th></tr></thead><tbody id="cls-tbody"></tbody></table></div>
+        <div class="card">
+          <div class="card-head">
+            <h3>반 목록</h3>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:12px;color:var(--text3)">정렬:</span>
+              <select id="cls-sort" onchange="renderClasses()"
+                style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--surface);color:var(--text);outline:none;cursor:pointer">
+                <option value="custom">직접 설정</option>
+                <option value="teacher">선생님별</option>
+                <option value="subject">과목별</option>
+                <option value="name">이름순</option>
+              </select>
+            </div>
+          </div>
+          <div style="padding:0"><table><thead><tr><th style="width:32px"></th><th>반 이름</th><th>과목</th><th>수강료</th><th>학생수</th><th>담당 강사</th><th></th></tr></thead><tbody id="cls-tbody"></tbody></table></div>
         </div>
         <div class="card">
           <div class="card-head"><h3>과목 목록</h3></div>
@@ -574,7 +587,7 @@ tbody tr:hover td{background:#f8f9ff}
           </div>
           <!-- 자주 쓰는 과목 빠른 선택 -->
           <div id="subj-quick-area" style="padding:8px 16px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px"></div>
-          <div style="padding:0"><table><thead><tr><th>과목명</th><th>학생수</th><th></th></tr></thead><tbody id="subj-tbody"></tbody></table></div>
+          <div style="padding:0"><table><thead><tr><th style="width:32px"></th><th>과목명</th><th>학생수</th><th></th></tr></thead><tbody id="subj-tbody"></tbody></table></div>
         </div>
       </div>
     </div>
@@ -3178,10 +3191,39 @@ function renderClasses(){
   const classes  = currentAcademy.classes||[];
   const students = currentAcademy.students||[];
   const teachers = currentAcademy.teachers||[];
-  document.getElementById('cls-tbody').innerHTML = classes.length ? classes.map(c=>{
-    const cnt = students.filter(s=>isActiveStudent(s)&&(s.enrollments||[]).some(e=>e.classId===c.id)).length;
+
+  // 정렬 방식 적용
+  const sort = document.getElementById('cls-sort')?.value || 'custom';
+  let sorted = [...classes];
+  if(sort === 'teacher'){
+    sorted.sort((a,b)=>{
+      const ta = teachers.find(t=>(t.classIds||[]).includes(a.id)&&t.status==='active')?.name||'zzz';
+      const tb = teachers.find(t=>(t.classIds||[]).includes(b.id)&&t.status==='active')?.name||'zzz';
+      return ta.localeCompare(tb,'ko');
+    });
+  } else if(sort === 'subject'){
+    sorted.sort((a,b)=>(a.subject||'').localeCompare(b.subject||'','ko'));
+  } else if(sort === 'name'){
+    sorted.sort((a,b)=>(a.name||'').localeCompare(b.name||'','ko'));
+  }
+
+  document.getElementById('cls-tbody').innerHTML = sorted.length ? sorted.map((c, idx)=>{
+    const cnt     = students.filter(s=>isActiveStudent(s)&&(s.enrollments||[]).some(e=>e.classId===c.id)).length;
     const teacher = teachers.find(t=>(t.classIds||[]).includes(c.id)&&t.status==='active');
+    const isCustom = sort === 'custom';
+    const realIdx  = classes.indexOf(c); // 원본 배열 인덱스
     return `<tr>
+      <td style="padding:4px 6px;text-align:center">
+        ${isCustom ? `
+          <div style="display:flex;flex-direction:column;gap:1px">
+            <button onclick="moveClass(${realIdx},-1)" ${realIdx===0?'disabled':''} title="위로"
+              style="padding:1px 5px;font-size:10px;border:1px solid var(--border);border-radius:3px;background:var(--surface2);cursor:pointer;color:var(--text2);line-height:1.4;${realIdx===0?'opacity:.3':''}"
+            >▲</button>
+            <button onclick="moveClass(${realIdx},1)" ${realIdx===classes.length-1?'disabled':''} title="아래로"
+              style="padding:1px 5px;font-size:10px;border:1px solid var(--border);border-radius:3px;background:var(--surface2);cursor:pointer;color:var(--text2);line-height:1.4;${realIdx===classes.length-1?'opacity:.3':''}"
+            >▼</button>
+          </div>` : `<span style="font-size:11px;color:var(--text3)">${idx+1}</span>`}
+      </td>
       <td><strong>${c.name}</strong>${c.schedule?`<br><span style="font-size:11px;color:var(--text3)">${c.schedule}</span>`:''}</td>
       <td><span class="badge b-info">${c.subject}</span></td>
       <td>${c.fee}만원</td>
@@ -3195,17 +3237,10 @@ function renderClasses(){
         <button class="btn btn-danger btn-sm" onclick="deleteClass('${c.id}')" style="margin-left:4px">삭제</button>
       </td>
     </tr>`;
-  }).join('') : `<tr><td colspan="6" class="empty-row"><div class="ei">📚</div><p>반이 없습니다</p></td></tr>`;
-  // 반 테이블 헤더에 강사 열 추가 (최초 1회)
-  const thead = document.querySelector('#cls-tbody')?.closest('table')?.querySelector('thead tr');
-  if(thead && thead.children.length===5){
-    const th = document.createElement('th');
-    th.textContent='담당 강사'; thead.insertBefore(th, thead.children[4]);
-  }
-  // ── 과목 목록 ──────────────────────────────────
-  // currentAcademy.subjects 가 단일 소스. 기본 5과목도 여기에 포함되어 있음.
-  const allSubjects = currentAcademy.subjects || [];
+  }).join('') : `<tr><td colspan="7" class="empty-row"><div class="ei">📚</div><p>반이 없습니다</p></td></tr>`;
 
+  // ── 과목 목록 ──────────────────────────────────
+  const allSubjects = currentAcademy.subjects || [];
   const countForSubject = s => students.filter(x =>
     isActiveStudent(x) && (x.enrollments||[]).some(e => {
       const c = getClass(e.classId);
@@ -3214,10 +3249,20 @@ function renderClasses(){
   ).length;
 
   document.getElementById('subj-tbody').innerHTML = allSubjects.length
-    ? allSubjects.map(s => {
+    ? allSubjects.map((s, idx) => {
         const cnt    = countForSubject(s);
         const canDel = cnt === 0;
         return `<tr>
+          <td style="padding:4px 6px;text-align:center;width:32px">
+            <div style="display:flex;flex-direction:column;gap:1px">
+              <button onclick="moveSubject(${idx},-1)" ${idx===0?'disabled':''} title="위로"
+                style="padding:1px 5px;font-size:10px;border:1px solid var(--border);border-radius:3px;background:var(--surface2);cursor:pointer;color:var(--text2);line-height:1.4;${idx===0?'opacity:.3':''}"
+              >▲</button>
+              <button onclick="moveSubject(${idx},1)" ${idx===allSubjects.length-1?'disabled':''} title="아래로"
+                style="padding:1px 5px;font-size:10px;border:1px solid var(--border);border-radius:3px;background:var(--surface2);cursor:pointer;color:var(--text2);line-height:1.4;${idx===allSubjects.length-1?'opacity:.3':''}"
+              >▼</button>
+            </div>
+          </td>
           <td><span class="badge b-purple">${s}</span></td>
           <td>${cnt}명</td>
           <td>${canDel
@@ -3226,11 +3271,27 @@ function renderClasses(){
           </td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="3" class="empty-row"><p>등록된 과목이 없습니다</p></td></tr>`;
+    : `<tr><td colspan="4" class="empty-row"><p>등록된 과목이 없습니다</p></td></tr>`;
 
   renderQuickSubjects();
 }
 
+
+function moveClass(idx, dir){
+  const arr = currentAcademy.classes;
+  const newIdx = idx + dir;
+  if(newIdx < 0 || newIdx >= arr.length) return;
+  [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+  saveAcademy(); renderClasses();
+}
+
+function moveSubject(idx, dir){
+  const arr = currentAcademy.subjects;
+  const newIdx = idx + dir;
+  if(newIdx < 0 || newIdx >= arr.length) return;
+  [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+  saveAcademy(); renderClasses();
+}
 
 function deleteClass(id){
   if(!confirm('삭제하시겠습니까?'))return;
