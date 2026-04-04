@@ -3193,57 +3193,56 @@ function renderClasses(){
   const teachers = currentAcademy.teachers||[];
 
   // 정렬 방식 적용
-  const sort = document.getElementById('cls-sort')?.value || 'custom';
-  let sorted = [...classes];
-  if(sort === 'teacher'){
-    sorted.sort((a,b)=>{
-      const ta = teachers.find(t=>(t.classIds||[]).includes(a.id)&&t.status==='active')?.name||'zzz';
-      const tb = teachers.find(t=>(t.classIds||[]).includes(b.id)&&t.status==='active')?.name||'zzz';
-      return ta.localeCompare(tb,'ko');
-    });
-    // 정렬 결과를 실제 배열에 반영 후 직접 설정으로 전환
+  const sortEl = document.getElementById('cls-sort');
+  const sort   = sortEl?.value || 'custom';
+
+  // 정렬 선택 시 → 배열 재정렬 후 저장 → 드롭다운을 custom으로 바꾸고 다시 렌더
+  if(sort !== 'custom'){
+    let sorted = [...classes];
+    if(sort === 'teacher'){
+      sorted.sort((a,b)=>{
+        const ta = teachers.find(t=>(t.classIds||[]).includes(a.id)&&t.status==='active')?.name||'zzz';
+        const tb = teachers.find(t=>(t.classIds||[]).includes(b.id)&&t.status==='active')?.name||'zzz';
+        return ta.localeCompare(tb,'ko');
+      });
+    } else if(sort === 'subject'){
+      sorted.sort((a,b)=>(a.subject||'').localeCompare(b.subject||'','ko'));
+    } else if(sort === 'name'){
+      sorted.sort((a,b)=>(a.name||'').localeCompare(b.name||'','ko'));
+    }
     currentAcademy.classes = sorted;
     saveAcademy();
-    const sel = document.getElementById('cls-sort');
-    if(sel) sel.value = 'custom';
-  } else if(sort === 'subject'){
-    sorted.sort((a,b)=>(a.subject||'').localeCompare(b.subject||'','ko'));
-    currentAcademy.classes = sorted;
-    saveAcademy();
-    const sel = document.getElementById('cls-sort');
-    if(sel) sel.value = 'custom';
-  } else if(sort === 'name'){
-    sorted.sort((a,b)=>(a.name||'').localeCompare(b.name||'','ko'));
-    currentAcademy.classes = sorted;
-    saveAcademy();
-    const sel = document.getElementById('cls-sort');
-    if(sel) sel.value = 'custom';
+    if(sortEl) sortEl.value = 'custom'; // ← 먼저 리셋
+    renderClasses(); // ← 그 다음 재호출 (이번엔 sort==='custom' 으로 들어옴)
+    return; // ← 이후 코드 실행 안 함
   }
 
-  document.getElementById('cls-tbody').innerHTML = sorted.length ? sorted.map((c, idx)=>{
+  // 순서 변경 버튼 헬퍼
+  const orderBtn = (fn, disabled, icon, tip) =>
+    `<button onclick="${fn}" ${disabled?'disabled':''} title="${tip}"
+      style="width:20px;height:20px;border:none;border-radius:4px;padding:0;cursor:${disabled?'default':'pointer'};
+      background:${disabled?'transparent':'var(--surface2)'};color:${disabled?'var(--border)':'var(--text2)'};
+      font-size:11px;line-height:1;transition:all .12s"
+      ${disabled?'':` onmouseover="this.style.background='var(--accent)';this.style.color='#fff'"
+        onmouseout="this.style.background='var(--surface2)';this.style.color='var(--text2)'"`}
+    >${icon}</button>`;
+
+  document.getElementById('cls-tbody').innerHTML = classes.length ? classes.map((c, idx)=>{
     const cnt     = students.filter(s=>isActiveStudent(s)&&(s.enrollments||[]).some(e=>e.classId===c.id)).length;
     const teacher = teachers.find(t=>(t.classIds||[]).includes(c.id)&&t.status==='active');
-    const isCustom = sort === 'custom';
-    const realIdx  = classes.indexOf(c);
     return `<tr>
-      <td style="padding:4px 8px;text-align:center;white-space:nowrap">
-        ${isCustom ? `
-          <button onclick="moveClass(${realIdx},-1)" ${realIdx===0?'disabled':''} title="위로"
-            style="padding:2px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);cursor:pointer;color:var(--text2);${realIdx===0?'opacity:.25;cursor:default':''}"
-          >▲</button>
-          <button onclick="moveClass(${realIdx},1)" ${realIdx===classes.length-1?'disabled':''} title="아래로"
-            style="padding:2px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);cursor:pointer;color:var(--text2);margin-left:2px;${realIdx===classes.length-1?'opacity:.25;cursor:default':''}"
-          >▼</button>
-        ` : `<span style="font-size:11px;color:var(--text3)">${idx+1}</span>`}
+      <td style="padding:6px 8px;white-space:nowrap">
+        <div style="display:flex;align-items:center;gap:3px">
+          <span style="font-size:11px;color:var(--text3);min-width:12px;text-align:right">${idx+1}</span>
+          ${orderBtn(`moveClass(${idx},-1)`, idx===0,              '↑', '위로')}
+          ${orderBtn(`moveClass(${idx},1)`,  idx===classes.length-1,'↓', '아래로')}
+        </div>
       </td>
       <td><strong>${c.name}</strong>${c.schedule?`<br><span style="font-size:11px;color:var(--text3)">${c.schedule}</span>`:''}</td>
       <td><span class="badge b-info">${c.subject}</span></td>
       <td>${c.fee}만원</td>
       <td>${cnt}명</td>
-      <td>${teacher
-        ?`<span class="badge b-purple">👨‍🏫 ${teacher.name}</span>`
-        :`<span style="font-size:12px;color:var(--text3)">미배정</span>`}
-      </td>
+      <td>${teacher?`<span class="badge b-purple">👨‍🏫 ${teacher.name}</span>`:`<span style="font-size:12px;color:var(--text3)">미배정</span>`}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-neutral btn-sm" onclick="openClassModal('${c.id}')">수정</button>
         <button class="btn btn-danger btn-sm" onclick="deleteClass('${c.id}')" style="margin-left:4px">삭제</button>
@@ -3265,13 +3264,11 @@ function renderClasses(){
         const cnt    = countForSubject(s);
         const canDel = cnt === 0;
         return `<tr>
-          <td style="padding:4px 8px;text-align:center;white-space:nowrap;width:60px">
-            <button onclick="moveSubject(${idx},-1)" ${idx===0?'disabled':''} title="위로"
-              style="padding:2px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);cursor:pointer;color:var(--text2);${idx===0?'opacity:.25;cursor:default':''}"
-            >▲</button>
-            <button onclick="moveSubject(${idx},1)" ${idx===allSubjects.length-1?'disabled':''} title="아래로"
-              style="padding:2px 6px;font-size:11px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);cursor:pointer;color:var(--text2);margin-left:2px;${idx===allSubjects.length-1?'opacity:.25;cursor:default':''}"
-            >▼</button>
+          <td style="padding:6px 8px;white-space:nowrap">
+            <div style="display:flex;align-items:center;gap:3px">
+              ${orderBtn(`moveSubject(${idx},-1)`, idx===0,                  '↑','위로')}
+              ${orderBtn(`moveSubject(${idx},1)`,  idx===allSubjects.length-1,'↓','아래로')}
+            </div>
           </td>
           <td><span class="badge b-purple">${s}</span></td>
           <td>${cnt}명</td>
@@ -3293,6 +3290,8 @@ function moveClass(idx, dir){
   if(newIdx < 0 || newIdx >= arr.length) return;
   [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
   saveAcademy(); renderClasses();
+  // 이동한 행 하이라이트
+  highlightRow('cls-tbody', newIdx);
 }
 
 function moveSubject(idx, dir){
@@ -3301,6 +3300,25 @@ function moveSubject(idx, dir){
   if(newIdx < 0 || newIdx >= arr.length) return;
   [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
   saveAcademy(); renderClasses();
+  // 이동한 행 하이라이트
+  highlightRow('subj-tbody', newIdx);
+}
+
+function highlightRow(tbodyId, rowIdx){
+  const tbody = document.getElementById(tbodyId);
+  if(!tbody) return;
+  const row = tbody.rows[rowIdx];
+  if(!row) return;
+  // 기존 하이라이트 제거
+  [...tbody.rows].forEach(r => r.style.transition = r.style.background = '');
+  // 하이라이트 적용
+  row.style.transition = 'background .1s';
+  row.style.background = 'rgba(99,102,241,.18)';
+  // 0.8초 후 서서히 원래대로
+  setTimeout(()=>{
+    row.style.transition = 'background .6s';
+    row.style.background = '';
+  }, 800);
 }
 
 function deleteClass(id){
