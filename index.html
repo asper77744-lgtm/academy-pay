@@ -3309,16 +3309,14 @@ function highlightRow(tbodyId, rowIdx){
   if(!tbody) return;
   const row = tbody.rows[rowIdx];
   if(!row) return;
-  // 기존 하이라이트 제거
-  [...tbody.rows].forEach(r => r.style.transition = r.style.background = '');
-  // 하이라이트 적용
+  // 같은 tbody 내 모든 행 하이라이트 제거
+  [...tbody.rows].forEach(r => {
+    r.style.transition = 'background .3s';
+    r.style.background = '';
+  });
+  // 이동한 행만 계속 유지
   row.style.transition = 'background .1s';
-  row.style.background = 'rgba(99,102,241,.18)';
-  // 0.8초 후 서서히 원래대로
-  setTimeout(()=>{
-    row.style.transition = 'background .6s';
-    row.style.background = '';
-  }, 800);
+  row.style.background = 'rgba(99,102,241,.15)';
 }
 
 function deleteClass(id){
