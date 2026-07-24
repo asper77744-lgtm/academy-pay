@@ -1920,7 +1920,13 @@ async function doLogin(){
 
   if(_sb){
     const fresh = await sbLoadAcademy(currentAcademy.id);
-    if(fresh){ currentAcademy = fresh; }
+    if(fresh){
+      const localTime  = currentAcademy.updated_at || '';
+      const remoteTime = fresh.updated_at || '';
+      if(!localTime || (remoteTime && remoteTime > localTime)){
+        currentAcademy = fresh;
+      }
+    }
   }
 
   localSaveAcademy(currentAcademy);
@@ -2154,7 +2160,22 @@ function startKeepAlive(){
   setInterval(ping, 1000 * 60 * 60 * 24 * 3); // 3일마다
 }
 
-function startRealtimeSync(){
+// Supabase 데이터가 더 최신일 때만 덮어쓰는 안전한 동기화
+function safeSyncFromSupabase(id){
+  if(!_sb || !id) return;
+  sbLoadAcademy(id).then(fresh=>{
+    if(!fresh) return;
+    const localTime  = currentAcademy?.updated_at || '';
+    const remoteTime = fresh.updated_at || '';
+    // 원격이 더 최신일 때만 반영
+    if(remoteTime && localTime && remoteTime <= localTime) return;
+    if(!remoteTime && localTime) return; // 원격에 시간 없으면 로컬 우선
+    currentAcademy = fresh;
+    localSaveAcademy(fresh);
+    refreshAll();
+    console.log('[Sync] 원격 데이터 적용:', remoteTime, '>', localTime);
+  }).catch(()=>{});
+}
   if(!_sb || !currentAcademy?.id) return;
   if(_realtimeChannel){ _sb.removeChannel(_realtimeChannel); _realtimeChannel = null; }
 
@@ -6518,8 +6539,8 @@ setTimeout(()=>{
         if(sess?.fromSuperAdmin || sess?.superAdmin) _isSuperAdmin = true;
         currentUser=user; currentAcademy=acad;
         bootApp();
-        // 백그라운드 Supabase 동기화
-        if(_sb){ sbLoadAcademy(acad.id).then(fresh=>{ if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); refreshAll(); } }).catch(()=>{}); }
+        // 백그라운드 Supabase 동기화 (로컬이 더 최신이면 무시)
+        safeSyncFromSupabase(acad.id);
         return;
       }
     }
@@ -6551,7 +6572,7 @@ setTimeout(()=>{
         if(sess?.fromSuperAdmin || sess?.superAdmin) _isSuperAdmin = true;
         currentUser=user; currentAcademy=acad;
         bootApp();
-        if(_sb){ sbLoadAcademy(acad.id).then(fresh=>{ if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); refreshAll(); } }).catch(()=>{}); }
+        safeSyncFromSupabase(acad.id);
         return;
       }
     }
@@ -6569,7 +6590,14 @@ setTimeout(()=>{
         currentUser    = found.user;
         currentAcademy = found.academy;
         const fresh = await sbLoadAcademy(currentAcademy.id);
-        if(fresh){ currentAcademy=fresh; localSaveAcademy(fresh); }
+        if(fresh){
+          const localTime  = currentAcademy.updated_at || '';
+          const remoteTime = fresh.updated_at || '';
+          if(!localTime || (remoteTime && remoteTime > localTime)){
+            currentAcademy = fresh;
+          }
+          localSaveAcademy(currentAcademy);
+        }
         bootApp(); return;
       }
     }
