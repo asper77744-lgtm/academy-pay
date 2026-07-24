@@ -2132,23 +2132,9 @@ function bootApp(){
   refreshAll();
   checkBackToSuperAdmin();
 
-  // ── Supabase에서 최신 데이터 강제 동기화 ──
+  // ── Realtime & Keep-Alive 시작 ──
   if(_sb && currentAcademy.id){
-    sbLoadAcademy(currentAcademy.id).then(fresh=>{
-      if(!fresh) return;
-      const localTime  = currentAcademy.updated_at || '';
-      const remoteTime = fresh.updated_at || '';
-      if(!localTime || remoteTime >= localTime){
-        currentAcademy = fresh;
-        localSaveAcademy(fresh);
-        refreshAll();
-        showToast('최신 데이터로 동기화되었습니다.', 'success');
-      }
-    }).catch(()=>{});
-
-    // ── Supabase Realtime 구독 (다른 기기 변경 시 자동 반영) ──
     startRealtimeSync();
-    // ── Keep-Alive (무료 플랜 자동 중지 방지) ──
     startKeepAlive();
   }
 }
@@ -2170,7 +2156,6 @@ function startKeepAlive(){
 
 function startRealtimeSync(){
   if(!_sb || !currentAcademy?.id) return;
-  // 기존 구독 있으면 제거
   if(_realtimeChannel){ _sb.removeChannel(_realtimeChannel); _realtimeChannel = null; }
 
   _realtimeChannel = _sb
@@ -2181,26 +2166,22 @@ function startRealtimeSync(){
       table: 'academies',
       filter: `id=eq.${currentAcademy.id}`
     }, async (payload) => {
-      // 내가 저장한 변경은 무시 (updated_at이 같으면 skip)
       const incoming = payload.new?.data;
       if(!incoming) return;
+
       const incomingTime = incoming.updated_at || '';
       const localTime    = currentAcademy.updated_at || '';
-      if(incomingTime && incomingTime <= localTime) return;
 
-      // 다른 기기에서 변경된 데이터 → 자동 반영
+      // 내가 방금 저장한 것 무시 (1초 이내 동일 시간이면 skip)
+      if(incomingTime && localTime && incomingTime <= localTime) return;
+
+      // 다른 기기에서 온 변경만 반영
       currentAcademy = incoming;
       localSaveAcademy(incoming);
       refreshAll();
-
-      // 토스트 (화면이 이미 열려있을 때만)
       showToast('🔄 다른 기기에서 변경된 내용이 반영되었습니다.', 'success');
     })
-    .subscribe((status) => {
-      if(status === 'SUBSCRIBED'){
-        console.log('[Realtime] 실시간 동기화 연결됨');
-      }
-    });
+    .subscribe();
 }
 
 function refreshAll(){
