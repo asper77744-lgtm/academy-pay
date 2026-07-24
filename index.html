@@ -2321,53 +2321,76 @@ function renderStatsDetail(){
   if(_statsTab === 'subj'){
     const subjects = currentAcademy.subjects || [];
     if(!subjects.length){ panel.innerHTML='<p style="color:var(--text3);font-size:13px">등록된 과목이 없습니다.</p>'; return; }
-    panel.innerHTML = subjects.map(subj=>{
-      // 해당 과목 수강 중인 재원생 + 해당 과목 enrollment의 수강료만 합산
+    const rows = subjects.map(subj=>{
       const sc = active.filter(s=>(s.enrollments||[]).some(e=>{
         const c=getClass(e.classId); return c&&c.subject===subj;
       }));
+      if(!sc.length) return ''; // 수강생 0명 제외
       const totalFee = sc.reduce((sum,s)=>{
-        const subjectFee = (s.enrollments||[]).filter(e=>{
+        return sum+(s.enrollments||[]).filter(e=>{
           const c=getClass(e.classId); return c&&c.subject===subj;
         }).reduce((a,e)=>a+(parseFloat(e.fee)||0),0);
-        return sum+subjectFee;
+      },0);
+      // 수납액: 해당 과목 수강료 비율로 안분
+      const paidAmt = sc.reduce((sum,s)=>{
+        const p = payments.find(x=>x.studentId===s.id&&x.month===curYm&&x.status==='paid');
+        if(!p) return sum;
+        const totalStudentFee = calcTotalFee(s)||1;
+        const subjFee = (s.enrollments||[]).filter(e=>{
+          const c=getClass(e.classId); return c&&c.subject===subj;
+        }).reduce((a,e)=>a+(parseFloat(e.fee)||0),0);
+        return sum + Math.round(p.amount * subjFee / totalStudentFee);
       },0);
       const paidCnt = sc.filter(s=>payments.find(p=>p.studentId===s.id&&p.month===curYm&&p.status==='paid')).length;
-      const paidAmt = payments.filter(p=>p.month===curYm&&p.status==='paid'&&sc.find(s=>s.id===p.studentId)).reduce((a,p)=>a+p.amount,0);
       return makeStatRow(subj, sc.length, paidCnt, totalFee, paidAmt);
-    }).join('');
+    }).filter(Boolean);
+    panel.innerHTML = rows.length ? rows.join('') : '<p style="color:var(--text3);font-size:13px">수강생이 있는 과목이 없습니다.</p>';
 
   } else if(_statsTab === 'class'){
     const cls = classes||[];
     if(!cls.length){ panel.innerHTML='<p style="color:var(--text3);font-size:13px">등록된 반이 없습니다.</p>'; return; }
-    panel.innerHTML = cls.map(c=>{
+    const rows = cls.map(c=>{
       const sc = active.filter(s=>(s.enrollments||[]).some(e=>e.classId===c.id));
+      if(!sc.length) return ''; // 수강생 0명 제외
       const totalFee = sc.reduce((sum,s)=>{
-        const ef = (s.enrollments||[]).filter(e=>e.classId===c.id).reduce((a,e)=>a+(parseFloat(e.fee)||0),0);
-        return sum+ef;
+        return sum+(s.enrollments||[]).filter(e=>e.classId===c.id).reduce((a,e)=>a+(parseFloat(e.fee)||0),0);
+      },0);
+      const paidAmt = sc.reduce((sum,s)=>{
+        const p = payments.find(x=>x.studentId===s.id&&x.month===curYm&&x.status==='paid');
+        if(!p) return sum;
+        const totalStudentFee = calcTotalFee(s)||1;
+        const clsFee = (s.enrollments||[]).filter(e=>e.classId===c.id).reduce((a,e)=>a+(parseFloat(e.fee)||0),0);
+        return sum + Math.round(p.amount * clsFee / totalStudentFee);
       },0);
       const paidCnt = sc.filter(s=>payments.find(p=>p.studentId===s.id&&p.month===curYm&&p.status==='paid')).length;
-      const paidAmt = payments.filter(p=>p.month===curYm&&p.status==='paid'&&sc.find(s=>s.id===p.studentId)).reduce((a,p)=>a+p.amount,0);
       const label = `${c.name} <span style="color:var(--text3);font-size:11px">(${c.subject})</span>`;
       return makeStatRow(label, sc.length, paidCnt, totalFee, paidAmt);
-    }).join('');
+    }).filter(Boolean);
+    panel.innerHTML = rows.length ? rows.join('') : '<p style="color:var(--text3);font-size:13px">수강생이 있는 반이 없습니다.</p>';
 
   } else if(_statsTab === 'teacher'){
     const ts = (teachers||[]).filter(t=>t.status==='active');
     if(!ts.length){ panel.innerHTML='<p style="color:var(--text3);font-size:13px">등록된 선생님이 없습니다.</p>'; return; }
-    panel.innerHTML = ts.map(t=>{
+    const rows = ts.map(t=>{
       const tClasses = (classes||[]).filter(c=>(t.classIds||[]).includes(c.id));
       const sc = active.filter(s=>(s.enrollments||[]).some(e=>tClasses.find(c=>c.id===e.classId)));
+      if(!sc.length) return ''; // 수강생 0명 제외
       const totalFee = sc.reduce((sum,s)=>{
-        const ef = (s.enrollments||[]).filter(e=>tClasses.find(c=>c.id===e.classId)).reduce((a,e)=>a+(parseFloat(e.fee)||0),0);
-        return sum+ef;
+        return sum+(s.enrollments||[]).filter(e=>tClasses.find(c=>c.id===e.classId)).reduce((a,e)=>a+(parseFloat(e.fee)||0),0);
+      },0);
+      const paidAmt = sc.reduce((sum,s)=>{
+        const p = payments.find(x=>x.studentId===s.id&&x.month===curYm&&x.status==='paid');
+        if(!p) return sum;
+        const totalStudentFee = calcTotalFee(s)||1;
+        const tFee = (s.enrollments||[]).filter(e=>tClasses.find(c=>c.id===e.classId)).reduce((a,e)=>a+(parseFloat(e.fee)||0),0);
+        return sum + Math.round(p.amount * tFee / totalStudentFee);
       },0);
       const paidCnt = sc.filter(s=>payments.find(p=>p.studentId===s.id&&p.month===curYm&&p.status==='paid')).length;
-      const paidAmt = payments.filter(p=>p.month===curYm&&p.status==='paid'&&sc.find(s=>s.id===p.studentId)).reduce((a,p)=>a+p.amount,0);
       const clsNames = tClasses.map(c=>c.name).join(', ');
       const label = `${t.name} <span style="color:var(--text3);font-size:11px">${clsNames}</span>`;
       return makeStatRow(label, sc.length, paidCnt, totalFee, paidAmt);
-    }).join('');
+    }).filter(Boolean);
+    panel.innerHTML = rows.length ? rows.join('') : '<p style="color:var(--text3);font-size:13px">담당 수강생이 있는 선생님이 없습니다.</p>';
   }
 }
 
