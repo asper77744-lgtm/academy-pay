@@ -764,6 +764,8 @@ tbody tr:hover td{background:#f8f9ff}
                 style="padding:4px 10px;border:none;cursor:pointer;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text2)">반별</button>
               <button id="stats-tab-teacher" onclick="switchStatsTab('teacher')"
                 style="padding:4px 10px;border:none;cursor:pointer;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text2)">선생님별</button>
+              <button id="stats-tab-level" onclick="switchStatsTab('level')"
+                style="padding:4px 10px;border:none;cursor:pointer;font-family:inherit;font-size:12px;background:var(--surface);color:var(--text2)">학교급별</button>
             </div>
           </div>
           <div class="card-body" id="stats-detail-panel"></div>
@@ -2300,7 +2302,7 @@ let _statsTab = 'subj';
 
 function switchStatsTab(tab){
   _statsTab = tab;
-  ['subj','class','teacher'].forEach(t=>{
+  ['subj','class','teacher','level'].forEach(t=>{
     const btn = document.getElementById('stats-tab-'+t);
     if(!btn) return;
     btn.style.background = t===tab ? 'var(--accent)' : 'var(--surface)';
@@ -2407,6 +2409,54 @@ function renderStatsDetail(){
       return makeStatRow(label, sc.length, paidCnt, expectedAmt, paidAmt);
     }).filter(Boolean);
     panel.innerHTML = rows.length ? rows.join('') : '<p style="color:var(--text3);font-size:13px">담당 수강생이 있는 선생님이 없습니다.</p>';
+
+  } else if(_statsTab === 'level'){
+    const getLevel = s => {
+      const grade  = s.grade||'';
+      const school = s.school||'';
+      if(/초/.test(grade)||/초등/.test(school)) return '초등';
+      if(/중/.test(grade)||/중학/.test(school)) return '중등';
+      if(/고/.test(grade)||/고등/.test(school)) return '고등';
+      return '기타';
+    };
+    const levels = [
+      {key:'초등', icon:'🏫'},
+      {key:'중등', icon:'📚'},
+      {key:'고등', icon:'🎓'},
+      {key:'기타', icon:'❓'},
+    ];
+    const rows = levels.map(({key,icon})=>{
+      const sc = active.filter(s=>getLevel(s)===key);
+      if(!sc.length) return '';
+      const filterFn = ()=>true;
+      const {paidCnt, paidAmt, expectedAmt} = getStats(sc, filterFn);
+
+      // 해당 학교급 내 과목별 세부
+      const subjects = currentAcademy.subjects||[];
+      const subjDetail = subjects.map(subj=>{
+        const sfn = e=>{ const c=getClass(e.classId); return !!(c&&c.subject===subj); };
+        const ssc = sc.filter(s=>(s.enrollments||[]).some(e=>sfn(e)));
+        if(!ssc.length) return '';
+        const r = getStats(ssc, sfn);
+        const pct = r.expectedAmt>0 ? Math.min(100,Math.round(r.paidAmt/r.expectedAmt*100)) : 0;
+        return `<div style="margin:4px 0 6px 20px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:3px">
+            <span>${subj} <span style="color:var(--text3)">${ssc.length}명</span></span>
+            <span>${r.paidCnt}/${ssc.length}납부 · 예상 ${r.expectedAmt}만 · <strong style="color:var(--success)">${r.paidAmt}만</strong></span>
+          </div>
+          <div style="height:3px;background:var(--surface2);border-radius:2px">
+            <div style="height:3px;background:var(--accent);border-radius:2px;width:${pct}%;transition:width .4s"></div>
+          </div>
+        </div>`;
+      }).filter(Boolean).join('');
+
+      return makeStatRow(`${icon} ${key}`, sc.length, paidCnt, expectedAmt, paidAmt)
+        + subjDetail;
+    }).filter(Boolean);
+
+    panel.innerHTML = rows.length
+      ? rows.map(r=>`<div style="margin-bottom:4px">${r}</div>`).join('<hr style="border:none;border-top:1px solid var(--border);margin:8px 0"/>')
+      : '<p style="color:var(--text3);font-size:13px">학생이 없습니다.</p>';
   }
 }
 
