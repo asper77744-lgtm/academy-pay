@@ -426,10 +426,19 @@ tbody tr:hover td{background:#f8f9ff}
      APP
 ══════════════════════════════════════════ -->
 <div id="app">
+ <!-- 모바일 상단바 -->
+ <div class="mob-topbar" id="mob-topbar">
+   <button class="mob-menu-btn" onclick="toggleMobMenu()">☰</button>
+   <div class="sb-logo-mark">🎓</div>
+   <span class="mob-topbar-title" id="mob-topbar-title">AcademyPay</span>
+ </div>
+ <!-- 모바일 오버레이 (사이드바 열렸을 때 배경) -->
+ <div class="mob-overlay" id="mob-overlay" onclick="closeMobMenu()"></div>
+
  <div class="layout">
 
   <!-- SIDEBAR -->
-  <nav class="sidebar">
+  <nav class="sidebar" id="sidebar">
     <div class="sb-head">
       <div class="sb-logo"><div class="sb-logo-mark">🎓</div><div class="sb-logo-text">AcademyPay</div></div>
       <div class="sb-academy-name" id="sb-academy-name">내 학원</div>
@@ -586,7 +595,7 @@ tbody tr:hover td{background:#f8f9ff}
       <div class="ph"><div class="ph-left"><h1>과목/반 관리</h1><p>수업 과목과 반을 설정합니다.</p></div>
         <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="openClassModal()">+ 반 추가</button></div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" class="grid-2col">
         <div class="card">
           <div class="card-head">
             <h3>반 목록</h3>
@@ -696,7 +705,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div class="sc"><div class="sc-accent" style="background:#f59e0b"></div><div class="sc-label">평균 수강료</div><div class="sc-val" id="st-avg">0</div><div class="sc-sub">만원/학생</div><div class="sc-icon">📐</div></div>
         <div class="sc"><div class="sc-accent" style="background:var(--danger)"></div><div class="sc-label">총 미납액</div><div class="sc-val" id="st-unpaid-amt">0</div><div class="sc-sub">만원</div><div class="sc-icon">📋</div></div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" class="grid-2col">
         <div class="card"><div class="card-head"><h3>월별 수납 추이</h3></div><div class="card-body"><div class="chart-container" id="stats-chart"></div><div class="chart-legend" id="stats-chart-legend"></div></div></div>
         <div class="card">
           <div class="card-head">
@@ -843,7 +852,7 @@ tbody tr:hover td{background:#f8f9ff}
     <!-- ── SETTINGS ── -->
     <div class="page" id="page-settings">
       <div class="ph"><div class="ph-left"><h1>학원 설정</h1><p>학원 정보와 기본 설정을 관리합니다.</p></div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" class="grid-2col">
         <div class="card"><div class="card-head"><h3>🏫 학원 기본 정보</h3></div><div class="card-body">
           <div class="ff"><label>학원 이름 *</label><input id="cfg-academy-name" placeholder="빛나라 수학학원"/></div>
           <div class="ff"><label>원장 이름</label><input id="cfg-owner-name" placeholder="홍길동"/></div>
@@ -1966,11 +1975,28 @@ function saveAcademy(){
 // ════════════════════════════════════════════════════════
 // NAV
 // ════════════════════════════════════════════════════════
+function toggleMobMenu(){
+  document.getElementById('sidebar').classList.toggle('mob-open');
+  document.getElementById('mob-overlay').classList.toggle('open');
+}
+function closeMobMenu(){
+  document.getElementById('sidebar').classList.remove('mob-open');
+  document.getElementById('mob-overlay').classList.remove('open');
+}
+
 function nav(name,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   if(el) el.classList.add('active');
+  // 모바일: 메뉴 선택 후 사이드바 닫기
+  closeMobMenu();
+  // 모바일 topbar 제목 업데이트
+  const titles={dashboard:'대시보드',students:'학생 관리',payments:'수납 내역',
+    classes:'과목/반 관리',teachers:'선생님 관리',unpaid:'미납 관리',
+    stats:'통계/리포트',sms:'문자 알림',settings:'설정'};
+  const t=document.getElementById('mob-topbar-title');
+  if(t) t.textContent=titles[name]||'AcademyPay';
 }
 
 // ════════════════════════════════════════════════════════
@@ -4057,6 +4083,79 @@ body{font-family:'맑은 고딕','Malgun Gothic','Apple SD Gothic Neo',sans-seri
 .rc-sig-label{white-space:nowrap;font-size:12px}
 .rc-stamp-wrap{display:inline-flex;align-items:center;justify-content:center;line-height:1}
 .rc-sig-name{font-weight:700;white-space:nowrap}
+
+/* ─── MOBILE HAMBURGER ──────────────────── */
+.mob-topbar{
+  display:none;position:fixed;top:0;left:0;right:0;z-index:200;
+  height:52px;background:var(--text);
+  align-items:center;padding:0 16px;gap:12px;
+  box-shadow:0 2px 8px rgba(0,0,0,.2);
+}
+.mob-topbar .sb-logo-mark{width:30px;height:30px;border-radius:7px;font-size:14px;background:linear-gradient(135deg,var(--accent),var(--accent4));display:flex;align-items:center;justify-content:center}
+.mob-topbar-title{font-size:15px;color:#fff;font-weight:700;flex:1}
+.mob-menu-btn{background:none;border:none;cursor:pointer;color:#fff;font-size:22px;padding:4px;line-height:1}
+.mob-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300}
+.mob-overlay.open{display:block}
+
+@media(max-width:768px){
+  .mob-topbar{display:flex}
+  .main{padding:68px 12px 24px}
+  .sidebar{
+    position:fixed;top:0;left:-260px;z-index:400;
+    height:100vh;width:248px;
+    transition:left .25s ease;box-shadow:4px 0 20px rgba(0,0,0,.3);
+  }
+  .sidebar.mob-open{left:0}
+  .layout{display:block}
+
+  /* 통계 카드 2열 */
+  .stats-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px}
+  .sc-val{font-size:20px}
+  .sc{padding:12px 14px}
+
+  /* 2열 그리드 → 1열 */
+  .grid-2col{grid-template-columns:1fr!important}
+
+  /* 표 스크롤 */
+  .card > div > table,
+  .tbl-wrap{overflow-x:auto;display:block}
+  table{font-size:12px;min-width:500px}
+  th,td{padding:7px 9px}
+
+  /* 모달 */
+  .modal{width:calc(100vw - 28px)!important;max-width:none!important;max-height:88vh;overflow-y:auto}
+  .modal-overlay{align-items:flex-end;padding:0}
+
+  /* 페이지 헤더 */
+  .ph{flex-direction:column;gap:8px;margin-bottom:14px}
+  .ph-actions{flex-wrap:wrap;gap:5px}
+  .ph-actions .btn,.ph-actions button{font-size:11px;padding:5px 9px}
+
+  /* 툴바 */
+  .toolbar{flex-wrap:wrap;gap:6px}
+  .si{min-width:0;width:100%}
+
+  /* 카드 */
+  .card-head{padding:11px 13px;flex-wrap:wrap;gap:6px}
+  .card-body{padding:12px}
+
+  /* frow 세로 */
+  .frow{flex-direction:column}
+
+  /* 차트 */
+  .chart-container{overflow-x:auto;padding-bottom:4px}
+
+  /* 과목/반 2열→1열 */
+  #page-classes > div[style*="grid"]{grid-template-columns:1fr!important}
+
+  /* 대시보드 그리드 */
+  #page-dashboard > div[style*="grid"]{grid-template-columns:1fr!important}
+}
+
+@media(max-width:400px){
+  .stats-grid{grid-template-columns:1fr!important}
+  table{min-width:380px;font-size:11px}
+}
 
 @media print{
   body{background:#fff}
