@@ -1820,10 +1820,12 @@ function initPhoneInput(elOrId){
 // ── Supabase DB 함수들 ──────────────────────────────────
 async function sbSaveAcademy(academy){
   if(!_sb){ localSaveAcademy(academy); return; }
+  const now_iso = new Date().toISOString();
+  academy.updated_at = now_iso; // data 안에 타임스탬프 포함
   const { error } = await _sb.from('academies').upsert({
     id: academy.id,
     data: academy,
-    updated_at: new Date().toISOString()
+    updated_at: now_iso
   }, { onConflict: 'id' });
   if(error) { console.error('저장 오류:', error.message); localSaveAcademy(academy); }
 }
@@ -2105,7 +2107,7 @@ function logout(){
 // BOOT
 // ════════════════════════════════════════════════════════
 function bootApp(){
-  hideLoading(); // ← 로딩 스크린 항상 숨김
+  hideLoading();
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('sb-academy-name').textContent=currentAcademy.name;
@@ -2117,20 +2119,35 @@ function bootApp(){
   document.getElementById('sb-settings-item').style.display=isAdmin?'':'none';
   document.getElementById('sb-users-item').style.display=isAdmin?'':'none';
 
-  // 슈퍼관리자 메뉴 표시 여부
   const saItem = document.getElementById('sb-superadmin-item');
   if(saItem) saItem.style.display = _isSuperAdmin ? '' : 'none';
 
   document.getElementById('dash-greeting').textContent='안녕하세요, '+currentUser.name+'님 👋';
   document.getElementById('dash-date').textContent=now().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
 
-  // 과목 배열 초기화 (없으면 빈 배열)
   if(!currentAcademy.subjects) currentAcademy.subjects = [];
 
   initStatsYear();
   loadSettings();
   refreshAll();
   checkBackToSuperAdmin();
+
+  // ── Supabase에서 최신 데이터 강제 동기화 ──
+  // LocalStorage 캐시보다 항상 Supabase가 우선 (멀티 기기 동기화)
+  if(_sb && currentAcademy.id){
+    sbLoadAcademy(currentAcademy.id).then(fresh=>{
+      if(!fresh) return;
+      // updated_at 비교해서 더 최신이면 갱신
+      const localTime  = currentAcademy.updated_at || '';
+      const remoteTime = fresh.updated_at || '';
+      if(!localTime || remoteTime >= localTime){
+        currentAcademy = fresh;
+        localSaveAcademy(fresh);
+        refreshAll();
+        showToast('최신 데이터로 동기화되었습니다.', 'success');
+      }
+    }).catch(()=>{});
+  }
 }
 
 function refreshAll(){
