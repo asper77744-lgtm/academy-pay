@@ -2133,11 +2133,9 @@ function bootApp(){
   checkBackToSuperAdmin();
 
   // ── Supabase에서 최신 데이터 강제 동기화 ──
-  // LocalStorage 캐시보다 항상 Supabase가 우선 (멀티 기기 동기화)
   if(_sb && currentAcademy.id){
     sbLoadAcademy(currentAcademy.id).then(fresh=>{
       if(!fresh) return;
-      // updated_at 비교해서 더 최신이면 갱신
       const localTime  = currentAcademy.updated_at || '';
       const remoteTime = fresh.updated_at || '';
       if(!localTime || remoteTime >= localTime){
@@ -2147,7 +2145,47 @@ function bootApp(){
         showToast('최신 데이터로 동기화되었습니다.', 'success');
       }
     }).catch(()=>{});
+
+    // ── Supabase Realtime 구독 (다른 기기 변경 시 자동 반영) ──
+    startRealtimeSync();
   }
+}
+
+let _realtimeChannel = null;
+
+function startRealtimeSync(){
+  if(!_sb || !currentAcademy?.id) return;
+  // 기존 구독 있으면 제거
+  if(_realtimeChannel){ _sb.removeChannel(_realtimeChannel); _realtimeChannel = null; }
+
+  _realtimeChannel = _sb
+    .channel('academy-sync-'+currentAcademy.id)
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'academies',
+      filter: `id=eq.${currentAcademy.id}`
+    }, async (payload) => {
+      // 내가 저장한 변경은 무시 (updated_at이 같으면 skip)
+      const incoming = payload.new?.data;
+      if(!incoming) return;
+      const incomingTime = incoming.updated_at || '';
+      const localTime    = currentAcademy.updated_at || '';
+      if(incomingTime && incomingTime <= localTime) return;
+
+      // 다른 기기에서 변경된 데이터 → 자동 반영
+      currentAcademy = incoming;
+      localSaveAcademy(incoming);
+      refreshAll();
+
+      // 토스트 (화면이 이미 열려있을 때만)
+      showToast('🔄 다른 기기에서 변경된 내용이 반영되었습니다.', 'success');
+    })
+    .subscribe((status) => {
+      if(status === 'SUBSCRIBED'){
+        console.log('[Realtime] 실시간 동기화 연결됨');
+      }
+    });
 }
 
 function refreshAll(){
