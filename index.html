@@ -6506,7 +6506,6 @@ setTimeout(()=>{
   }
 
   if(sess?.screen === 'academy' && sess?.academyId){
-    showLoading();
     try {
       const fresh = await sbLoadAcademy(sess.academyId);
       if(fresh){
@@ -6518,31 +6517,12 @@ setTimeout(()=>{
         }
       }
     } catch(e){ console.error('세션 복원 오류:', e); }
-    // Supabase 실패 시 로그인 화면으로
-    S.del('session');
-    showAuthScreen(); return;
-  }
-    // localStorage에 데이터 없음 → Supabase에서 로드 시도
-    if(_sb){
-      const fresh = await sbLoadAcademy(sess.academyId);
-      if(fresh){
-        const user = (fresh.users||[]).find(u=>u.id===sess.userId);
-        if(user){
-          if(sess?.fromSuperAdmin || sess?.superAdmin) _isSuperAdmin = true;
-          currentUser=user; currentAcademy=fresh;
-          localSaveAcademy(fresh);
-          bootApp(); return;
-        }
-      }
-    }
-    // 그래도 못 찾으면 로그인 화면
     S.del('session');
     showAuthScreen(); return;
   }
 
   // ── 1) 기존 세션 호환 (screen 없음) ───────────────
   if(sess?.academyId && !sess?.screen){
-    showLoading();
     try {
       const fresh = await sbLoadAcademy(sess.academyId);
       if(fresh){
@@ -6569,15 +6549,6 @@ setTimeout(()=>{
       if(found){
         currentUser    = found.user;
         currentAcademy = found.academy;
-        const fresh = await sbLoadAcademy(currentAcademy.id);
-        if(fresh){
-          const localTime  = currentAcademy.updated_at || '';
-          const remoteTime = fresh.updated_at || '';
-          if(!localTime || (remoteTime && remoteTime > localTime)){
-            currentAcademy = fresh;
-          }
-          localSaveAcademy(currentAcademy);
-        }
         bootApp(); return;
       }
     }
