@@ -2167,15 +2167,15 @@ function safeSyncFromSupabase(id){
     if(!fresh) return;
     const localTime  = currentAcademy?.updated_at || '';
     const remoteTime = fresh.updated_at || '';
-    // 원격이 더 최신일 때만 반영
     if(remoteTime && localTime && remoteTime <= localTime) return;
-    if(!remoteTime && localTime) return; // 원격에 시간 없으면 로컬 우선
+    if(!remoteTime && localTime) return;
     currentAcademy = fresh;
     localSaveAcademy(fresh);
     refreshAll();
-    console.log('[Sync] 원격 데이터 적용:', remoteTime, '>', localTime);
   }).catch(()=>{});
 }
+
+function startRealtimeSync(){
   if(!_sb || !currentAcademy?.id) return;
   if(_realtimeChannel){ _sb.removeChannel(_realtimeChannel); _realtimeChannel = null; }
 
