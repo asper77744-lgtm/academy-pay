@@ -817,12 +817,22 @@ tbody tr:hover td{background:#f8f9ff}
         <div class="card">
           <div class="card-head">
             <h3>💰 수입 및 지출 내역</h3>
-            <span class="badge b-success" id="office-income-sum">0만원</span>
+            <div style="display:flex;gap:6px;align-items:center">
+              <span class="badge b-success" id="office-income-sum">수입 0</span>
+              <span class="badge b-danger" id="office-expense-sum">지출 0</span>
+            </div>
           </div>
           <div class="card-body">
-            <p style="font-size:12px;color:var(--text2);margin-bottom:12px">
-              선택한 월의 수납 내역 기반 수입 집계표.<br>학생별 납부 금액 및 합계 포함.
-            </p>
+            <!-- 지출 내역 관리 -->
+            <div style="margin-bottom:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <span style="font-size:12px;font-weight:600;color:var(--text2)">이달 지출 내역</span>
+                <button class="btn btn-neutral btn-sm" onclick="openExpenseModal()">+ 지출 추가</button>
+              </div>
+              <div id="office-expense-list" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+                <div style="padding:12px;text-align:center;font-size:12px;color:var(--text3)">지출 내역이 없습니다</div>
+              </div>
+            </div>
             <div style="margin-bottom:10px">
               <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
                 <input type="checkbox" id="office-income-paid-only" checked/>
@@ -1648,6 +1658,33 @@ tbody tr:hover td{background:#f8f9ff}
 </div>
 
 <!-- ══ 영수증 원부 출력 모달 ══ -->
+<!-- 지출 추가 모달 -->
+<div class="modal-overlay" id="m-expense">
+  <div class="modal" style="max-width:400px">
+    <h2>💸 지출 내역 추가</h2>
+    <div class="ff">
+      <label>날짜 *</label>
+      <input type="date" id="exp-date"/>
+    </div>
+    <div class="ff">
+      <label>항목 *</label>
+      <input type="text" id="exp-label" placeholder="예: 임대료, 교재비, 공과금..."/>
+    </div>
+    <div class="ff">
+      <label>금액 (원) *</label>
+      <input type="number" id="exp-amount" placeholder="예: 500000" min="0"/>
+    </div>
+    <div class="ff">
+      <label>비고</label>
+      <input type="text" id="exp-note" placeholder="선택사항"/>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-neutral" onclick="closeModal('m-expense')">취소</button>
+      <button class="btn btn-primary" onclick="saveExpense()">저장</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="m-receipt">
   <div class="modal" style="max-width:420px">
     <h2>🖨️ 교습비등 영수증 원부 출력</h2>
@@ -5232,12 +5269,16 @@ function updateOfficeCounts(){
   const active = students.filter(s=>isActiveStudent(s));
   const mPays  = payments.filter(p=>p.month===ym_&&p.amount>0);
   const income = mPays.reduce((a,p)=>a+p.amount,0);
+  const expenses = getExpenses(ym_);
+  const expTotal = expenses.reduce((a,e)=>a+e.amount,0);
   const tActive= (teachers||[]).filter(t=>t.status==='active');
   const el = id => document.getElementById(id);
   if(el('office-student-cnt')) el('office-student-cnt').textContent=active.length+'명';
-  if(el('office-income-sum'))  el('office-income-sum').textContent=fmt(income)+'만원';
+  if(el('office-income-sum'))  el('office-income-sum').textContent='수입 '+(income*10000).toLocaleString()+'원';
+  if(el('office-expense-sum')) el('office-expense-sum').textContent='지출 '+expTotal.toLocaleString()+'원';
   if(el('office-receipt-cnt')) el('office-receipt-cnt').textContent=mPays.length+'건';
   if(el('office-teacher-cnt')) el('office-teacher-cnt').textContent=tActive.length+'명';
+  renderExpenseList();
 }
 
 function toggleColChip(cb){
@@ -5331,57 +5372,160 @@ function printStudentLedger(){
     <div style="margin-top:24px;text-align:right;font-size:12px">원장: ${academy.ownerName||''} (인)</div>`);
 }
 
-// ── 수입 및 지출 내역 ──────────────────────────────────
+// ── 지출 관리 ────────────────────────────────────────
+function getExpenses(ym){
+  return ((currentAcademy.expenses||{})[ym]||[]);
+}
+
+function openExpenseModal(){
+  const year  = parseInt(document.getElementById('office-year').value);
+  const month = parseInt(document.getElementById('office-month').value);
+  const ym_   = `${year}-${String(month).padStart(2,'0')}`;
+  document.getElementById('exp-date').value = `${ym_}-01`;
+  document.getElementById('exp-label').value = '';
+  document.getElementById('exp-amount').value = '';
+  document.getElementById('exp-note').value = '';
+  openModal('m-expense');
+}
+
+function saveExpense(){
+  const date   = document.getElementById('exp-date').value;
+  const label  = document.getElementById('exp-label').value.trim();
+  const amount = parseInt(document.getElementById('exp-amount').value)||0;
+  const note   = document.getElementById('exp-note').value.trim();
+  if(!date||!label||!amount){ showToast('날짜, 항목, 금액을 입력해주세요.','error'); return; }
+  const ym_ = date.slice(0,7);
+  if(!currentAcademy.expenses) currentAcademy.expenses = {};
+  if(!currentAcademy.expenses[ym_]) currentAcademy.expenses[ym_] = [];
+  currentAcademy.expenses[ym_].push({id:uid(), date, label, amount, note});
+  currentAcademy.expenses[ym_].sort((a,b)=>a.date.localeCompare(b.date));
+  saveAcademy();
+  closeModal('m-expense');
+  renderExpenseList();
+  updateOfficeCounts();
+  showToast('지출 내역이 추가되었습니다.','success');
+}
+
+function deleteExpense(ym_, id){
+  if(!confirm('삭제하시겠습니까?')) return;
+  currentAcademy.expenses[ym_] = (currentAcademy.expenses[ym_]||[]).filter(e=>e.id!==id);
+  saveAcademy();
+  renderExpenseList();
+  updateOfficeCounts();
+}
+
+function renderExpenseList(){
+  const year  = parseInt(document.getElementById('office-year')?.value);
+  const month = parseInt(document.getElementById('office-month')?.value);
+  const ym_   = `${year}-${String(month).padStart(2,'0')}`;
+  const list  = getExpenses(ym_);
+  const el    = document.getElementById('office-expense-list');
+  if(!el) return;
+  if(!list.length){
+    el.innerHTML = '<div style="padding:12px;text-align:center;font-size:12px;color:var(--text3)">지출 내역이 없습니다</div>';
+    return;
+  }
+  el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="background:var(--surface2)">
+      <th style="padding:6px 8px;text-align:left;font-weight:600">날짜</th>
+      <th style="padding:6px 8px;text-align:left;font-weight:600">항목</th>
+      <th style="padding:6px 8px;text-align:right;font-weight:600">금액</th>
+      <th style="padding:6px 8px;width:32px"></th>
+    </tr></thead>
+    <tbody>${list.map(e=>`<tr style="border-top:1px solid var(--border)">
+      <td style="padding:6px 8px;color:var(--text2)">${e.date}</td>
+      <td style="padding:6px 8px">${e.label}${e.note?`<span style="color:var(--text3);font-size:11px"> (${e.note})</span>`:''}</td>
+      <td style="padding:6px 8px;text-align:right;color:var(--danger);font-weight:600">${Number(e.amount).toLocaleString()}원</td>
+      <td style="padding:6px 8px;text-align:center">
+        <button onclick="deleteExpense('${ym_}','${e.id}')"
+          style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:13px">🗑</button>
+      </td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+// ── 수입 및 지출 내역 출력 ─────────────────────────────
 function printIncomeReport(){
-  const year   = parseInt(document.getElementById('office-year').value);
-  const month  = parseInt(document.getElementById('office-month').value);
-  const ym_    = `${year}-${String(month).padStart(2,'0')}`;
+  const year     = parseInt(document.getElementById('office-year').value);
+  const month    = parseInt(document.getElementById('office-month').value);
+  const ym_      = `${year}-${String(month).padStart(2,'0')}`;
   const paidOnly = document.getElementById('office-income-paid-only').checked;
-  const {students,payments} = currentAcademy;
-  const academy = currentAcademy;
+  const {students, payments} = currentAcademy;
+  const academy  = currentAcademy;
 
-  const targets = payments
-    .filter(p=>p.month===ym_&&p.amount>0&&(paidOnly?p.status==='paid':true))
-    .map(p=>({p, s:students.find(s=>s.id===p.studentId)}))
-    .filter(x=>x.s)
-    .sort((a,b)=>a.s.name.localeCompare(b.s.name,'ko'));
+  // 수입 항목 (수납)
+  const incomeItems = payments
+    .filter(p=>p.month===ym_ && p.amount>0 && (paidOnly?p.status==='paid':true))
+    .map(p=>{
+      const s = students.find(x=>x.id===p.studentId);
+      return { date: p.date||ym_+'-01', label: s?.name||'-', note: getEnrollments(s).map(e=>e.subject||e.className).filter(Boolean).join(',')||'',
+        amount: p.amount*10000, type:'income' };
+    });
 
-  const total = targets.reduce((a,x)=>a+x.p.amount,0);
+  // 지출 항목
+  const expenseItems = getExpenses(ym_).map(e=>({
+    date: e.date, label: e.label, note: e.note||'',
+    amount: e.amount, type:'expense'
+  }));
 
-  const rows = targets.map((x,i)=>{
-    const enrs = getEnrollments(x.s);
-    const subj = enrs.map(e=>e.subject||e.className).filter(Boolean).join(', ')||'-';
-    const amtWon = x.p.amount*10000;
+  // 날짜순 정렬
+  const allItems = [...incomeItems, ...expenseItems]
+    .sort((a,b)=>a.date.localeCompare(b.date));
+
+  // 누적 합계
+  let cumulative = 0;
+  const rows = allItems.map((item, i)=>{
+    if(item.type==='income') cumulative += item.amount;
+    else cumulative -= item.amount;
+    const incomeCell = item.type==='income'
+      ? `<td style="text-align:right;color:#16a34a;font-weight:600">${item.amount.toLocaleString()}</td><td></td>`
+      : `<td></td><td style="text-align:right;color:#dc2626;font-weight:600">${item.amount.toLocaleString()}</td>`;
     return `<tr>
-      <td>${i+1}</td>
-      <td><strong>${x.s.name}</strong></td>
-      <td>${subj}</td>
-      <td style="text-align:right">${amtWon.toLocaleString()}원</td>
-      <td>${x.p.date||'-'}</td>
-      <td>${{paid:'완료',partial:'부분납부',pending:'미납'}[x.p.status]||'-'}</td>
-      <td>${x.p.method||'-'}</td>
-      <td>${x.p.note||''}</td>
+      <td style="text-align:center">${i+1}</td>
+      <td>${item.date}</td>
+      <td>${item.label}</td>
+      <td style="color:#666;font-size:10px">${item.note}</td>
+      ${incomeCell}
+      <td style="text-align:right;font-weight:700;color:${cumulative>=0?'#1d4ed8':'#dc2626'}">${cumulative.toLocaleString()}</td>
     </tr>`;
   }).join('');
 
-  openPrintWindow(`수입 내역 — ${year}년 ${month}월`, `
+  const totalIncome  = incomeItems.reduce((a,x)=>a+x.amount, 0);
+  const totalExpense = expenseItems.reduce((a,x)=>a+x.amount, 0);
+  const net = totalIncome - totalExpense;
+
+  openPrintWindow(`수입 및 지출 내역 — ${year}년 ${month}월`,`
     <h2 style="text-align:center;margin-bottom:4px">수입 및 지출 내역</h2>
-    <p style="text-align:center;font-size:12px;margin-bottom:16px">
-      학원명: <strong>${academy.name}</strong> &nbsp;|&nbsp; 기준: <strong>${year}년 ${month}월</strong> &nbsp;|&nbsp; 총 ${targets.length}건
+    <p style="text-align:center;font-size:12px;margin-bottom:4px">
+      학원명: <strong>${academy.name}</strong> &nbsp;|&nbsp; <strong>${year}년 ${month}월</strong>
     </p>
+    <div style="display:flex;justify-content:center;gap:24px;font-size:12px;margin-bottom:16px;padding:8px;background:#f8f9fa;border-radius:6px">
+      <span>총 수입: <strong style="color:#16a34a">${totalIncome.toLocaleString()}원</strong></span>
+      <span>총 지출: <strong style="color:#dc2626">${totalExpense.toLocaleString()}원</strong></span>
+      <span>순이익: <strong style="color:${net>=0?'#1d4ed8':'#dc2626'}">${net.toLocaleString()}원</strong></span>
+    </div>
     <table>
       <thead><tr>
-        <th>번호</th><th>학생명</th><th>교습과목</th><th style="text-align:right">금액</th>
-        <th>납부일</th><th>상태</th><th>납부방법</th><th>비고</th>
+        <th style="text-align:center;width:5%">번호</th>
+        <th style="width:11%">날짜</th>
+        <th style="width:14%">이름/항목</th>
+        <th style="width:12%">비고</th>
+        <th style="text-align:right;width:13%;color:#16a34a">수입(원)</th>
+        <th style="text-align:right;width:13%;color:#dc2626">지출(원)</th>
+        <th style="text-align:right;width:14%">누계(원)</th>
       </tr></thead>
       <tbody>${rows}</tbody>
-      <tfoot><tr style="background:#f0f0f0;font-weight:700">
-        <td colspan="3" style="text-align:right">합계</td>
-        <td style="text-align:right">${(total*10000).toLocaleString()}원</td>
-        <td colspan="4"></td>
-      </tr></tfoot>
+      <tfoot>
+        <tr style="background:#f0f0f0;font-weight:700;border-top:2px solid #999">
+          <td colspan="4" style="text-align:right">합계</td>
+          <td style="text-align:right;color:#16a34a">${totalIncome.toLocaleString()}</td>
+          <td style="text-align:right;color:#dc2626">${totalExpense.toLocaleString()}</td>
+          <td style="text-align:right;color:${net>=0?'#1d4ed8':'#dc2626'}">${net.toLocaleString()}</td>
+        </tr>
+      </tfoot>
     </table>
-    <div style="margin-top:24px;text-align:right;font-size:12px">원장: ${academy.ownerName||''} (인)</div>`);
+    <div style="margin-top:24px;text-align:right;font-size:12px">원장: ${academy.ownerName||''} (인)</div>
+  `);
 }
 
 // ── 영수증 원부 (교육청 메뉴에서) ──────────────────────
