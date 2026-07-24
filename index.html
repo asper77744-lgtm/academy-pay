@@ -1821,13 +1821,16 @@ function initPhoneInput(elOrId){
 async function sbSaveAcademy(academy){
   if(!_sb){ localSaveAcademy(academy); return; }
   const now_iso = new Date().toISOString();
-  academy.updated_at = now_iso; // data 안에 타임스탬프 포함
+  academy.updated_at = now_iso;
+  localSaveAcademy(academy); // 로컬 먼저 저장
   const { error } = await _sb.from('academies').upsert({
     id: academy.id,
     data: academy,
     updated_at: now_iso
   }, { onConflict: 'id' });
-  if(error) { console.error('저장 오류:', error.message); localSaveAcademy(academy); }
+  if(error){
+    console.error('Supabase 저장 오류:', error.message);
+  }
 }
 
 async function sbLoadAcademy(id){
@@ -2227,10 +2230,7 @@ function refreshAll(){
 }
 
 function saveAcademy(){
-  // 로컬 즉시 저장 (UI 반응성 유지)
-  localSaveAcademy(currentAcademy);
-  // Supabase 비동기 저장 (백그라운드)
-  sbSaveAcademy(currentAcademy);
+  sbSaveAcademy(currentAcademy); // async — updated_at 포함 저장
 }
 
 // ════════════════════════════════════════════════════════
@@ -6531,16 +6531,31 @@ setTimeout(()=>{
   }
 
   if(sess?.screen === 'academy' && sess?.academyId){
+    // 항상 Supabase에서 최신 데이터 로드
+    if(_sb){
+      const fresh = await sbLoadAcademy(sess.academyId);
+      if(fresh){
+        const acads = S.get('academies')||{};
+        const acad = acads[sess.academyId]||fresh;
+        const user = (fresh.users||[]).find(u=>u.id===sess.userId);
+        if(user){
+          if(sess?.fromSuperAdmin||sess?.superAdmin) _isSuperAdmin=true;
+          currentUser=user; currentAcademy=fresh;
+          localSaveAcademy(fresh);
+          bootApp();
+          return;
+        }
+      }
+    }
+    // Supabase 실패 시 LocalStorage 폴백
     const acads = S.get('academies')||{};
     const acad  = acads[sess.academyId];
     if(acad){
       const user = (acad.users||[]).find(u=>u.id===sess.userId);
       if(user){
-        if(sess?.fromSuperAdmin || sess?.superAdmin) _isSuperAdmin = true;
+        if(sess?.fromSuperAdmin||sess?.superAdmin) _isSuperAdmin=true;
         currentUser=user; currentAcademy=acad;
         bootApp();
-        // 백그라운드 Supabase 동기화 (로컬이 더 최신이면 무시)
-        safeSyncFromSupabase(acad.id);
         return;
       }
     }
@@ -6564,15 +6579,26 @@ setTimeout(()=>{
 
   // ── 1) 기존 세션 호환 (screen 없음) ───────────────
   if(sess?.academyId && !sess?.screen){
+    if(_sb){
+      const fresh = await sbLoadAcademy(sess.academyId);
+      if(fresh){
+        const user = (fresh.users||[]).find(u=>u.id===sess.userId);
+        if(user){
+          if(sess?.fromSuperAdmin||sess?.superAdmin) _isSuperAdmin=true;
+          currentUser=user; currentAcademy=fresh;
+          localSaveAcademy(fresh);
+          bootApp(); return;
+        }
+      }
+    }
     const acads = S.get('academies')||{};
     const acad  = acads[sess.academyId];
     if(acad){
       const user = (acad.users||[]).find(u=>u.id===sess.userId);
       if(user){
-        if(sess?.fromSuperAdmin || sess?.superAdmin) _isSuperAdmin = true;
+        if(sess?.fromSuperAdmin||sess?.superAdmin) _isSuperAdmin=true;
         currentUser=user; currentAcademy=acad;
         bootApp();
-        safeSyncFromSupabase(acad.id);
         return;
       }
     }
