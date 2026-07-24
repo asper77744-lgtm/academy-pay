@@ -2148,10 +2148,25 @@ function bootApp(){
 
     // ── Supabase Realtime 구독 (다른 기기 변경 시 자동 반영) ──
     startRealtimeSync();
+    // ── Keep-Alive (무료 플랜 자동 중지 방지) ──
+    startKeepAlive();
   }
 }
 
 let _realtimeChannel = null;
+
+// ── Supabase Keep-Alive (무료 플랜 자동 중지 방지) ──────
+// 무료 플랜은 7일 비활성 시 일시정지 → 3일마다 ping
+function startKeepAlive(){
+  if(!_sb) return;
+  const ping = () => {
+    _sb.from('academies').select('id').limit(1)
+      .then(()=>console.log('[KeepAlive] Supabase ping 성공', new Date().toLocaleString()))
+      .catch(()=>{});
+  };
+  ping(); // 즉시 1회
+  setInterval(ping, 1000 * 60 * 60 * 24 * 3); // 3일마다
+}
 
 function startRealtimeSync(){
   if(!_sb || !currentAcademy?.id) return;
