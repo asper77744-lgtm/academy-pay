@@ -495,6 +495,8 @@ tbody tr:hover td{background:#f8f9ff}
       <div class="sb-section-label">분석</div>
       <div class="sb-item" onclick="nav('stats',this)"><span class="ico">📈</span>통계/리포트</div>
       <div class="sb-item" onclick="nav('sms',this)"><span class="ico">📱</span>문자 알림</div>
+      <div class="sb-section-label">교육청 서류</div>
+      <div class="sb-item" onclick="nav('office',this)"><span class="ico">🏛️</span>교육청 출력</div>
       <div class="sb-section-label" id="sb-admin-label">관리</div>
       <div class="sb-item" id="sb-settings-item" onclick="nav('settings',this)"><span class="ico">⚙️</span>학원 설정</div>
       <div class="sb-item" id="sb-users-item" onclick="nav('users',this)"><span class="ico">🔑</span>사용자 관리</div>
@@ -765,6 +767,115 @@ tbody tr:hover td{background:#f8f9ff}
       </div>
       <div class="card"><div class="card-head"><h3>월별 상세 수납 현황</h3></div>
         <div style="padding:0"><table><thead><tr><th>월</th><th>청구총액</th><th>수납총액</th><th>미납총액</th><th>수납률</th><th>학생수</th></tr></thead><tbody id="stats-monthly-tbody"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- ── 교육청 서류 ── -->
+    <div class="page" id="page-office">
+      <div class="ph">
+        <div class="ph-left"><h1>🏛️ 교육청 서류 출력</h1><p>교육청 제출용 서류를 출력합니다.</p></div>
+      </div>
+
+      <!-- 출력 기간 설정 -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-head"><h3>출력 설정</h3></div>
+        <div class="card-body">
+          <div class="frow" style="gap:16px;align-items:flex-end">
+            <div class="ff">
+              <label>기준 연도</label>
+              <select id="office-year" class="fs" style="width:100%"></select>
+            </div>
+            <div class="ff">
+              <label>기준 월 <span style="font-size:11px;color:var(--text3)">(해당없는 서류는 전체기간)</span></label>
+              <select id="office-month" class="fs" style="width:100%"></select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 서류 목록 -->
+      <div class="grid-2col" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+        <!-- 수강생 대장 -->
+        <div class="card">
+          <div class="card-head">
+            <h3>📋 수강생 대장</h3>
+            <span class="badge b-info" id="office-student-cnt">0명</span>
+          </div>
+          <div class="card-body">
+            <p style="font-size:12px;color:var(--text2);margin-bottom:12px">
+              현재 재원 중인 학생 전체 명단.<br>학원 등록증, 교습 과목, 수강료 포함.
+            </p>
+            <div style="margin-bottom:10px">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" id="office-active-only" checked/>
+                재원 학생만 출력 (체험/퇴원 제외)
+              </label>
+            </div>
+            <button class="btn btn-primary" onclick="printStudentLedger()" style="width:100%">🖨️ 출력</button>
+          </div>
+        </div>
+
+        <!-- 수입 및 지출 내역 -->
+        <div class="card">
+          <div class="card-head">
+            <h3>💰 수입 및 지출 내역</h3>
+            <span class="badge b-success" id="office-income-sum">0만원</span>
+          </div>
+          <div class="card-body">
+            <p style="font-size:12px;color:var(--text2);margin-bottom:12px">
+              선택한 월의 수납 내역 기반 수입 집계표.<br>학생별 납부 금액 및 합계 포함.
+            </p>
+            <div style="margin-bottom:10px">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" id="office-income-paid-only" checked/>
+                납부 완료 건만 포함
+              </label>
+            </div>
+            <button class="btn btn-primary" onclick="printIncomeReport()" style="width:100%">🖨️ 출력</button>
+          </div>
+        </div>
+
+        <!-- 영수증 원부 -->
+        <div class="card">
+          <div class="card-head">
+            <h3>🧾 교습비등 영수증 원부</h3>
+            <span class="badge b-purple" id="office-receipt-cnt">0건</span>
+          </div>
+          <div class="card-body">
+            <p style="font-size:12px;color:var(--text2);margin-bottom:12px">
+              A4 1장에 4개씩 출력. 점선으로 절취하여 보관.<br>교육청 제출 및 학원 보관용.
+            </p>
+            <div style="margin-bottom:10px">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" id="office-receipt-paid-only" checked/>
+                납부 완료 학생만 출력
+              </label>
+            </div>
+            <button class="btn btn-primary" onclick="printOfficeReceipts()" style="width:100%">🖨️ 출력</button>
+          </div>
+        </div>
+
+        <!-- 직원 명부 -->
+        <div class="card">
+          <div class="card-head">
+            <h3>👨‍🏫 직원 명부</h3>
+            <span class="badge b-warning" id="office-teacher-cnt">0명</span>
+          </div>
+          <div class="card-body">
+            <p style="font-size:12px;color:var(--text2);margin-bottom:12px">
+              소속 강사 및 직원 명단.<br>이름, 생년월일, 담당과목, 자격증 포함.
+            </p>
+            <div style="margin-bottom:10px">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+                <input type="checkbox" id="office-active-teachers" checked/>
+                재직 중인 강사만 출력
+              </label>
+            </div>
+            <button class="btn btn-primary" onclick="printTeacherLedger()" style="width:100%">🖨️ 출력</button>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -2032,10 +2143,12 @@ function nav(name,el){
   if(el) el.classList.add('active');
   // 모바일: 메뉴 선택 후 사이드바 닫기
   closeMobMenu();
+  // 페이지별 초기화
+  if(name==='office') initOfficePage();
   // 모바일 topbar 제목 업데이트
   const titles={dashboard:'대시보드',students:'학생 관리',payments:'수납 내역',
     classes:'과목/반 관리',teachers:'선생님 관리',unpaid:'미납 관리',
-    stats:'통계/리포트',sms:'문자 알림',settings:'설정'};
+    stats:'통계/리포트',sms:'문자 알림',office:'교육청 서류',settings:'설정'};
   const t=document.getElementById('mob-topbar-title');
   if(t) t.textContent=titles[name]||'AcademyPay';
 }
@@ -5053,6 +5166,222 @@ function initStatsYear(){
   sel.innerHTML=[y,y-1,y-2].map(yr=>`<option ${yr===y?'selected':''}>${yr}</option>`).join('');
 }
 
+
+// ════════════════════════════════════════════════════════
+// 교육청 서류
+// ════════════════════════════════════════════════════════
+function initOfficePage(){
+  const y = now().getFullYear();
+  const yearSel = document.getElementById('office-year');
+  const monSel  = document.getElementById('office-month');
+  if(!yearSel) return;
+  yearSel.innerHTML = [y,y-1,y-2].map(yr=>`<option ${yr===y?'selected':''}>${yr}</option>`).join('');
+  monSel.innerHTML  = Array.from({length:12},(_,i)=>`<option value="${i+1}" ${i===now().getMonth()?'selected':''}>${i+1}월</option>`).join('');
+  yearSel.onchange = monSel.onchange = updateOfficeCounts;
+  updateOfficeCounts();
+}
+
+function updateOfficeCounts(){
+  const year  = parseInt(document.getElementById('office-year')?.value);
+  const month = parseInt(document.getElementById('office-month')?.value);
+  const ym_   = `${year}-${String(month).padStart(2,'0')}`;
+  const {students,payments,teachers} = currentAcademy;
+  const active = students.filter(s=>isActiveStudent(s));
+  const mPays  = payments.filter(p=>p.month===ym_&&p.amount>0);
+  const income = mPays.reduce((a,p)=>a+p.amount,0);
+  const tActive= (teachers||[]).filter(t=>t.status==='active');
+  const el = id => document.getElementById(id);
+  if(el('office-student-cnt')) el('office-student-cnt').textContent=active.length+'명';
+  if(el('office-income-sum'))  el('office-income-sum').textContent=fmt(income)+'만원';
+  if(el('office-receipt-cnt')) el('office-receipt-cnt').textContent=mPays.length+'건';
+  if(el('office-teacher-cnt')) el('office-teacher-cnt').textContent=tActive.length+'명';
+}
+
+// ── 수강생 대장 ──────────────────────────────────────
+function printStudentLedger(){
+  const activeOnly = document.getElementById('office-active-only').checked;
+  const {students,classes} = currentAcademy;
+  const list = activeOnly ? students.filter(s=>isActiveStudent(s)) : students.filter(s=>s.status!=='withdrawn');
+  list.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+
+  const academy = currentAcademy;
+  const printDate = now().toISOString().slice(0,10);
+
+  const rows = list.map((s,i)=>{
+    const enrs = getEnrollments(s);
+    const subj = enrs.map(e=>e.subject||e.className).filter(Boolean).join(', ')||'-';
+    const fee  = calcTotalFee(s);
+    const cls  = enrs.map(e=>{const c=getClass(e.classId);return c?.name||''}).filter(Boolean).join(', ')||'-';
+    const status = {active:'재원',trial:'체험',readmitted:'재입학',withdrawn:'퇴원',trial_end:'체험종료'}[s.status]||s.status;
+    return `<tr>
+      <td>${i+1}</td>
+      <td><strong>${s.name}</strong></td>
+      <td>${s.phone||'-'}</td>
+      <td>${s.school||'-'}</td>
+      <td>${s.grade||'-'}</td>
+      <td>${subj}</td>
+      <td>${cls}</td>
+      <td style="text-align:right">${fee}만원</td>
+      <td>${s.payDay||academy.payDay||25}일</td>
+      <td>${s.start||'-'}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+
+  openPrintWindow(`수강생 대장 — ${academy.name}`, `
+    <h2 style="text-align:center;margin-bottom:4px">수강생 대장</h2>
+    <p style="text-align:center;font-size:12px;margin-bottom:16px">학원명: <strong>${academy.name}</strong> &nbsp;|&nbsp; 출력일: ${printDate} &nbsp;|&nbsp; 총 ${list.length}명</p>
+    <table>
+      <thead><tr>
+        <th>번호</th><th>이름</th><th>연락처</th><th>학교</th><th>학년</th>
+        <th>교습과목</th><th>반</th><th>수강료</th><th>결제일</th><th>등록일</th><th>상태</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:24px;text-align:right;font-size:12px">
+      원장: ${academy.ownerName||''} (인)
+    </div>`);
+}
+
+// ── 수입 및 지출 내역 ──────────────────────────────────
+function printIncomeReport(){
+  const year   = parseInt(document.getElementById('office-year').value);
+  const month  = parseInt(document.getElementById('office-month').value);
+  const ym_    = `${year}-${String(month).padStart(2,'0')}`;
+  const paidOnly = document.getElementById('office-income-paid-only').checked;
+  const {students,payments} = currentAcademy;
+  const academy = currentAcademy;
+
+  const targets = payments
+    .filter(p=>p.month===ym_&&p.amount>0&&(paidOnly?p.status==='paid':true))
+    .map(p=>({p, s:students.find(s=>s.id===p.studentId)}))
+    .filter(x=>x.s)
+    .sort((a,b)=>a.s.name.localeCompare(b.s.name,'ko'));
+
+  const total = targets.reduce((a,x)=>a+x.p.amount,0);
+
+  const rows = targets.map((x,i)=>{
+    const enrs = getEnrollments(x.s);
+    const subj = enrs.map(e=>e.subject||e.className).filter(Boolean).join(', ')||'-';
+    const amtWon = x.p.amount*10000;
+    return `<tr>
+      <td>${i+1}</td>
+      <td><strong>${x.s.name}</strong></td>
+      <td>${subj}</td>
+      <td style="text-align:right">${amtWon.toLocaleString()}원</td>
+      <td>${x.p.date||'-'}</td>
+      <td>${{paid:'완료',partial:'부분납부',pending:'미납'}[x.p.status]||'-'}</td>
+      <td>${x.p.method||'-'}</td>
+      <td>${x.p.note||''}</td>
+    </tr>`;
+  }).join('');
+
+  openPrintWindow(`수입 내역 — ${year}년 ${month}월`, `
+    <h2 style="text-align:center;margin-bottom:4px">수입 및 지출 내역</h2>
+    <p style="text-align:center;font-size:12px;margin-bottom:16px">
+      학원명: <strong>${academy.name}</strong> &nbsp;|&nbsp; 기준: <strong>${year}년 ${month}월</strong> &nbsp;|&nbsp; 총 ${targets.length}건
+    </p>
+    <table>
+      <thead><tr>
+        <th>번호</th><th>학생명</th><th>교습과목</th><th style="text-align:right">금액</th>
+        <th>납부일</th><th>상태</th><th>납부방법</th><th>비고</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr style="background:#f0f0f0;font-weight:700">
+        <td colspan="3" style="text-align:right">합계</td>
+        <td style="text-align:right">${(total*10000).toLocaleString()}원</td>
+        <td colspan="4"></td>
+      </tr></tfoot>
+    </table>
+    <div style="margin-top:24px;text-align:right;font-size:12px">원장: ${academy.ownerName||''} (인)</div>`);
+}
+
+// ── 영수증 원부 (교육청 메뉴에서) ──────────────────────
+function printOfficeReceipts(){
+  const year   = parseInt(document.getElementById('office-year').value);
+  const month  = parseInt(document.getElementById('office-month').value);
+  const ym_    = `${year}-${String(month).padStart(2,'0')}`;
+  // 수납 내역 모달과 동일한 함수 재활용
+  const selM = document.getElementById('receipt-month');
+  if(selM){
+    // 해당 월이 없으면 추가
+    let found = false;
+    for(let o of selM.options){ if(o.value===ym_){found=true;break;} }
+    if(!found){const o=document.createElement('option');o.value=ym_;o.textContent=ym_.replace('-','년 ')+'월';selM.appendChild(o);}
+    selM.value = ym_;
+  }
+  const paidOnly = document.getElementById('office-receipt-paid-only').checked;
+  const cbEl = document.getElementById('receipt-paid-only');
+  if(cbEl) cbEl.checked = paidOnly;
+  printReceipts();
+}
+
+// ── 직원 명부 ──────────────────────────────────────────
+function printTeacherLedger(){
+  const activeOnly = document.getElementById('office-active-teachers').checked;
+  const {teachers,classes} = currentAcademy;
+  const academy = currentAcademy;
+  const printDate = now().toISOString().slice(0,10);
+  const list = (teachers||[]).filter(t=>activeOnly?t.status==='active':true);
+  list.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+
+  const rows = list.map((t,i)=>{
+    const tCls = (classes||[]).filter(c=>(t.classIds||[]).includes(c.id));
+    const subj = [...new Set(tCls.map(c=>c.subject))].join(', ')||'-';
+    const clsNames = tCls.map(c=>c.name).join(', ')||'-';
+    const status = t.status==='active'?'재직':'퇴직';
+    return `<tr>
+      <td>${i+1}</td>
+      <td><strong>${t.name}</strong></td>
+      <td>${t.birth||'-'}</td>
+      <td>${t.phone||'-'}</td>
+      <td>${t.email||'-'}</td>
+      <td>${subj}</td>
+      <td>${clsNames}</td>
+      <td>${t.cert||'-'}</td>
+      <td>${t.edu||'-'}</td>
+      <td>${t.joinDate||'-'}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+
+  openPrintWindow(`직원 명부 — ${academy.name}`, `
+    <h2 style="text-align:center;margin-bottom:4px">직원 명부</h2>
+    <p style="text-align:center;font-size:12px;margin-bottom:16px">
+      학원명: <strong>${academy.name}</strong> &nbsp;|&nbsp; 출력일: ${printDate} &nbsp;|&nbsp; 총 ${list.length}명
+    </p>
+    <table>
+      <thead><tr>
+        <th>번호</th><th>성명</th><th>생년월일</th><th>연락처</th><th>이메일</th>
+        <th>교습과목</th><th>담당반</th><th>자격증</th><th>학력</th><th>입사일</th><th>상태</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:24px;text-align:right;font-size:12px">원장: ${academy.ownerName||''} (인)</div>`);
+}
+
+// ── 공통 출력 창 ────────────────────────────────────────
+function openPrintWindow(title, bodyHtml){
+  const win = window.open('','_blank','width=1000,height=700');
+  win.document.write(`<!DOCTYPE html>
+<html lang="ko"><head>
+<meta charset="UTF-8"><title>${title}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'맑은 고딕','Malgun Gothic',sans-serif;font-size:11px;padding:16mm;color:#000}
+h2{font-size:16px;font-weight:700;margin-bottom:6px}
+table{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px}
+th{background:#f0f0f0;border:1px solid #999;padding:5px 7px;text-align:left;font-weight:600}
+td{border:1px solid #bbb;padding:5px 7px;vertical-align:middle}
+tfoot td{border-top:2px solid #666}
+@page{size:A4;margin:12mm}
+@media print{body{padding:0}}
+</style></head><body>
+${bodyHtml}
+<script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script>
+</body></html>`);
+  win.document.close();
+}
 
 // ════════════════════════════════════════════════════════
 // SMS — DUAL CHANNEL (CoolSMS + 카카오 알림톡)
