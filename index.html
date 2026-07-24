@@ -2333,63 +2333,50 @@ function renderStatsDetail(){
   const curYm = ym();
   const active = students.filter(s=>isActiveStudent(s));
 
-  // 이번달 납부 내역 (완료+부분)
-  const mPays = payments.filter(p=>p.month===curYm && p.amount>0);
-
-  // 학생별 실제 납부액 맵
+  // 이번달 실제 납부액 맵 (완료+부분 모두 포함)
   const paidMap = {};
-  mPays.forEach(p=>{ paidMap[p.studentId]=(paidMap[p.studentId]||0)+p.amount; });
+  payments.filter(p=>p.month===curYm && p.amount>0)
+    .forEach(p=>{ paidMap[p.studentId]=(paidMap[p.studentId]||0)+p.amount; });
 
-  // 수납액 안분 헬퍼 (해당 과목/반 수강료 비율로 안분)
-  function calcPaidAmt(sc, filterFn){
-    return sc.reduce((sum,s)=>{
-      const paid = paidMap[s.id]||0;
-      if(!paid) return sum;
-      const totalFee = calcTotalFee(s)||1;
-      const partFee  = (s.enrollments||[]).filter(e=>filterFn(e,s))
+  // 학생이 해당 필터의 과목을 실제로 납부했는지 판단
+  // 전체 수강료 대비 납부액 비율 → 해당 과목 수강료에 안분
+  // 납부율이 해당 과목 비중 이상이면 납부로 인정
+  function getStats(sc, filterFn){
+    let paidCnt=0, paidAmt=0, expectedAmt=0;
+    sc.forEach(s=>{
+      const totalBase = (s.enrollments||[]).reduce((a,e)=>a+(parseFloat(e.fee)||0),0);
+      if(!totalBase) return;
+      const partBase  = (s.enrollments||[]).filter(e=>filterFn(e))
         .reduce((a,e)=>a+(parseFloat(e.fee)||0),0);
-      return sum + Math.round(paid * partFee / totalFee);
-    },0);
-  }
+      if(!partBase) return;
 
-  // 납부 인원: 해당 반/과목의 수강료를 실제로 충족했는지 확인
-  function calcPaidCnt(sc, filterFn){
-    return sc.filter(s=>{
-      const paid = paidMap[s.id]||0;
-      if(!paid) return false;
-      const totalFee   = calcTotalFee(s)||1;
-      const partFee    = (s.enrollments||[]).filter(e=>filterFn(e,s))
-        .reduce((a,e)=>a+(parseFloat(e.fee)||0),0);
-      // 해당 과목/반의 수강료만큼 납부했는지 비율로 판단
-      // 납부액 중 이 과목에 배분되는 금액 >= 해당 과목 수강료의 80% 이상이면 납부로 인정
-      const allocated = paid * partFee / totalFee;
-      return allocated >= partFee * 0.8;
-    }).length;
-  }
+      const discount     = (s.discounts||[]).reduce((a,d)=>a+(parseFloat(d.amount)||0),0);
+      const afterDisc    = Math.max(0, totalBase - discount);
+      const partExpected = Math.round(afterDisc * partBase / totalBase);
+      expectedAmt += partExpected;
 
-  // 예상 수납액: 할인 적용 후 금액 (calcTotalFee 사용)
-  function calcExpectedFee(sc, filterFn){
-    return sc.reduce((sum,s)=>{
-      const totalBase = (s.enrollments||[]).reduce((a,e)=>a+(parseFloat(e.fee)||0),0)||1;
-      const partBase  = (s.enrollments||[]).filter(e=>filterFn(e,s))
-        .reduce((a,e)=>a+(parseFloat(e.fee)||0),0);
-      const afterDiscount = calcTotalFee(s);
-      // 할인 후 금액을 수강료 비율로 안분
-      return sum + Math.round(afterDiscount * partBase / totalBase);
-    },0);
+      const actualPaid = paidMap[s.id]||0;
+      if(actualPaid <= 0) return;
+
+      // 납부액을 수강료 비율로 안분
+      const partPaid = Math.round(actualPaid * partBase / totalBase);
+      paidAmt += partPaid;
+
+      // 납부 인원: 이 과목의 예상액의 80% 이상 납부됐으면 납부로 인정
+      if(partPaid >= partExpected * 0.8) paidCnt++;
+    });
+    return {paidCnt, paidAmt, expectedAmt};
   }
 
   if(_statsTab === 'subj'){
     const subjects = currentAcademy.subjects || [];
     if(!subjects.length){ panel.innerHTML='<p style="color:var(--text3);font-size:13px">등록된 과목이 없습니다.</p>'; return; }
     const rows = subjects.map(subj=>{
-      const filterFn = (e)=>{ const c=getClass(e.classId); return c&&c.subject===subj; };
+      const filterFn = e=>{ const c=getClass(e.classId); return !!(c&&c.subject===subj); };
       const sc = active.filter(s=>(s.enrollments||[]).some(e=>filterFn(e)));
       if(!sc.length) return '';
-      const totalFee = calcExpectedFee(sc, filterFn);
-      const paidAmt  = calcPaidAmt(sc, filterFn);
-      const paidCnt  = calcPaidCnt(sc, filterFn);
-      return makeStatRow(subj, sc.length, paidCnt, totalFee, paidAmt);
+      const {paidCnt, paidAmt, expectedAmt} = getStats(sc, filterFn);
+      return makeStatRow(subj, sc.length, paidCnt, expectedAmt, paidAmt);
     }).filter(Boolean);
     panel.innerHTML = rows.length ? rows.join('') : '<p style="color:var(--text3);font-size:13px">수강생이 있는 과목이 없습니다.</p>';
 
@@ -2397,14 +2384,12 @@ function renderStatsDetail(){
     const cls = classes||[];
     if(!cls.length){ panel.innerHTML='<p style="color:var(--text3);font-size:13px">등록된 반이 없습니다.</p>'; return; }
     const rows = cls.map(c=>{
-      const filterFn = (e)=>e.classId===c.id;
+      const filterFn = e=>e.classId===c.id;
       const sc = active.filter(s=>(s.enrollments||[]).some(e=>filterFn(e)));
       if(!sc.length) return '';
-      const totalFee = calcExpectedFee(sc, filterFn);
-      const paidAmt  = calcPaidAmt(sc, filterFn);
-      const paidCnt  = calcPaidCnt(sc, filterFn);
+      const {paidCnt, paidAmt, expectedAmt} = getStats(sc, filterFn);
       const label = `${c.name} <span style="color:var(--text3);font-size:11px">(${c.subject})</span>`;
-      return makeStatRow(label, sc.length, paidCnt, totalFee, paidAmt);
+      return makeStatRow(label, sc.length, paidCnt, expectedAmt, paidAmt);
     }).filter(Boolean);
     panel.innerHTML = rows.length ? rows.join('') : '<p style="color:var(--text3);font-size:13px">수강생이 있는 반이 없습니다.</p>';
 
@@ -2413,15 +2398,13 @@ function renderStatsDetail(){
     if(!ts.length){ panel.innerHTML='<p style="color:var(--text3);font-size:13px">등록된 선생님이 없습니다.</p>'; return; }
     const rows = ts.map(t=>{
       const tClasses = (classes||[]).filter(c=>(t.classIds||[]).includes(c.id));
-      const filterFn = (e)=>!!tClasses.find(c=>c.id===e.classId);
+      const filterFn = e=>!!tClasses.find(c=>c.id===e.classId);
       const sc = active.filter(s=>(s.enrollments||[]).some(e=>filterFn(e)));
       if(!sc.length) return '';
-      const totalFee = calcExpectedFee(sc, filterFn);
-      const paidAmt  = calcPaidAmt(sc, filterFn);
-      const paidCnt  = calcPaidCnt(sc, filterFn);
+      const {paidCnt, paidAmt, expectedAmt} = getStats(sc, filterFn);
       const clsNames = tClasses.map(c=>c.name).join(', ');
       const label = `${t.name} <span style="color:var(--text3);font-size:11px">${clsNames}</span>`;
-      return makeStatRow(label, sc.length, paidCnt, totalFee, paidAmt);
+      return makeStatRow(label, sc.length, paidCnt, expectedAmt, paidAmt);
     }).filter(Boolean);
     panel.innerHTML = rows.length ? rows.join('') : '<p style="color:var(--text3);font-size:13px">담당 수강생이 있는 선생님이 없습니다.</p>';
   }
