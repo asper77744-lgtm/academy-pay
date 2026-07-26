@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#6366f1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AcademyPay">
+  <link rel="apple-touch-icon" href="icon-192.png">
 <title>AcademyPay — 학원 수납관리</title>
 <!-- Supabase SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -6715,6 +6722,15 @@ setTimeout(()=>{
   // ── 3) 로그인 화면 ────────────────────────────────
   showAuthScreen();
 })();
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js')
+      .then(()=>console.log('[PWA] 서비스워커 등록 완료'))
+      .catch(e=>console.log('[PWA] 등록 실패:',e));
+  });
+}
 </script>
 </body>
 </html>
