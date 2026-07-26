@@ -1542,7 +1542,8 @@ tbody tr:hover td{background:#f8f9ff}
 <!-- Add Payment -->
 <div class="modal-overlay" id="m-payment">
   <div class="modal" style="width:540px">
-    <h2>💳 수납 등록</h2>
+    <h2 id="mp-modal-title">💳 수납 등록</h2>
+    <input type="hidden" id="mp-edit-id"/>
     <div class="frow">
       <div class="ff"><label>학생 *</label><select id="mp-student" onchange="autoFillPayment()"></select></div>
       <div class="ff"><label>납부월 *</label><input id="mp-month" type="month"/></div>
@@ -1575,7 +1576,7 @@ tbody tr:hover td{background:#f8f9ff}
     </div>
     <div class="modal-footer">
       <button class="btn btn-neutral" onclick="closeModal('m-payment')">취소</button>
-      <button class="btn btn-primary" onclick="savePayment()">등록</button>
+      <button class="btn btn-primary" id="mp-save-btn" onclick="savePayment()">등록</button>
     </div>
   </div>
 </div>
@@ -4672,20 +4673,76 @@ function renderPayments(){
       <td>${methodLabel}${prepaidBadge}</td>
       <td style="color:var(--text2);font-size:12px">${p.date}</td>
       <td><span class="badge ${sb[p.status]}">${sl[p.status]}</span></td>
-      <td><button class="btn btn-danger btn-sm" onclick="deletePayment('${p.id}')">삭제</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-neutral btn-sm" onclick="editPayment('${p.id}')">편집</button>
+        <button class="btn btn-danger btn-sm" onclick="deletePayment('${p.id}')" style="margin-left:4px">삭제</button>
+      </td>
     </tr>`;
   }).join(''):`<tr><td colspan="10" class="empty-row"><div class="ei">💳</div><p>수납 내역이 없습니다</p></td></tr>`;
 }
 
+function editPayment(id){
+  const p = currentAcademy.payments.find(x=>x.id===id);
+  if(!p) return;
+
+  // 모달 초기화 (신규 등록과 동일하게)
+  openModal('m-payment');
+  fillPaymentStudents();
+
+  // 편집 모드 설정
+  document.getElementById('mp-edit-id').value = id;
+  document.getElementById('mp-modal-title').textContent = '💳 수납 편집';
+  document.getElementById('mp-save-btn').textContent = '저장';
+
+  // 기존 값 채우기
+  setTimeout(()=>{
+    const studentSel = document.getElementById('mp-student');
+    studentSel.value = p.studentId;
+    autoFillPayment(); // 과목/수강료 자동채우기
+    setTimeout(()=>{
+      document.getElementById('mp-month').value  = p.month;
+      document.getElementById('mp-charge').value = p.charge;
+      document.getElementById('mp-amount').value = p.amount;
+      document.getElementById('mp-date').value   = p.date;
+      document.getElementById('mp-method').value = p.method||'현금';
+      document.getElementById('mp-note').value   = p.note||'';
+      calcRemain();
+    }, 50);
+  }, 50);
+}
+
 function savePayment(){
-  const sid=document.getElementById('mp-student').value;
-  const month=document.getElementById('mp-month').value;
-  const charge=parseFloat(document.getElementById('mp-charge').value)||0;
-  const amount=parseFloat(document.getElementById('mp-amount').value)||0;
-  const date=document.getElementById('mp-date').value;
-  if(!sid||!month||!date||amount<=0){showToast('필수 항목을 모두 입력해주세요.','error');return}
-  currentAcademy.payments.push({id:uid(),studentId:sid,month,charge,amount,date,method:document.getElementById('mp-method').value,note:document.getElementById('mp-note').value,status:getPayStatus(charge,amount)});
-  saveAcademy();closeModal('m-payment');refreshAll();showToast('수납이 등록되었습니다.','success');
+  const editId = document.getElementById('mp-edit-id').value;
+  const sid    = document.getElementById('mp-student').value;
+  const month  = document.getElementById('mp-month').value;
+  const charge = parseFloat(document.getElementById('mp-charge').value)||0;
+  const amount = parseFloat(document.getElementById('mp-amount').value)||0;
+  const date   = document.getElementById('mp-date').value;
+  const method = document.getElementById('mp-method').value;
+  const note   = document.getElementById('mp-note').value;
+  if(!sid||!month||!date||amount<=0){ showToast('필수 항목을 모두 입력해주세요.','error'); return; }
+
+  if(editId){
+    // 편집 모드 — 기존 항목 수정
+    const idx = currentAcademy.payments.findIndex(p=>p.id===editId);
+    if(idx !== -1){
+      currentAcademy.payments[idx] = {
+        ...currentAcademy.payments[idx],
+        studentId:sid, month, charge, amount, date, method, note,
+        status: getPayStatus(charge, amount)
+      };
+    }
+    saveAcademy(); closeModal('m-payment'); refreshAll();
+    showToast('수납 내역이 수정되었습니다.','success');
+  } else {
+    // 신규 등록
+    currentAcademy.payments.push({
+      id:uid(), studentId:sid, month, charge, amount, date, method, note,
+      status: getPayStatus(charge, amount)
+    });
+    saveAcademy(); closeModal('m-payment'); refreshAll();
+    showToast('수납이 등록되었습니다.','success');
+  }
 }
 
 function deletePayment(id){
@@ -6251,9 +6308,13 @@ function quickPickSubject(name){
 }
 
 function openModal(id){
+  if(id==='m-payment'){
+    document.getElementById('mp-edit-id').value = '';
+    document.getElementById('mp-modal-title').textContent = '💳 수납 등록';
+    document.getElementById('mp-save-btn').textContent = '등록';
+  }
   if(id==='m-add-subject'){
     document.getElementById('msb-name').value='';
-    // 현재 등록된 과목 목록 렌더링
     const subjects = currentAcademy?.subjects || [];
     const listEl   = document.getElementById('msb-current-list');
     if(listEl){
@@ -6269,7 +6330,6 @@ function openModal(id){
         listEl.innerHTML = '<span style="font-size:12px;color:var(--text3)">등록된 과목이 없습니다</span>';
       }
     }
-    // 이미 등록된 과목은 빠른 선택 버튼 비활성화
     const btns = document.querySelectorAll('#msb-quick-btns button');
     btns.forEach(btn=>{
       const subj = btn.textContent.trim();
