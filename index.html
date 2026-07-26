@@ -841,8 +841,8 @@ tbody tr:hover td{background:#f8f9ff}
             </div>
             <div style="margin-bottom:10px">
               <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-                <input type="checkbox" id="office-income-paid-only" checked/>
-                납부 완료 건만 포함
+                <input type="checkbox" id="office-income-paid-only"/>
+                완료 건만 포함 (미체크 시 부분납부도 포함)
               </label>
             </div>
             <button class="btn btn-primary" onclick="printIncomeReport()" style="width:100%">🖨️ 출력</button>
@@ -5658,13 +5658,22 @@ function printIncomeReport(){
   const {students, payments} = currentAcademy;
   const academy  = currentAcademy;
 
-  // 수입 항목 (수납)
+  // 수입 항목 — paid(완료) + partial(부분납부) 모두 포함
+  // paidOnly 체크 시 완료 건만, 미체크 시 부분납부도 포함
   const incomeItems = payments
-    .filter(p=>p.month===ym_ && p.amount>0 && (paidOnly?p.status==='paid':true))
+    .filter(p=>p.month===ym_ && p.amount>0 &&
+      (paidOnly ? p.status==='paid' : (p.status==='paid'||p.status==='partial')))
     .map(p=>{
       const s = students.find(x=>x.id===p.studentId);
-      return { date: p.date||ym_+'-01', label: s?.name||'-', note: getEnrollments(s).map(e=>e.subject||e.className).filter(Boolean).join(',')||'',
-        amount: p.amount*10000, type:'income' };
+      const subj = getEnrollments(s).map(e=>e.subject||e.className).filter(Boolean).join(',')||'';
+      const statusLabel = p.status==='partial' ? '(부분)' : '';
+      return {
+        date: p.date||ym_+'-01',
+        label: (s?.name||'-') + statusLabel,
+        note: subj,
+        amount: p.amount*10000,
+        type:'income'
+      };
     });
 
   // 지출 항목
