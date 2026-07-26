@@ -321,6 +321,8 @@ tbody tr:hover td{background:#f8f9ff}
   .stats-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px}
   .sc-val{font-size:20px}
   .sc{padding:12px 14px}
+  /* 대시보드 통계 5열 → 2열 */
+  [style*="grid-template-columns:repeat(5"]{grid-template-columns:repeat(2,1fr)!important}
   .grid-2col{grid-template-columns:1fr!important}
   .frow{grid-template-columns:1fr!important}
   .card-head{flex-wrap:wrap;gap:6px}
@@ -531,7 +533,7 @@ tbody tr:hover td{background:#f8f9ff}
           <button class="btn btn-primary btn-sm" onclick="openModal('m-payment')">+ 수납 등록</button>
         </div>
       </div>
-      <div class="stats-grid" style="grid-template-columns:repeat(5,1fr)">
+      <div class="stats-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:16px">
         <div class="sc"><div class="sc-accent" style="background:var(--accent)"></div><div class="sc-label">재원 학생</div><div class="sc-val" id="ds-students">0</div><div class="sc-sub">재원+재입학</div><div class="sc-icon">👥</div></div>
         <div class="sc"><div class="sc-accent" style="background:var(--warning)"></div><div class="sc-label">체험중</div><div class="sc-val" id="ds-trial">0</div><div class="sc-sub">명 체험</div><div class="sc-icon">🟡</div></div>
         <div class="sc"><div class="sc-accent" style="background:var(--success)"></div><div class="sc-label">이번 달 수납</div>
@@ -550,9 +552,9 @@ tbody tr:hover td{background:#f8f9ff}
         <div class="sc"><div class="sc-accent" style="background:#3b82f6"></div><div class="sc-label">수납 완료</div><div class="sc-val" id="ds-paid">0</div><div class="sc-sub">명 납부</div><div class="sc-icon">✅</div></div>
         <div class="sc"><div class="sc-accent" style="background:var(--danger)"></div><div class="sc-label">미납 / 이달퇴원</div><div class="sc-val" id="ds-unpaid">0</div><div class="sc-sub"><span id="ds-withdrawn-sub"></span></div><div class="sc-icon">⚠️</div></div>
       </div>
-      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px">
+      <div class="grid-2col" style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px">
         <div class="card"><div class="card-head"><h3>최근 수납 내역</h3><button class="btn btn-neutral btn-sm" onclick="nav('payments',null)">전체 보기</button></div>
-          <div style="padding:0"><table><thead><tr><th>학생</th><th>과목</th><th>금액</th><th>일자</th><th>상태</th></tr></thead><tbody id="dash-recent"></tbody></table></div>
+          <div style="padding:0;overflow-x:auto"><table style="min-width:320px"><thead><tr><th>학생</th><th>과목</th><th>금액</th><th>일자</th><th>상태</th></tr></thead><tbody id="dash-recent"></tbody></table></div>
         </div>
         <div class="card"><div class="card-head">
             <h3 id="dash-chart-title">월별 수납 현황</h3>
