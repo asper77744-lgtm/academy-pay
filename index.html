@@ -581,23 +581,37 @@ tbody tr:hover td{background:#f8f9ff}
       </div>
       <div style="display:flex;flex-direction:column;gap:16px">
         <div class="stats-grid" style="grid-template-columns:repeat(5,1fr)">
-          <!-- 재원 학생 → 학생관리 -->
+          <!-- 1. 재원 학생 -->
           <div class="sc" onclick="nav('students', document.querySelector('.sb-item[onclick*=students]'))" style="cursor:pointer">
-            <div class="sc-accent" style="background:var(--accent)"></div><div class="sc-label">재원 학생</div><div class="sc-val" id="ds-students">0</div><div class="sc-sub">재원+재입학</div><div class="sc-icon">👥</div>
+            <div class="sc-accent" style="background:var(--accent)"></div>
+            <div class="sc-label">재원 학생</div>
+            <div class="sc-val" id="ds-students">0</div>
+            <div class="sc-sub">재원+재입학</div>
+            <div class="sc-icon">👥</div>
           </div>
-          <!-- 체험중 → 학생관리 -->
+          <!-- 2. 체험중 / 이달퇴원 -->
           <div class="sc" onclick="nav('students', document.querySelector('.sb-item[onclick*=students]'))" style="cursor:pointer">
-            <div class="sc-accent" style="background:var(--warning)"></div><div class="sc-label">체험중</div><div class="sc-val" id="ds-trial">0</div><div class="sc-sub">명 체험</div><div class="sc-icon">🟡</div>
+            <div class="sc-accent" style="background:var(--warning)"></div>
+            <div class="sc-label">체험중 / 이달퇴원</div>
+            <div style="padding:4px 16px 0">
+              <span class="sc-val" id="ds-trial" style="padding:0">0</span>
+              <span style="font-size:13px;color:var(--text3)"> / </span>
+              <span class="sc-val" id="ds-withdrawn" style="padding:0;color:var(--danger)">0</span>
+            </div>
+            <div class="sc-sub" id="ds-trial-sub">체험 / 퇴원</div>
+            <div class="sc-icon">🟡</div>
           </div>
-          <!-- 이번달 수납 → 수납 내역 -->
+          <!-- 3. 이번달 실수납액 -->
           <div class="sc" onclick="nav('payments', document.querySelector('.sb-item[onclick*=payments]'))" style="cursor:pointer">
-            <div class="sc-accent" style="background:var(--success)"></div><div class="sc-label">이번 달 수납</div>
+            <div class="sc-accent" style="background:var(--success)"></div>
+            <div class="sc-label">이번달 실수납액</div>
             <div style="display:flex;align-items:baseline;gap:4px;padding:4px 16px 0">
               <span class="sc-val" id="ds-income" style="padding:0">0</span>
-              <span style="font-size:13px;color:var(--text3);font-weight:500">/ <span id="ds-expected">0</span></span>
               <span style="font-size:11px;color:var(--text3)">만원</span>
             </div>
-            <div class="sc-sub"><span id="ds-income-rate" style="color:var(--success);font-weight:600">0</span>% 수납</div>
+            <div style="padding:2px 16px 4px;font-size:10px;color:var(--text3)">
+              예상 <span id="ds-expected" style="color:var(--text2)">0</span>만원
+            </div>
             <div style="padding:2px 16px 4px;font-size:10px;color:var(--text3)">
               정가 <span id="ds-base-fee" style="color:var(--text2)">0</span>만
               · 할인 <span id="ds-discount" style="color:var(--danger)">0</span>만
@@ -605,13 +619,29 @@ tbody tr:hover td{background:#f8f9ff}
             <div style="padding:2px 16px 6px;font-size:10px" id="ds-cashflow"></div>
             <div class="sc-icon">💰</div>
           </div>
-          <!-- 수납 완료 → 수납 내역 -->
+          <!-- 4. 수납완료 -->
           <div class="sc" onclick="nav('payments', document.querySelector('.sb-item[onclick*=payments]'))" style="cursor:pointer">
-            <div class="sc-accent" style="background:#3b82f6"></div><div class="sc-label">수납 완료</div><div class="sc-val" id="ds-paid">0</div><div class="sc-sub">명 납부</div><div class="sc-icon">✅</div>
+            <div class="sc-accent" style="background:#3b82f6"></div>
+            <div class="sc-label">수납 완료</div>
+            <div style="padding:4px 16px 0">
+              <span class="sc-val" id="ds-paid" style="padding:0">0</span>
+              <span style="font-size:12px;color:var(--text3)">명</span>
+            </div>
+            <div style="padding:2px 16px 4px;font-size:11px;color:#3b82f6;font-weight:600" id="ds-paid-amt">0만원</div>
+            <div style="padding:2px 16px 4px;font-size:10px;color:var(--text3)" id="ds-paid-rate"></div>
+            <div class="sc-icon">✅</div>
           </div>
-          <!-- 미납 → 미납 관리 -->
+          <!-- 5. 미납 -->
           <div class="sc" onclick="nav('unpaid', document.querySelector('.sb-item[onclick*=unpaid]'))" style="cursor:pointer">
-            <div class="sc-accent" style="background:var(--danger)"></div><div class="sc-label">미납 / 이달퇴원</div><div class="sc-val" id="ds-unpaid">0</div><div class="sc-sub"><span id="ds-withdrawn-sub"></span></div><div class="sc-icon">⚠️</div>
+            <div class="sc-accent" style="background:var(--danger)"></div>
+            <div class="sc-label">미납</div>
+            <div style="padding:4px 16px 0">
+              <span class="sc-val" id="ds-unpaid" style="padding:0;color:var(--danger)">0</span>
+              <span style="font-size:12px;color:var(--text3)">명</span>
+            </div>
+            <div style="padding:2px 16px 4px;font-size:11px;color:var(--danger);font-weight:600" id="ds-unpaid-amt">0만원</div>
+            <div style="padding:2px 16px 4px;font-size:10px;color:var(--text3)" id="ds-unpaid-rate"></div>
+            <div class="sc-icon">⚠️</div>
           </div>
         </div>
         <div class="grid-2col" style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px">
@@ -2327,79 +2357,109 @@ function nav(name,el){
 // DASHBOARD
 // ════════════════════════════════════════════════════════
 function updateDashboard(){
-  const {students,payments}=currentAcademy;
-  const active=students.filter(s=>isActiveStudent(s));
-  const trial=students.filter(s=>s.status==='trial');
-  const curYm=ym();
-  const today=now();
-  const curDatePrefix=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+  const {students, payments} = currentAcademy;
+  const active   = students.filter(s=>isActiveStudent(s));
+  const trial    = students.filter(s=>s.status==='trial');
+  const curYm    = ym();
+  const today    = now();
+  const curDatePrefix = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
 
-  const monthWithdrawn=students.filter(s=>
+  // ── 이달 퇴원
+  const monthWithdrawn = students.filter(s=>
     s.status==='withdrawn' && s.withdrawDate && s.withdrawDate.slice(0,7)===curYm
-  ).length;
+  );
 
-  // ── 이번달 청구 기준 수납 (month === 이번달)
-  const mPays=payments.filter(p=>p.month===curYm && p.amount>0);
-  const income=mPays.reduce((a,p)=>a+p.amount,0);
-  const paid=mPays.filter(p=>p.status==='paid'&&active.find(s=>s.id===p.studentId)).length;
-  const unpaid=active.filter(s=>!payments.find(p=>p.studentId===s.id&&p.month===curYm&&p.status==='paid')).length;
+  // ── 이번달 청구 기준 수납 (month === 이번달, 선납·선납차감 제외)
+  // 실수납 = 이번달 month이고 입금일도 이번달인 건 (선납차감 제외)
+  const mPays = payments.filter(p=>p.month===curYm && p.amount>0);
 
-  // ── 실제 현금 흐름 (입금일이 이번달인 모든 납부)
-  const cashInPays = payments.filter(p=>p.date&&p.date.startsWith(curDatePrefix)&&p.amount>0);
-  const cashIn     = cashInPays.reduce((a,p)=>a+p.amount,0);
-
-  // 선납 입금: 이번달에 입금됐는데 month가 다음달 이후
-  const prepayInPays = cashInPays.filter(p=>p.month>curYm);
-  const prepayIn     = prepayInPays.reduce((a,p)=>a+p.amount,0);
-
-  // 선납 차감: 이번달이 month인데 입금일이 이번달이 아닌 것 (이전 선납 적용)
-  const prepayOutPays = mPays.filter(p=>p.date&&!p.date.startsWith(curDatePrefix));
-  const prepayOut     = prepayOutPays.reduce((a,p)=>a+p.amount,0);
+  // ── 3번: 이번달 실수납액 (선납·선납차감 제외)
+  // 이번달에 입금됐고 month도 이번달인 건만
+  const realPays = mPays.filter(p=>p.date && p.date.startsWith(curDatePrefix));
+  const income   = realPays.reduce((a,p)=>a+p.amount, 0);
 
   // ── 예상 매출
-  const baseFeeTotal  = active.reduce((sum,s)=>sum+(s.enrollments||[]).reduce((a,e)=>a+(parseFloat(e.fee)||0),0),0);
-  const discountTotal = active.reduce((sum,s)=>sum+(s.discounts||[]).reduce((a,d)=>a+(parseFloat(d.amount)||0),0),0);
-  const expectedRevenue = active.reduce((sum,s)=>sum+calcTotalFee(s),0);
-  const incomeRate = expectedRevenue > 0 ? Math.round(income/expectedRevenue*100) : 0;
+  const baseFeeTotal    = active.reduce((s,st)=>(st.enrollments||[]).reduce((a,e)=>a+(parseFloat(e.fee)||0),0)+s, 0);
+  const discountTotal   = active.reduce((s,st)=>(st.discounts||[]).reduce((a,d)=>a+(parseFloat(d.amount)||0),0)+s, 0);
+  const expectedRevenue = active.reduce((s,st)=>s+calcTotalFee(st), 0);
+
+  // ── 4번: 수납완료 — 이번달 month, 이번달 입금, status=paid
+  const paidStudents = active.filter(s=>{
+    const p = payments.find(x=>x.studentId===s.id && x.month===curYm && x.status==='paid');
+    return !!p;
+  });
+  const paidCnt = paidStudents.length;
+  // 수납완료 금액: 이번달 입금된 금액만 (선납차감 제외)
+  const paidAmt = paidStudents.reduce((sum,s)=>{
+    const ps = payments.filter(x=>x.studentId===s.id && x.month===curYm && x.date && x.date.startsWith(curDatePrefix));
+    return sum + ps.reduce((a,p)=>a+p.amount, 0);
+  }, 0);
+  const paidRate = expectedRevenue > 0 ? Math.round(paidAmt/expectedRevenue*100) : 0;
+
+  // ── 5번: 미납 — 이번달 수납 없는 재원생
+  const unpaidStudents = active.filter(s=>
+    !payments.find(p=>p.studentId===s.id && p.month===curYm && (p.status==='paid'||p.status==='partial'))
+  );
+  const unpaidCnt = unpaidStudents.length;
+  // 미납 금액: 해당 학생들의 이번달 청구액 합산
+  const unpaidAmt = unpaidStudents.reduce((sum,s)=>sum+calcTotalFee(s), 0);
+  const unpaidRate = expectedRevenue > 0 ? Math.round(unpaidAmt/expectedRevenue*100) : 0;
+
+  // ── 선납 현금흐름
+  const prepayInPays = payments.filter(p=>p.date&&p.date.startsWith(curDatePrefix)&&p.amount>0&&p.month>curYm);
+  const prepayIn     = prepayInPays.reduce((a,p)=>a+p.amount, 0);
+  const prepayOutPays= mPays.filter(p=>p.date&&!p.date.startsWith(curDatePrefix));
+  const prepayOut    = prepayOutPays.reduce((a,p)=>a+p.amount, 0);
 
   // ── DOM 업데이트
-  document.getElementById('ds-students').textContent=active.length;
-  document.getElementById('ds-trial').textContent=trial.length;
-  document.getElementById('ds-expected').textContent=fmt(expectedRevenue);
-  document.getElementById('ds-income').textContent=fmt(income);
-  document.getElementById('ds-income-rate').textContent=incomeRate;
-  document.getElementById('ds-paid').textContent=paid;
-  document.getElementById('ds-unpaid').textContent=unpaid;
+  document.getElementById('ds-students').textContent  = active.length;
+  document.getElementById('ds-trial').textContent     = trial.length;
+  document.getElementById('ds-withdrawn').textContent = monthWithdrawn.length;
+  document.getElementById('ds-trial-sub').textContent = `체험 ${trial.length}명 / 퇴원 ${monthWithdrawn.length}명`;
 
-  const bfEl=document.getElementById('ds-base-fee');
-  if(bfEl) bfEl.textContent=fmt(baseFeeTotal);
-  const dcEl=document.getElementById('ds-discount');
-  if(dcEl) dcEl.textContent=fmt(discountTotal);
+  document.getElementById('ds-income').textContent    = fmt(income);
+  document.getElementById('ds-expected').textContent  = fmt(expectedRevenue);
+  document.getElementById('ds-base-fee').textContent  = fmt(baseFeeTotal);
+  document.getElementById('ds-discount').textContent  = fmt(discountTotal);
 
-  // 현금 흐름 요약
-  const cfEl=document.getElementById('ds-cashflow');
+  // 수납완료
+  document.getElementById('ds-paid').textContent     = paidCnt;
+  document.getElementById('ds-paid-amt').textContent = `${fmt(paidAmt)}만원`;
+  document.getElementById('ds-paid-rate').textContent= `예상대비 ${paidRate}%`;
+
+  // 미납
+  document.getElementById('ds-unpaid').textContent     = unpaidCnt;
+  document.getElementById('ds-unpaid-amt').textContent = `${fmt(unpaidAmt)}만원`;
+  document.getElementById('ds-unpaid-rate').textContent= `예상대비 ${unpaidRate}%`;
+
+  // 현금흐름
+  const cfEl = document.getElementById('ds-cashflow');
   if(cfEl){
-    let html=`<span style="color:var(--text3);font-size:10px">실입금 </span><strong>${fmt(cashIn)}만</strong>`;
-    if(prepayIn>0) html+=` <span style="color:#f59e0b;font-size:10px">+선납${fmt(prepayIn)}만↑</span>`;
-    if(prepayOut>0) html+=` <span style="color:#64748b;font-size:10px">-선납차감${fmt(prepayOut)}만↓</span>`;
-    cfEl.innerHTML=html;
+    let html = '';
+    if(prepayIn>0)  html += `<span style="color:#f59e0b">+선납 ${fmt(prepayIn)}만↑</span> `;
+    if(prepayOut>0) html += `<span style="color:#64748b">-선납차감 ${fmt(prepayOut)}만↓</span>`;
+    cfEl.innerHTML = html;
   }
 
-  const sub=document.getElementById('ds-withdrawn-sub');
-  if(sub) sub.innerHTML=`미납 ${unpaid}명${monthWithdrawn?` &nbsp;·&nbsp; <span style="color:var(--danger)">이달퇴원 ${monthWithdrawn}명</span>`:''}`;
-
-  const recent=[...payments].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6);
+  // 최근 수납 내역
+  const recent = [...payments].filter(p=>p.date).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6);
   const sb={paid:'b-success',partial:'b-warning',pending:'b-danger'};
   const sl={paid:'완료',partial:'부분',pending:'미납'};
-  document.getElementById('dash-recent').innerHTML=recent.length
-    ?recent.map(p=>{
-      const s=students.find(x=>x.id===p.studentId);
-      const enrs=getEnrollments(s);
-      const subjectLabel=enrs.map(e=>e.subject).filter(Boolean).join(', ')||'-';
-      const isPrepay = p.month>curYm ? `<span style="font-size:9px;color:#f59e0b;margin-left:3px">선납</span>` : '';
-      return `<tr><td><strong>${s?.name||'-'}</strong></td><td><span style="font-size:12px;color:var(--text2)">${subjectLabel}</span></td><td>${fmt(p.amount)}만원${isPrepay}</td><td style="color:var(--text2);font-size:12px">${p.date}</td><td><span class="badge ${sb[p.status]}">${sl[p.status]}</span></td></tr>`;
-    }).join('')
-    :`<tr><td colspan="5" class="empty-row"><div class="ei">💳</div><p>수납 내역이 없습니다</p></td></tr>`;
+  document.getElementById('dash-recent').innerHTML = recent.length
+    ? recent.map(p=>{
+        const s = students.find(x=>x.id===p.studentId);
+        const subj = getEnrollments(s).map(e=>e.subject).filter(Boolean).join(', ')||'-';
+        const isPre = p.month > curYm ? `<span style="font-size:9px;color:#f59e0b;margin-left:3px">선납</span>` : '';
+        return `<tr>
+          <td><strong>${s?.name||'-'}</strong></td>
+          <td><span style="font-size:12px;color:var(--text2)">${subj}</span></td>
+          <td>${fmt(p.amount)}만원${isPre}</td>
+          <td style="color:var(--text2);font-size:12px">${p.date}</td>
+          <td><span class="badge ${sb[p.status]}">${sl[p.status]}</span></td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="5" class="empty-row"><div class="ei">💳</div><p>수납 내역이 없습니다</p></td></tr>`;
+
   renderBarChart('dash-chart', payments, now().getFullYear(), expectedRevenue);
 }
 
