@@ -613,8 +613,8 @@ tbody tr:hover td{background:#f8f9ff}
         </div>
       </div>
       <div class="grid-2col" style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px">
-        <div class="card"><div class="card-head"><h3>최근 수납 내역</h3><button class="btn btn-neutral btn-sm" onclick="nav('payments',null)">전체 보기</button></div>
-          <div style="padding:0"><table style="width:100%"><thead><tr><th>학생</th><th>과목</th><th>금액</th><th>일자</th><th>상태</th></tr></thead><tbody id="dash-recent"></tbody></table></div>
+        <div class="card" style="overflow:visible"><div class="card-head"><h3>최근 수납 내역</h3><button class="btn btn-neutral btn-sm" onclick="nav('payments',null)">전체 보기</button></div>
+          <div style="padding:0;width:100%"><table style="width:100%;table-layout:fixed"><thead><tr><th style="width:18%">학생</th><th>과목</th><th style="width:14%">금액</th><th style="width:20%">일자</th><th style="width:14%">상태</th></tr></thead><tbody id="dash-recent"></tbody></table></div>
         </div>
         <div class="card"><div class="card-head">
             <h3 id="dash-chart-title">월별 수납 현황</h3>
@@ -4750,7 +4750,7 @@ function renderPayments(){
   }).join(''):`<tr><td colspan="10" class="empty-row"><div class="ei">💳</div><p>수납 내역이 없습니다</p></td></tr>`;
 }
 
-let _editPaymentId = null; // 편집 중인 수납 ID
+let _editPaymentId = null;
 
 function editPayment(id){
   const p = currentAcademy.payments.find(x=>x.id===id);
@@ -4758,49 +4758,51 @@ function editPayment(id){
   const s = getStudent(p.studentId);
   if(!s) return;
 
-  _editPaymentId = id; // 편집 모드 플래그
+  _editPaymentId = id;
 
-  // 퀵페이 모달 열기 (기존 값으로)
+  // 퀵페이 모달 기본 초기화
   openQuickPayModal(p.studentId, p.month, p.charge||calcTotalFee(s));
 
-  // 모달 제목 변경
-  document.querySelector('#m-quick-pay h2').innerHTML =
-    `✏️ 수납 편집 — <span id="qp-student-name">${s.name}</span>`;
-
-  // 기존 값 채우기 (openQuickPayModal 렌더링 후)
+  // 기존 데이터 적용 (renderBarChart등 비동기 완료 후)
   setTimeout(()=>{
-    // 납부월 선택
-    const monthBtns = document.querySelectorAll('.qp-month-btn');
-    monthBtns.forEach(btn=>{
-      btn.classList.remove('active');
-      if(btn.dataset.month===p.month) btn.classList.add('active');
+    // 제목 변경
+    const h2 = document.querySelector('#m-quick-pay h2');
+    if(h2) h2.innerHTML = `✏️ 수납 편집 — <span>${s.name}</span>`;
+
+    // 납부월 버튼 선택
+    document.querySelectorAll('.qp-month-btn').forEach(btn=>{
+      btn.classList.toggle('active', btn.dataset.month===p.month);
     });
-    _qpSelectedMonths = [p.month];
-    _qpIsPrepay = (p.prepaid === true);
+    _qpCurrentMonth = p.month;
 
     // 금액
-    document.getElementById('qp-charge-disp').value = p.charge||calcTotalFee(s);
-    document.getElementById('qp-amount').value = p.amount||0;
+    const chargeVal = p.charge||calcTotalFee(s);
+    document.getElementById('qp-charge').value      = chargeVal;
+    document.getElementById('qp-charge-disp').value = chargeVal;
+    document.getElementById('qp-amount').value       = p.amount||0;
     qpCalcRemain();
 
-    // 납부 방법
-    _qpSelectedMethod = p.method||'현금';
-    document.querySelectorAll('.qp-method-btn').forEach(btn=>{
-      btn.classList.toggle('selected', btn.dataset.val===_qpSelectedMethod);
-    });
-    // 지역화폐면 입금자 섹션 표시
-    if(p.method==='지역화폐'){
-      document.getElementById('qp-local-pay-section').style.display='';
-      document.getElementById('qp-depositor').value = p.depositor||'';
-    }
+    // 납부 방법 — selectPayMethod 함수 직접 호출
+    const methodBtn = [...document.querySelectorAll('.qp-method-btn')]
+      .find(b=>b.dataset.val===(p.method||'현금'));
+    if(methodBtn) selectPayMethod(methodBtn);
 
     // 날짜·메모
     document.getElementById('qp-date').value = p.date||now().toISOString().slice(0,10);
     document.getElementById('qp-note').value = p.note||'';
 
-    // 버튼 텍스트 변경
-    document.getElementById('qp-confirm-btn').textContent = '✅ 수정 완료';
-  }, 100);
+    // 지역화폐 입금자
+    if(p.method==='지역화폐'){
+      document.getElementById('qp-depositor').value = p.depositor||'';
+    }
+
+    // 버튼 활성화
+    const btn = document.getElementById('qp-confirm-btn');
+    if(btn){
+      btn.textContent = '✅ 수정 완료';
+      btn.disabled = false;
+    }
+  }, 150);
 }
 
 function savePayment(){
