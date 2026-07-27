@@ -579,40 +579,41 @@ tbody tr:hover td{background:#f8f9ff}
           <button class="btn btn-primary btn-sm" onclick="nav('unpaid', document.querySelector('.sb-item[onclick*=unpaid]'))">+ 수납 등록</button>
         </div>
       </div>
-      <div class="stats-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:16px">
-        <!-- 재원 학생 → 학생관리 -->
-        <div class="sc" onclick="nav('students', document.querySelector('.sb-item[onclick*=students]'))" style="cursor:pointer">
-          <div class="sc-accent" style="background:var(--accent)"></div><div class="sc-label">재원 학생</div><div class="sc-val" id="ds-students">0</div><div class="sc-sub">재원+재입학</div><div class="sc-icon">👥</div>
-        </div>
-        <!-- 체험중 → 학생관리 -->
-        <div class="sc" onclick="nav('students', document.querySelector('.sb-item[onclick*=students]'))" style="cursor:pointer">
-          <div class="sc-accent" style="background:var(--warning)"></div><div class="sc-label">체험중</div><div class="sc-val" id="ds-trial">0</div><div class="sc-sub">명 체험</div><div class="sc-icon">🟡</div>
-        </div>
-        <!-- 이번달 수납 → 수납 내역 -->
-        <div class="sc" onclick="nav('payments', document.querySelector('.sb-item[onclick*=payments]'))" style="cursor:pointer">
-          <div class="sc-accent" style="background:var(--success)"></div><div class="sc-label">이번 달 수납</div>
-          <div style="display:flex;align-items:baseline;gap:4px;padding:4px 16px 0">
-            <span class="sc-val" id="ds-income" style="padding:0">0</span>
-            <span style="font-size:13px;color:var(--text3);font-weight:500">/ <span id="ds-expected">0</span></span>
-            <span style="font-size:11px;color:var(--text3)">만원</span>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="stats-grid" style="grid-template-columns:repeat(5,1fr)">
+          <!-- 재원 학생 → 학생관리 -->
+          <div class="sc" onclick="nav('students', document.querySelector('.sb-item[onclick*=students]'))" style="cursor:pointer">
+            <div class="sc-accent" style="background:var(--accent)"></div><div class="sc-label">재원 학생</div><div class="sc-val" id="ds-students">0</div><div class="sc-sub">재원+재입학</div><div class="sc-icon">👥</div>
           </div>
-          <div class="sc-sub"><span id="ds-income-rate" style="color:var(--success);font-weight:600">0</span>% 수납</div>
-          <div style="padding:2px 16px 4px;font-size:10px;color:var(--text3)">
-            정가 <span id="ds-base-fee" style="color:var(--text2)">0</span>만
-            · 할인 <span id="ds-discount" style="color:var(--danger)">0</span>만
+          <!-- 체험중 → 학생관리 -->
+          <div class="sc" onclick="nav('students', document.querySelector('.sb-item[onclick*=students]'))" style="cursor:pointer">
+            <div class="sc-accent" style="background:var(--warning)"></div><div class="sc-label">체험중</div><div class="sc-val" id="ds-trial">0</div><div class="sc-sub">명 체험</div><div class="sc-icon">🟡</div>
           </div>
-          <div class="sc-icon">💰</div>
+          <!-- 이번달 수납 → 수납 내역 -->
+          <div class="sc" onclick="nav('payments', document.querySelector('.sb-item[onclick*=payments]'))" style="cursor:pointer">
+            <div class="sc-accent" style="background:var(--success)"></div><div class="sc-label">이번 달 수납</div>
+            <div style="display:flex;align-items:baseline;gap:4px;padding:4px 16px 0">
+              <span class="sc-val" id="ds-income" style="padding:0">0</span>
+              <span style="font-size:13px;color:var(--text3);font-weight:500">/ <span id="ds-expected">0</span></span>
+              <span style="font-size:11px;color:var(--text3)">만원</span>
+            </div>
+            <div class="sc-sub"><span id="ds-income-rate" style="color:var(--success);font-weight:600">0</span>% 수납</div>
+            <div style="padding:2px 16px 4px;font-size:10px;color:var(--text3)">
+              정가 <span id="ds-base-fee" style="color:var(--text2)">0</span>만
+              · 할인 <span id="ds-discount" style="color:var(--danger)">0</span>만
+            </div>
+            <div class="sc-icon">💰</div>
+          </div>
+          <!-- 수납 완료 → 수납 내역 -->
+          <div class="sc" onclick="nav('payments', document.querySelector('.sb-item[onclick*=payments]'))" style="cursor:pointer">
+            <div class="sc-accent" style="background:#3b82f6"></div><div class="sc-label">수납 완료</div><div class="sc-val" id="ds-paid">0</div><div class="sc-sub">명 납부</div><div class="sc-icon">✅</div>
+          </div>
+          <!-- 미납 → 미납 관리 -->
+          <div class="sc" onclick="nav('unpaid', document.querySelector('.sb-item[onclick*=unpaid]'))" style="cursor:pointer">
+            <div class="sc-accent" style="background:var(--danger)"></div><div class="sc-label">미납 / 이달퇴원</div><div class="sc-val" id="ds-unpaid">0</div><div class="sc-sub"><span id="ds-withdrawn-sub"></span></div><div class="sc-icon">⚠️</div>
+          </div>
         </div>
-        <!-- 수납 완료 → 수납 내역 -->
-        <div class="sc" onclick="nav('payments', document.querySelector('.sb-item[onclick*=payments]'))" style="cursor:pointer">
-          <div class="sc-accent" style="background:#3b82f6"></div><div class="sc-label">수납 완료</div><div class="sc-val" id="ds-paid">0</div><div class="sc-sub">명 납부</div><div class="sc-icon">✅</div>
-        </div>
-        <!-- 미납 → 미납 관리 -->
-        <div class="sc" onclick="nav('unpaid', document.querySelector('.sb-item[onclick*=unpaid]'))" style="cursor:pointer">
-          <div class="sc-accent" style="background:var(--danger)"></div><div class="sc-label">미납 / 이달퇴원</div><div class="sc-val" id="ds-unpaid">0</div><div class="sc-sub"><span id="ds-withdrawn-sub"></span></div><div class="sc-icon">⚠️</div>
-        </div>
-      </div>
-      <div class="grid-2col" style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px">
+        <div class="grid-2col" style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px">
         <div class="card" style="overflow:visible"><div class="card-head"><h3>최근 수납 내역</h3><button class="btn btn-neutral btn-sm" onclick="nav('payments',null)">전체 보기</button></div>
           <div style="padding:0;width:100%"><table style="width:100%;table-layout:fixed"><thead><tr><th style="width:18%">학생</th><th>과목</th><th style="width:14%">금액</th><th style="width:20%">일자</th><th style="width:14%">상태</th></tr></thead><tbody id="dash-recent"></tbody></table></div>
         </div>
@@ -642,7 +643,8 @@ tbody tr:hover td{background:#f8f9ff}
             <div class="chart-legend" id="dash-chart-legend"></div>
           </div>
         </div>
-      </div>
+      </div><!-- end grid-2col -->
+      </div><!-- end flex column wrapper -->
     </div>
 
     <!-- ── STUDENTS ── -->
