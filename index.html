@@ -5209,6 +5209,7 @@ function openQuickPayModal(sid, month, unpaidAmt){
   document.getElementById('qp-depositor-results').style.display = 'none';
   document.getElementById('qp-local-pay-section').style.display = 'none';
   _qpSelectedMethod = '';
+  _qpSelectedMonths = []; // 다중 선택 초기화
   document.querySelectorAll('.qp-method-btn').forEach(b=>b.classList.remove('selected'));
 
   // 학생 정보 요약
@@ -5302,7 +5303,6 @@ function buildMonthButtons(sid, defaultMonth){
           : `border:2px solid ${outerBorder}`;
 
         return `<button type="button" onclick="selectQpMonth('${m}')"
-          style="flex-shrink:0;padding:7px 10px;${borderStyle};border-radius:8px;
             font-size:12px;font-weight:${sel?'700':'500'};cursor:pointer;line-height:1.4;
             background:${bg};color:${textColor};font-family:inherit;text-align:center;
             min-width:80px;transition:all .15s;position:relative"
@@ -5327,7 +5327,12 @@ function buildMonthButtons(sid, defaultMonth){
     </div>`;
 
   btns.innerHTML = quickBtns + monthGrid + customInput;
-  selectQpMonth(defaultMonth||curYm);
+  // 초기 선택
+  const initMonth = defaultMonth||curYm;
+  _qpSelectedMonths = [initMonth];
+  _qpCurrentMonth   = initMonth;
+  updateMonthBtnStyles(sid);
+  updateMultiMonthCharge(sid);
 
   // 선택된 월이 보이도록 스크롤
   setTimeout(()=>{
@@ -5337,114 +5342,135 @@ function buildMonthButtons(sid, defaultMonth){
 }
 
 // 빠른 선납: N개월치를 순차 처리 안내 (1개씩 선택)
+// 선택된 월 목록 (다중 선택)
+let _qpSelectedMonths = [];
+
 function quickSelectPrepay(n, sid){
-  const today  = now();
-  const curYm  = ym();
-  // 이번달 ~ N개월 후까지 미납부 월 찾기
-  const unpaidMonths = [];
-  for(let i = 0; i < n; i++){
-    const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+  const today = now();
+  const curYm = ym();
+  const s = getStudent(sid); if(!s) return;
+  const charge = calcTotalFee(s);
+
+  // 이번달부터 N개월 중 미납부 월 선택
+  const toSelect = [];
+  for(let i=0; i<n; i++){
+    const d = new Date(today.getFullYear(), today.getMonth()+i, 1);
     const m = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    const existing = (currentAcademy.payments||[]).find(p=>p.studentId===sid&&p.month===m);
-    if(!existing || existing.status!=='paid') unpaidMonths.push(m);
+    const ex = (currentAcademy.payments||[]).find(p=>p.studentId===sid&&p.month===m);
+    if(!ex || ex.status!=='paid') toSelect.push(m);
   }
-  if(!unpaidMonths.length){
-    showToast(`${n}개월치가 모두 납부 완료 상태입니다.`,'info'); return;
-  }
-  // 가장 빠른 미납부 월로 이동
-  selectQpMonth(unpaidMonths[0]);
-  // 스크롤 이동
-  const selBtn = document.getElementById(`qp-mbtn-${unpaidMonths[0]}`);
+  if(!toSelect.length){ showToast(`${n}개월치가 모두 납부 완료입니다.`,'info'); return; }
+
+  // 선택 적용
+  _qpSelectedMonths = toSelect;
+  _qpCurrentMonth   = toSelect[0];
+  updateMonthBtnStyles(sid);
+  updateMultiMonthCharge(sid);
+
+  // 첫 버튼으로 스크롤
+  const selBtn = document.getElementById(`qp-mbtn-${toSelect[0]}`);
   if(selBtn) selBtn.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
-  const s = getStudent(sid);
-  showToast(`${unpaidMonths[0]} 선납 월로 이동했습니다. (미납부 ${unpaidMonths.length}개월)`,'info');
+  showToast(`${toSelect.length}개월 선택됨 (${toSelect.join(', ')})`, 'success');
 }
 
-function toggleQpCustomMonth(){
-  const el = document.getElementById('qp-month-custom');
-  el.style.display = el.style.display==='none' ? '' : 'none';
+function toggleQpMonth(m, sid){
+  // 납부완료는 토글 불가
+  const ex = (currentAcademy.payments||[]).find(p=>p.studentId===sid&&p.month===m);
+  if(ex?.status==='paid'){ showToast('이미 납부 완료된 달입니다.','error'); return; }
+
+  const idx = _qpSelectedMonths.indexOf(m);
+  if(idx === -1){
+    _qpSelectedMonths.push(m);
+    _qpSelectedMonths.sort();
+  } else {
+    _qpSelectedMonths.splice(idx, 1);
+  }
+  _qpCurrentMonth = _qpSelectedMonths[_qpSelectedMonths.length-1] || m;
+  updateMonthBtnStyles(sid);
+  updateMultiMonthCharge(sid);
+}
+
+function updateMultiMonthCharge(sid){
+  const s = getStudent(sid); if(!s) return;
+  const curYm = ym();
+  const baseCharge = calcTotalFee(s);
+
+  if(!_qpSelectedMonths.length){
+    document.getElementById('qp-charge').value      = baseCharge;
+    document.getElementById('qp-charge-disp').value = baseCharge;
+    document.getElementById('qp-amount').value      = baseCharge;
+    return;
+  }
+
+  // 선택된 달들의 청구액 합산
+  let totalCharge = 0;
+  let totalUnpaid = 0;
+  _qpSelectedMonths.forEach(m=>{
+    const ex = (currentAcademy.payments||[]).find(p=>p.studentId===sid&&p.month===m);
+    const charge = ex ? (ex.charge||baseCharge) : baseCharge;
+    const paid   = ex ? (ex.amount||0) : 0;
+    totalCharge += charge;
+    totalUnpaid += Math.max(0, charge - paid);
+  });
+
+  document.getElementById('qp-charge').value      = totalCharge;
+  document.getElementById('qp-charge-disp').value = totalCharge;
+  document.getElementById('qp-amount').value      = totalUnpaid;
+
+  const multiCount = _qpSelectedMonths.length;
+  const partialNotice = document.getElementById('qp-partial-notice');
+  if(partialNotice && multiCount > 1){
+    partialNotice.style.display = '';
+    partialNotice.innerHTML = `📅 ${multiCount}개월 선택 — 합계 청구 <strong>${totalCharge}만원</strong> · 미납 <strong style="color:var(--danger)">${totalUnpaid}만원</strong>`;
+  } else if(partialNotice && multiCount<=1){
+    partialNotice.style.display = 'none';
+  }
+
+  qpCalcRemain();
+}
+
+function updateMonthBtnStyles(sid){
+  const curYm = ym();
+  document.querySelectorAll('[id^="qp-mbtn-"]').forEach(b=>{
+    const bm  = b.id.replace('qp-mbtn-','');
+    const ex  = (currentAcademy.payments||[]).find(p=>p.studentId===sid&&p.month===bm);
+    const bp  = ex?.status==='paid';
+    const bf  = bm > curYm;
+    const bCur= bm === curYm;
+    const sel = _qpSelectedMonths.includes(bm);
+
+    b.style.outline = 'none';
+    if(bp){
+      // 납부완료: 초록 유지. 선택하면 연노란 배경으로만 표시
+      b.style.background = sel ? '#fefce8' : '#dcfce7';
+      b.style.color      = '#166534';
+      b.style.border     = sel ? '2.5px solid #ca8a04' : '2px solid #22c55e';
+      b.style.fontWeight = sel ? '700' : '500';
+    } else if(bf || bCur){
+      // 미래/이번달 미납: 선택하면 진한 파랑
+      b.style.background = sel ? '#3730a3' : (bf ? '#f0f4ff' : 'var(--surface)');
+      b.style.color      = sel ? '#fff' : (bf ? '#4361ee' : 'var(--text2)');
+      b.style.border     = sel ? '2px solid #3730a3' : (bf ? '2px solid #c7d7fd' : '2px solid var(--border)');
+      b.style.fontWeight = sel ? '700' : '500';
+    } else {
+      // 과거 미납
+      b.style.background = sel ? '#dc2626' : 'var(--surface)';
+      b.style.color      = sel ? '#fff' : 'var(--text3)';
+      b.style.border     = sel ? '2px solid #dc2626' : '2px solid var(--border)';
+      b.style.fontWeight = sel ? '700' : '500';
+    }
+  });
+}
+
+function selectQpMonth(m){
+  const sid   = document.getElementById('qp-student-id').value;
+  const s     = getStudent(sid); if(!s) return;
+  toggleQpMonth(m, sid);
 }
 
 function onQpMonthChange(){
   const m = document.getElementById('qp-month-custom').value;
   if(m) selectQpMonth(m);
-}
-
-function selectQpMonth(m){
-  _qpCurrentMonth = m;
-  const sid      = document.getElementById('qp-student-id').value;
-  const s        = getStudent(sid); if(!s) return;
-  const curYm    = ym();
-  const isFuture = m > curYm;
-  const existing = (currentAcademy.payments||[]).find(p=>p.studentId===sid&&p.month===m);
-  const isPaid   = existing?.status==='paid';
-  const charge   = existing ? existing.charge : calcTotalFee(s);
-  const unpaid   = existing ? Math.max(0, existing.charge - existing.amount) : charge;
-
-  // 버튼 스타일 갱신
-  document.querySelectorAll('[id^="qp-mbtn-"]').forEach(b=>{
-    const bm     = b.id.replace('qp-mbtn-','');
-    const ex     = (currentAcademy.payments||[]).find(p=>p.studentId===sid&&p.month===bm);
-    const bp     = ex?.status==='paid';
-    const bf     = bm > curYm;
-    const bCur   = bm === curYm;
-    const bPast  = bm < curYm;
-    const sel    = bm === m;
-
-    if(bp){
-      // 납부완료: 초록 유지, 선택시 테두리 강조
-      b.style.background = '#dcfce7';
-      b.style.color      = '#166534';
-      b.style.outline    = sel ? '2px solid #166534' : 'none';
-      b.style.outlineOffset = '1px';
-      b.style.border     = sel ? '3px solid #166534' : '2px solid #22c55e';
-      b.style.fontWeight = sel ? '700' : '500';
-    } else if(bf){
-      b.style.background = '#f0f4ff';
-      b.style.color      = '#4361ee';
-      b.style.border     = sel ? '2px solid var(--accent)' : '2px solid #c7d7fd';
-      b.style.outline    = 'none';
-      b.style.fontWeight = sel ? '700' : '500';
-    } else if(bCur){
-      b.style.background = sel ? '#eef2ff' : 'var(--surface)';
-      b.style.color      = sel ? 'var(--accent)' : 'var(--text2)';
-      b.style.border     = sel ? '2px solid var(--accent)' : '2px solid var(--border)';
-      b.style.outline    = 'none';
-      b.style.fontWeight = sel ? '700' : '500';
-    } else {
-      // 과거 미납
-      b.style.background = sel ? '#fff0f0' : 'var(--surface)';
-      b.style.color      = sel ? '#dc2626' : 'var(--text3)';
-      b.style.border     = sel ? '2px solid #dc2626' : '2px solid var(--border)';
-      b.style.outline    = 'none';
-      b.style.fontWeight = sel ? '700' : '500';
-    }
-  });
-
-  document.getElementById('qp-charge').value      = charge;
-  document.getElementById('qp-charge-disp').value = charge;
-
-  // ★ 부분납부 상태면 잔액(추가로 낼 금액)을 기본으로, 미납이면 전체 금액
-  const amountToShow = isPaid ? 0 : (unpaid > 0 ? unpaid : charge);
-  document.getElementById('qp-amount').value = amountToShow;
-
-  // 부분납부 안내
-  const isPartial = existing?.status === 'partial';
-  const partialNotice = document.getElementById('qp-partial-notice');
-  if(partialNotice){
-    if(isPartial){
-      partialNotice.style.display = '';
-      partialNotice.innerHTML = `⚠ 부분납부 중 — 기존 납부 <strong>${existing.amount}만원</strong> / 잔액 <strong style="color:var(--danger)">${unpaid}만원</strong> · 아래에 <u>추가로 납부할 금액</u>을 입력하세요`;
-    } else {
-      partialNotice.style.display = 'none';
-    }
-  }
-
-  document.getElementById('qp-prepay-notice').style.display       = isFuture && !isPaid ? '' : 'none';
-  document.getElementById('qp-already-paid-notice').style.display = isPaid ? '' : 'none';
-  const btn = document.getElementById('qp-confirm-btn');
-  btn.disabled = isPaid; btn.style.opacity = isPaid ? '.5' : '1';
-  qpCalcRemain();
 }
 
 function selectPayMethod(btn){
@@ -5629,86 +5655,96 @@ function confirmQuickPay(){
 
   // ── 기존 신규 수납 처리 ──────────────────────────
   const sid      = document.getElementById('qp-student-id').value;
-  const month    = _qpCurrentMonth;
-  const charge   = parseFloat(document.getElementById('qp-charge').value)||0;
-  const inputAmt = parseFloat(document.getElementById('qp-amount').value)||0; // 이번에 입력한 금액
+  const totalInputAmt = parseFloat(document.getElementById('qp-amount').value)||0;
   const date     = document.getElementById('qp-date').value;
   const note     = document.getElementById('qp-note').value;
   const depositor= document.getElementById('qp-depositor').value;
   const curYm    = ym();
-  const isPrepay = month > curYm;
+  const months   = _qpSelectedMonths.length ? _qpSelectedMonths : [_qpCurrentMonth];
 
   if(!_qpSelectedMethod){ showToast('납부 방법을 선택해주세요.','error'); return; }
-  if(!inputAmt||inputAmt<=0){ showToast('납부금액을 입력해주세요.','error'); return; }
+  if(!totalInputAmt||totalInputAmt<=0){ showToast('납부금액을 입력해주세요.','error'); return; }
   if(!date){ showToast('납부일을 입력해주세요.','error'); return; }
   if(_qpSelectedMethod==='지역화폐'&&!depositor){ showToast('지역화폐 입금자를 확인해주세요.','error'); return; }
 
-  const existing = (currentAcademy.payments||[]).find(p=>p.studentId===sid&&p.month===month);
+  // 다중 월: 각 월의 미납액 비율로 안분
+  const s = getStudent(sid);
+  const baseCharge = calcTotalFee(s);
+  const monthInfos = months.map(month=>{
+    const existing = (currentAcademy.payments||[]).find(p=>p.studentId===sid&&p.month===month);
+    const charge   = existing ? (existing.charge||baseCharge) : baseCharge;
+    const prevAmt  = (existing&&existing.status!=='paid') ? (existing.amount||0) : 0;
+    const unpaid   = Math.max(0, charge - prevAmt);
+    return {month, existing, charge, prevAmt, unpaid};
+  });
 
-  // 누적 총 납부금 = 기존 납부금 + 이번 납부금
-  const prevAmount  = (existing && existing.status !== 'paid') ? (existing.amount||0) : 0;
-  const totalAmount = existing?.status === 'paid'
-    ? inputAmt            // 이미 완납된 경우(선납 추가)는 새 금액만
-    : prevAmount + inputAmt;
+  const totalUnpaid = monthInfos.reduce((a,x)=>a+x.unpaid, 0)||1;
+  let remaining = totalInputAmt;
 
-  const finalCharge = existing ? existing.charge : charge;
-  const overPay     = Math.max(0, totalAmount - finalCharge); // 초과금
-  const actualPay   = Math.min(totalAmount, finalCharge);     // 이번달 실 납부금
+  monthInfos.forEach(({month, existing, charge, prevAmt, unpaid})=>{
+    const isPrepay = month > curYm;
+    // 이 달에 배분할 금액 (미납액 비율로)
+    const allocated = months.length===1
+      ? totalInputAmt
+      : Math.round(totalInputAmt * unpaid / totalUnpaid);
+    remaining -= allocated;
 
-  const status = actualPay >= finalCharge ? 'paid' : actualPay > 0 ? 'partial' : 'pending';
+    const totalAmount = existing?.status==='paid' ? allocated : prevAmt + allocated;
+    const overPay     = Math.max(0, totalAmount - charge);
+    const actualPay   = Math.min(totalAmount, charge);
+    const status      = actualPay >= charge ? 'paid' : actualPay > 0 ? 'partial' : 'pending';
 
-  // 다음달 ym
-  const nextMonth = (()=>{ const [y,m]=month.split('-').map(Number); const d=new Date(y,m,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })();
+    const record = {
+      id: existing?.id||uid(),
+      studentId: sid, month, charge,
+      amount: actualPay, date,
+      method: _qpSelectedMethod,
+      note: (note+(isPrepay?' [선납]':'')).trim(),
+      status, depositor: depositor||'', prepaid: isPrepay,
+    };
 
-  const record = {
-    id: existing?.id||uid(),
-    studentId: sid, month,
-    charge: finalCharge,
-    amount: actualPay,   // 초과분 제외한 이번달 실납부금
-    date, method: _qpSelectedMethod,
-    note: (note+(isPrepay?' [선납]':'')).trim(),
-    status, depositor: depositor||'', prepaid: isPrepay,
-  };
-
-  if(existing && existing.status !== 'paid'){
-    Object.assign(existing, record);
-  } else if(existing && existing.status === 'paid' && isPrepay){
-    currentAcademy.payments.push({...record, id:uid()});
-  } else if(existing){
-    Object.assign(existing, record);
-  } else {
-    currentAcademy.payments.push(record);
-  }
-
-  // ★ 초과금 처리: 다음달 부분납부 선납으로 자동 분리
-  if(overPay > 0){
-    const s = getStudent(sid);
-    const nextCharge = calcTotalFee(s);
-    const nextExisting = currentAcademy.payments.find(p=>p.studentId===sid&&p.month===nextMonth);
-    if(nextExisting && nextExisting.status !== 'paid'){
-      // 다음달에 이미 부분납부 기록이 있으면 누적
-      nextExisting.amount = (nextExisting.amount||0) + overPay;
-      nextExisting.status = nextExisting.amount >= nextExisting.charge ? 'paid' : 'partial';
-      nextExisting.prepaid = true;
-    } else if(!nextExisting){
-      // 다음달 새 레코드 생성 (부분선납)
-      currentAcademy.payments.push({
-        id: uid(), studentId: sid, month: nextMonth,
-        charge: nextCharge, amount: overPay,
-        date, method: _qpSelectedMethod,
-        note: `[초과분 자동 선납] ${month}에서 ${overPay}만원 이월`,
-        status: overPay >= nextCharge ? 'paid' : 'partial',
-        depositor: depositor||'', prepaid: true,
-      });
+    if(existing && existing.status !== 'paid'){
+      Object.assign(existing, record);
+    } else if(existing && existing.status === 'paid' && isPrepay){
+      currentAcademy.payments.push({...record, id:uid()});
+    } else if(existing){
+      Object.assign(existing, record);
+    } else {
+      currentAcademy.payments.push(record);
     }
-  }
+
+    // 초과금 → 다음달 선납
+    if(overPay > 0){
+      const nextMonth = (()=>{ const [y,mo]=month.split('-').map(Number); const d=new Date(y,mo,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })();
+      const nextEx = currentAcademy.payments.find(p=>p.studentId===sid&&p.month===nextMonth);
+      if(nextEx && nextEx.status!=='paid'){
+        nextEx.amount = (nextEx.amount||0) + overPay;
+        nextEx.status = nextEx.amount >= nextEx.charge ? 'paid' : 'partial';
+        nextEx.prepaid = true;
+      } else if(!nextEx){
+        currentAcademy.payments.push({
+          id:uid(), studentId:sid, month:nextMonth,
+          charge: calcTotalFee(s), amount:overPay,
+          date, method:_qpSelectedMethod, note:'[선납 자동분리]',
+          status: overPay >= calcTotalFee(s) ? 'paid' : 'partial',
+          depositor: depositor||'', prepaid:true,
+        });
+      }
+    }
+  });
+
+  const monthLabel = months.length>1 ? `${months[0]}~${months[months.length-1]}` : months[0];
+  const isPrepay = months.some(m=>m>curYm);
+
+  // 선납 안내 초기화
+  const prepayNotice = document.getElementById('qp-prepay-notice');
+  if(prepayNotice) prepayNotice.style.display='none';
 
   saveAcademy(); closeModal('m-quick-pay'); refreshAll();
 
-  // 토스트 메시지
-  let msg = `${month} 수납 완료!`;
-  if(prevAmount > 0) msg += ` (추가 ${inputAmt}만원 → 총 ${actualPay}만원)`;
-  if(overPay > 0)    msg += ` | 초과 ${overPay}만원 → ${nextMonth} 부분선납 자동 처리 🔖`;
+  let msg = `${monthLabel} 수납 완료!`;
+  if(months.length>1) msg += ` (${months.length}개월 처리)`;
+  if(isPrepay) msg += ' 🔖선납';
   msg += ` (${_qpSelectedMethod}${depositor?' · '+depositor:''})`;
   showToast(msg, 'success');
 }
