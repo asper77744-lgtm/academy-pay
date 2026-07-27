@@ -2377,44 +2377,33 @@ function updateDashboard(){
   // ── 이번달 수납 내역 (month === curYm)
   const mPays = payments.filter(p=>p.month===curYm && p.amount>0);
 
-  // ── 4번: 수납완료 (완납 + 부분납부 모두 포함)
-  // 인원: paid + partial 학생
-  // 금액: 실제 납부한 금액 합계
-  const paidStudents = active.filter(s=>
-    payments.find(p=>p.studentId===s.id && p.month===curYm && (p.status==='paid'||p.status==='partial'))
-  );
-  const paidCnt = paidStudents.length;
-  const paidAmt = paidStudents.reduce((sum,s)=>{
+  // ── 3번: 실수납액 = 이번달 실제 입금액
+  // 이번달 month + 입금일도 이번달인 것 (선납차감 제외, 선납 제외)
+  const realPays = mPays.filter(p=>p.date && p.date.startsWith(curDatePrefix));
+  const income   = realPays.reduce((a,p)=>a+p.amount, 0);
+
+  // ── 4번: 수납완료
+  // 인원: paid만 (완납한 학생만)
+  // 금액: 완납 학생 납부액 + 부분납부 학생 납부액 합산
+  const paidStudents   = active.filter(s=>payments.find(p=>p.studentId===s.id&&p.month===curYm&&p.status==='paid'));
+  const partialStudents= active.filter(s=>payments.find(p=>p.studentId===s.id&&p.month===curYm&&p.status==='partial'));
+  const paidCnt = paidStudents.length; // 완납만
+  const paidAmt = [...paidStudents, ...partialStudents].reduce((sum,s)=>{
     return sum + mPays.filter(p=>p.studentId===s.id).reduce((a,p)=>a+p.amount, 0);
   }, 0);
   const paidRate = expectedRevenue > 0 ? Math.round(paidAmt/expectedRevenue*100) : 0;
 
   // ── 5번: 미납
-  // 인원: paid·partial 기록이 전혀 없는 학생
-  // 금액: 완전미납(5명 전액) + 부분미납 잔액(5명 × 잔액) 합산
-  const unpaidStudents = active.filter(s=>
-    !payments.find(p=>p.studentId===s.id && p.month===curYm && (p.status==='paid'||p.status==='partial'))
-  );
+  // 인원: paid 없는 학생 (부분납부 포함)
+  // 금액: 완전미납 청구액 + 부분납부 잔액
+  const unpaidStudents = active.filter(s=>!payments.find(p=>p.studentId===s.id&&p.month===curYm&&p.status==='paid'));
   const unpaidCnt = unpaidStudents.length;
-  // 미납 금액 = 완전미납 학생 청구액 + 부분납부 학생 잔액
-  const unpaidAmt = (() => {
-    // 완전미납 학생
-    const fullUnpaid = unpaidStudents.reduce((sum,s)=>sum+calcTotalFee(s), 0);
-    // 부분납부 학생 잔액
-    const partialUnpaid = active
-      .filter(s=>payments.find(p=>p.studentId===s.id&&p.month===curYm&&p.status==='partial'))
-      .reduce((sum,s)=>{
-        const charge  = calcTotalFee(s);
-        const already = mPays.filter(p=>p.studentId===s.id).reduce((a,p)=>a+p.amount, 0);
-        return sum + Math.max(0, charge - already);
-      }, 0);
-    return fullUnpaid + partialUnpaid;
-  })();
+  const unpaidAmt = unpaidStudents.reduce((sum,s)=>{
+    const charge  = calcTotalFee(s);
+    const already = mPays.filter(p=>p.studentId===s.id).reduce((a,p)=>a+p.amount, 0);
+    return sum + Math.max(0, charge - already);
+  }, 0);
   const unpaidRate = expectedRevenue > 0 ? Math.round(unpaidAmt/expectedRevenue*100) : 0;
-
-  // ── 3번: 실수납액 = 실제로 이번달에 납부된 금액 전체 (paid + partial 합산)
-  // 선납차감(이전에 선납해서 이번달에 적용된 것) 포함, 선납(미래월) 제외
-  const income = mPays.reduce((a,p)=>a+p.amount, 0);
 
   // ── 선납 현금흐름 표시용
   const prepayIn  = payments.filter(p=>p.date&&p.date.startsWith(curDatePrefix)&&p.amount>0&&p.month>curYm)
@@ -2435,7 +2424,7 @@ function updateDashboard(){
 
   document.getElementById('ds-paid').textContent      = paidCnt;
   document.getElementById('ds-paid-amt').textContent  = `${fmt(paidAmt)}만원`;
-  document.getElementById('ds-paid-rate').textContent = `예상대비 ${paidRate}%`;
+  document.getElementById('ds-paid-rate').textContent = `부분납부 ${partialStudents.length}명 포함`;
 
   document.getElementById('ds-unpaid').textContent      = unpaidCnt;
   document.getElementById('ds-unpaid-amt').textContent  = `${fmt(unpaidAmt)}만원`;
