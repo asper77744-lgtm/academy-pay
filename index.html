@@ -4806,61 +4806,59 @@ function editPayment(id){
 
   _editPaymentId = id;
 
-  // 퀵페이 모달 열기
-  openQuickPayModal(p.studentId, p.month, p.charge||calcTotalFee(s));
+  // 모달이 이미 열려있으면 닫고 짧게 대기 후 다시 열기
+  const modal = document.getElementById('m-quick-pay');
+  const wasOpen = modal && modal.classList.contains('open');
+  if(wasOpen){ modal.classList.remove('open'); }
 
-  // 기존 데이터 적용
   setTimeout(()=>{
-    // 제목 변경
-    const h2 = document.querySelector('#m-quick-pay h2');
-    if(h2) h2.innerHTML = `✏️ 수납 편집 — ${s.name}`;
+    // 퀵페이 모달 열기
+    openQuickPayModal(p.studentId, p.month, p.charge||calcTotalFee(s));
 
-    // 납부월 버튼
-    document.querySelectorAll('.qp-month-btn').forEach(btn=>{
-      btn.classList.toggle('active', btn.dataset.month===p.month);
-    });
-    _qpCurrentMonth = p.month;
+    setTimeout(()=>{
+      // 제목
+      const h2 = document.querySelector('#m-quick-pay h2');
+      if(h2) h2.innerHTML = `✏️ 수납 편집 — ${s.name}`;
 
-    // 금액
-    const chargeVal = p.charge||calcTotalFee(s);
-    document.getElementById('qp-charge').value       = chargeVal;
-    document.getElementById('qp-charge-disp').value  = chargeVal;
-    document.getElementById('qp-amount').value        = p.amount||0;
-    qpCalcRemain();
+      // 납부월 버튼
+      document.querySelectorAll('.qp-month-btn').forEach(btn=>{
+        btn.classList.toggle('active', btn.dataset.month===p.month);
+      });
+      _qpCurrentMonth = p.month;
 
-    // 납부 방법 버튼 선택
-    const method = p.method||'현금';
-    document.querySelectorAll('.qp-method-btn').forEach(btn=>{
-      btn.classList.remove('selected');
-      if(btn.dataset.val===method){
-        btn.classList.add('selected');
-        _qpSelectedMethod = method;
-        // 지역화폐 섹션 표시
-        document.getElementById('qp-local-pay-section').style.display =
-          method==='지역화폐' ? '' : 'none';
+      // 금액
+      const chargeVal = p.charge||calcTotalFee(s);
+      document.getElementById('qp-charge').value      = chargeVal;
+      document.getElementById('qp-charge-disp').value = chargeVal;
+      document.getElementById('qp-amount').value      = p.amount||0;
+      qpCalcRemain();
+
+      // 납부 방법
+      const method = p.method||'현금';
+      document.querySelectorAll('.qp-method-btn').forEach(btn=>{
+        btn.classList.remove('selected');
+        if(btn.dataset.val===method){
+          btn.classList.add('selected');
+          _qpSelectedMethod = method;
+          document.getElementById('qp-local-pay-section').style.display =
+            method==='지역화폐' ? '' : 'none';
+        }
+      });
+      if(method==='지역화폐'){
+        document.getElementById('qp-depositor').value = p.depositor||'';
       }
-    });
 
-    // 지역화폐 입금자
-    if(method==='지역화폐'){
-      document.getElementById('qp-depositor').value = p.depositor||'';
-    }
+      // 날짜·메모
+      document.getElementById('qp-date').value = p.date||now().toISOString().slice(0,10);
+      document.getElementById('qp-note').value = p.note||'';
 
-    // 날짜·메모
-    document.getElementById('qp-date').value = p.date||now().toISOString().slice(0,10);
-    document.getElementById('qp-note').value = p.note||'';
-
-    // ★ 버튼 강제 활성화 + 텍스트 변경
-    const btn = document.getElementById('qp-confirm-btn');
-    if(btn){
-      btn.disabled    = false;
-      btn.style.opacity = '1';
-      btn.textContent = '✅ 수정 완료';
-    }
-    // 이미납부 안내 숨기기
-    const paidNotice = document.getElementById('qp-already-paid-notice');
-    if(paidNotice) paidNotice.style.display='none';
-  }, 150);
+      // 버튼 강제 활성화
+      const btn = document.getElementById('qp-confirm-btn');
+      if(btn){ btn.disabled=false; btn.style.opacity='1'; btn.textContent='✅ 수정 완료'; }
+      const paidNotice = document.getElementById('qp-already-paid-notice');
+      if(paidNotice) paidNotice.style.display='none';
+    }, 150);
+  }, wasOpen ? 200 : 0);
 }
 
 function savePayment(){
