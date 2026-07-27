@@ -2369,47 +2369,58 @@ function updateDashboard(){
     s.status==='withdrawn' && s.withdrawDate && s.withdrawDate.slice(0,7)===curYm
   );
 
-  // ── 이번달 청구 기준 수납 (month === 이번달, 선납·선납차감 제외)
-  // 실수납 = 이번달 month이고 입금일도 이번달인 건 (선납차감 제외)
-  const mPays = payments.filter(p=>p.month===curYm && p.amount>0);
-
-  // ── 3번: 이번달 실수납액 (선납·선납차감 제외)
-  // 이번달에 입금됐고 month도 이번달인 건만
-  const realPays = mPays.filter(p=>p.date && p.date.startsWith(curDatePrefix));
-  const income   = realPays.reduce((a,p)=>a+p.amount, 0);
-
-  // ── 예상 매출
+  // ── 예상 매출 (할인 후)
   const baseFeeTotal    = active.reduce((s,st)=>(st.enrollments||[]).reduce((a,e)=>a+(parseFloat(e.fee)||0),0)+s, 0);
   const discountTotal   = active.reduce((s,st)=>(st.discounts||[]).reduce((a,d)=>a+(parseFloat(d.amount)||0),0)+s, 0);
   const expectedRevenue = active.reduce((s,st)=>s+calcTotalFee(st), 0);
 
-  // ── 4번: 수납완료 — 이번달 month, 이번달 입금, status=paid
-  const paidStudents = active.filter(s=>{
-    const p = payments.find(x=>x.studentId===s.id && x.month===curYm && x.status==='paid');
-    return !!p;
-  });
+  // ── 이번달 수납 내역 (month === curYm)
+  const mPays = payments.filter(p=>p.month===curYm && p.amount>0);
+
+  // ── 4번: 수납완료 (완납 + 부분납부 모두 포함)
+  // 인원: paid + partial 학생
+  // 금액: 실제 납부한 금액 합계
+  const paidStudents = active.filter(s=>
+    payments.find(p=>p.studentId===s.id && p.month===curYm && (p.status==='paid'||p.status==='partial'))
+  );
   const paidCnt = paidStudents.length;
-  // 수납완료 금액: 이번달 입금된 금액만 (선납차감 제외)
   const paidAmt = paidStudents.reduce((sum,s)=>{
-    const ps = payments.filter(x=>x.studentId===s.id && x.month===curYm && x.date && x.date.startsWith(curDatePrefix));
-    return sum + ps.reduce((a,p)=>a+p.amount, 0);
+    return sum + mPays.filter(p=>p.studentId===s.id).reduce((a,p)=>a+p.amount, 0);
   }, 0);
   const paidRate = expectedRevenue > 0 ? Math.round(paidAmt/expectedRevenue*100) : 0;
 
-  // ── 5번: 미납 — 이번달 수납 없는 재원생
+  // ── 5번: 미납
+  // 인원: paid·partial 기록이 전혀 없는 학생
+  // 금액: 완전미납(5명 전액) + 부분미납 잔액(5명 × 잔액) 합산
   const unpaidStudents = active.filter(s=>
     !payments.find(p=>p.studentId===s.id && p.month===curYm && (p.status==='paid'||p.status==='partial'))
   );
   const unpaidCnt = unpaidStudents.length;
-  // 미납 금액: 해당 학생들의 이번달 청구액 합산
-  const unpaidAmt = unpaidStudents.reduce((sum,s)=>sum+calcTotalFee(s), 0);
+  // 미납 금액 = 완전미납 학생 청구액 + 부분납부 학생 잔액
+  const unpaidAmt = (() => {
+    // 완전미납 학생
+    const fullUnpaid = unpaidStudents.reduce((sum,s)=>sum+calcTotalFee(s), 0);
+    // 부분납부 학생 잔액
+    const partialUnpaid = active
+      .filter(s=>payments.find(p=>p.studentId===s.id&&p.month===curYm&&p.status==='partial'))
+      .reduce((sum,s)=>{
+        const charge  = calcTotalFee(s);
+        const already = mPays.filter(p=>p.studentId===s.id).reduce((a,p)=>a+p.amount, 0);
+        return sum + Math.max(0, charge - already);
+      }, 0);
+    return fullUnpaid + partialUnpaid;
+  })();
   const unpaidRate = expectedRevenue > 0 ? Math.round(unpaidAmt/expectedRevenue*100) : 0;
 
-  // ── 선납 현금흐름
-  const prepayInPays = payments.filter(p=>p.date&&p.date.startsWith(curDatePrefix)&&p.amount>0&&p.month>curYm);
-  const prepayIn     = prepayInPays.reduce((a,p)=>a+p.amount, 0);
-  const prepayOutPays= mPays.filter(p=>p.date&&!p.date.startsWith(curDatePrefix));
-  const prepayOut    = prepayOutPays.reduce((a,p)=>a+p.amount, 0);
+  // ── 3번: 실수납액 = 실제로 이번달에 납부된 금액 전체 (paid + partial 합산)
+  // 선납차감(이전에 선납해서 이번달에 적용된 것) 포함, 선납(미래월) 제외
+  const income = mPays.reduce((a,p)=>a+p.amount, 0);
+
+  // ── 선납 현금흐름 표시용
+  const prepayIn  = payments.filter(p=>p.date&&p.date.startsWith(curDatePrefix)&&p.amount>0&&p.month>curYm)
+                            .reduce((a,p)=>a+p.amount, 0);
+  const prepayOut = mPays.filter(p=>p.date&&!p.date.startsWith(curDatePrefix))
+                         .reduce((a,p)=>a+p.amount, 0);
 
   // ── DOM 업데이트
   document.getElementById('ds-students').textContent  = active.length;
@@ -2417,22 +2428,19 @@ function updateDashboard(){
   document.getElementById('ds-withdrawn').textContent = monthWithdrawn.length;
   document.getElementById('ds-trial-sub').textContent = `체험 ${trial.length}명 / 퇴원 ${monthWithdrawn.length}명`;
 
-  document.getElementById('ds-income').textContent    = fmt(income);
-  document.getElementById('ds-expected').textContent  = fmt(expectedRevenue);
-  document.getElementById('ds-base-fee').textContent  = fmt(baseFeeTotal);
-  document.getElementById('ds-discount').textContent  = fmt(discountTotal);
+  document.getElementById('ds-income').textContent   = fmt(income);
+  document.getElementById('ds-expected').textContent = fmt(expectedRevenue);
+  document.getElementById('ds-base-fee').textContent = fmt(baseFeeTotal);
+  document.getElementById('ds-discount').textContent = fmt(discountTotal);
 
-  // 수납완료
-  document.getElementById('ds-paid').textContent     = paidCnt;
-  document.getElementById('ds-paid-amt').textContent = `${fmt(paidAmt)}만원`;
-  document.getElementById('ds-paid-rate').textContent= `예상대비 ${paidRate}%`;
+  document.getElementById('ds-paid').textContent      = paidCnt;
+  document.getElementById('ds-paid-amt').textContent  = `${fmt(paidAmt)}만원`;
+  document.getElementById('ds-paid-rate').textContent = `예상대비 ${paidRate}%`;
 
-  // 미납
-  document.getElementById('ds-unpaid').textContent     = unpaidCnt;
-  document.getElementById('ds-unpaid-amt').textContent = `${fmt(unpaidAmt)}만원`;
-  document.getElementById('ds-unpaid-rate').textContent= `예상대비 ${unpaidRate}%`;
+  document.getElementById('ds-unpaid').textContent      = unpaidCnt;
+  document.getElementById('ds-unpaid-amt').textContent  = `${fmt(unpaidAmt)}만원`;
+  document.getElementById('ds-unpaid-rate').textContent = `예상대비 ${unpaidRate}%`;
 
-  // 현금흐름
   const cfEl = document.getElementById('ds-cashflow');
   if(cfEl){
     let html = '';
@@ -2447,9 +2455,9 @@ function updateDashboard(){
   const sl={paid:'완료',partial:'부분',pending:'미납'};
   document.getElementById('dash-recent').innerHTML = recent.length
     ? recent.map(p=>{
-        const s = students.find(x=>x.id===p.studentId);
+        const s    = students.find(x=>x.id===p.studentId);
         const subj = getEnrollments(s).map(e=>e.subject).filter(Boolean).join(', ')||'-';
-        const isPre = p.month > curYm ? `<span style="font-size:9px;color:#f59e0b;margin-left:3px">선납</span>` : '';
+        const isPre= p.month > curYm ? `<span style="font-size:9px;color:#f59e0b;margin-left:3px">선납</span>` : '';
         return `<tr>
           <td><strong>${s?.name||'-'}</strong></td>
           <td><span style="font-size:12px;color:var(--text2)">${subj}</span></td>
