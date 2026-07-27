@@ -5230,8 +5230,8 @@ function buildMonthButtons(sid, defaultMonth){
   const today  = now();
   const curYm  = ym();
   const months = [];
-  // 3달 전 ~ 2달 후 = 6개월만 표시 (스크롤로 충분)
-  for(let i = -3; i <= 2; i++){
+  // 2년 전 ~ 2년 후 = 총 49개월
+  for(let i = -24; i <= 24; i++){
     const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
     months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
   }
@@ -5251,25 +5251,28 @@ function buildMonthButtons(sid, defaultMonth){
       <span style="font-size:11px;color:var(--text3)">※ 클릭하면 해당 월을 선납 처리합니다</span>
     </div>`;
 
-  // 월 버튼 — 깔끔한 원래 스타일
+  // 월 버튼 — 가로 스크롤
   const monthGrid = `
-    <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px" id="qp-month-scroll">
-      ${months.map(m=>{
-        const existing = (currentAcademy.payments||[]).find(p=>p.studentId===sid&&p.month===m);
-        const isPaid   = existing?.status==='paid';
-        const isFuture = m > curYm;
-        const isCur    = m === curYm;
-        const label    = isCur ? '이번달' : isFuture ? '🔖선납' : '이전';
-        return `<button type="button" onclick="selectQpMonth('${m}')"
-          style="flex-shrink:0;padding:8px 12px;border:2px solid var(--border);border-radius:8px;
-            font-size:12px;font-weight:500;cursor:pointer;line-height:1.4;
-            background:${isPaid?'#ecfdf5':isFuture?'#f8faff':'var(--surface)'};
-            color:${isPaid?'var(--success)':isFuture?'#4361ee':'var(--text2)'};
-            font-family:inherit;text-align:center;min-width:76px;transition:all .15s"
-          id="qp-mbtn-${m}"
-        >${isPaid?'✅ ':''}${m}<span style="font-size:10px;display:block;opacity:.8">${label}</span></button>`;
-      }).join('')}
-    </div>`;
+    <div style="overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch" id="qp-month-scroll">
+      <div style="display:flex;gap:6px;width:max-content">
+        ${months.map(m=>{
+          const existing = (currentAcademy.payments||[]).find(p=>p.studentId===sid&&p.month===m);
+          const isPaid   = existing?.status==='paid';
+          const isFuture = m > curYm;
+          const isCur    = m === curYm;
+          const label    = isCur ? '이번달' : isFuture ? '🔖선납' : '이전';
+          return `<button type="button" onclick="selectQpMonth('${m}')"
+            style="flex-shrink:0;padding:8px 12px;border:2px solid var(--border);border-radius:8px;
+              font-size:12px;font-weight:500;cursor:pointer;line-height:1.4;
+              background:${isPaid?'#ecfdf5':isFuture?'#f8faff':'var(--surface)'};
+              color:${isPaid?'var(--success)':isFuture?'#4361ee':'var(--text2)'};
+              font-family:inherit;text-align:center;min-width:76px;transition:all .15s"
+            id="qp-mbtn-${m}"
+          >${isPaid?'✅ ':''}${m}<span style="font-size:10px;display:block;opacity:.8">${label}</span></button>`;
+        }).join('')}
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:3px">← 좌우 스크롤</div>`;
 
   // 직접 입력
   const customInput = `
@@ -5288,10 +5291,15 @@ function buildMonthButtons(sid, defaultMonth){
   updateMonthBtnStyles(sid);
   updateMultiMonthCharge(sid);
 
-  // 선택된 월로 스크롤
+  // 이번달 버튼이 스크롤 영역 왼쪽에 오도록 (이전 1달만 보이게)
   setTimeout(()=>{
-    const selBtn = document.getElementById(`qp-mbtn-${initMonth}`);
-    if(selBtn) selBtn.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+    const scroll = document.getElementById('qp-month-scroll');
+    const curBtn = document.getElementById(`qp-mbtn-${curYm}`);
+    if(scroll && curBtn){
+      // 이번달 버튼 왼쪽에 딱 1달치 여유만 두고 스크롤
+      const btnWidth = curBtn.offsetWidth + 6; // 버튼 너비 + gap
+      scroll.scrollLeft = curBtn.offsetLeft - btnWidth;
+    }
   }, 100);
 }
 
