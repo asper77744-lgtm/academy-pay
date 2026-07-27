@@ -120,7 +120,8 @@ body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text);
 
 /* ─── STAT CARDS ───────────────────────── */
 .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
-.sc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden}
+.sc{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;transition:box-shadow .15s,transform .15s}
+.sc[onclick]:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);transform:translateY(-2px)}
 .sc-accent{position:absolute;top:0;left:0;width:3px;height:100%;border-radius:3px 0 0 3px}
 .sc-label{font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px}
 .sc-val{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1}
@@ -575,13 +576,21 @@ tbody tr:hover td{background:#f8f9ff}
       <div class="ph"><div class="ph-left"><h1 id="dash-greeting">안녕하세요 👋</h1><p id="dash-date"></p></div>
         <div class="ph-actions">
           <button class="btn btn-outline btn-sm" onclick="exportExcel()">📥 엑셀 내보내기</button>
-          <button class="btn btn-primary btn-sm" onclick="openModal('m-payment')">+ 수납 등록</button>
+          <button class="btn btn-primary btn-sm" onclick="nav('unpaid', document.querySelector('.sb-item[onclick*=unpaid]'))">+ 수납 등록</button>
         </div>
       </div>
       <div class="stats-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:16px">
-        <div class="sc"><div class="sc-accent" style="background:var(--accent)"></div><div class="sc-label">재원 학생</div><div class="sc-val" id="ds-students">0</div><div class="sc-sub">재원+재입학</div><div class="sc-icon">👥</div></div>
-        <div class="sc"><div class="sc-accent" style="background:var(--warning)"></div><div class="sc-label">체험중</div><div class="sc-val" id="ds-trial">0</div><div class="sc-sub">명 체험</div><div class="sc-icon">🟡</div></div>
-        <div class="sc"><div class="sc-accent" style="background:var(--success)"></div><div class="sc-label">이번 달 수납</div>
+        <!-- 재원 학생 → 학생관리 -->
+        <div class="sc" onclick="nav('students', document.querySelector('.sb-item[onclick*=students]'))" style="cursor:pointer">
+          <div class="sc-accent" style="background:var(--accent)"></div><div class="sc-label">재원 학생</div><div class="sc-val" id="ds-students">0</div><div class="sc-sub">재원+재입학</div><div class="sc-icon">👥</div>
+        </div>
+        <!-- 체험중 → 학생관리 -->
+        <div class="sc" onclick="nav('students', document.querySelector('.sb-item[onclick*=students]'))" style="cursor:pointer">
+          <div class="sc-accent" style="background:var(--warning)"></div><div class="sc-label">체험중</div><div class="sc-val" id="ds-trial">0</div><div class="sc-sub">명 체험</div><div class="sc-icon">🟡</div>
+        </div>
+        <!-- 이번달 수납 → 수납 내역 -->
+        <div class="sc" onclick="nav('payments', document.querySelector('.sb-item[onclick*=payments]'))" style="cursor:pointer">
+          <div class="sc-accent" style="background:var(--success)"></div><div class="sc-label">이번 달 수납</div>
           <div style="display:flex;align-items:baseline;gap:4px;padding:4px 16px 0">
             <span class="sc-val" id="ds-income" style="padding:0">0</span>
             <span style="font-size:13px;color:var(--text3);font-weight:500">/ <span id="ds-expected">0</span></span>
@@ -594,12 +603,18 @@ tbody tr:hover td{background:#f8f9ff}
           </div>
           <div class="sc-icon">💰</div>
         </div>
-        <div class="sc"><div class="sc-accent" style="background:#3b82f6"></div><div class="sc-label">수납 완료</div><div class="sc-val" id="ds-paid">0</div><div class="sc-sub">명 납부</div><div class="sc-icon">✅</div></div>
-        <div class="sc"><div class="sc-accent" style="background:var(--danger)"></div><div class="sc-label">미납 / 이달퇴원</div><div class="sc-val" id="ds-unpaid">0</div><div class="sc-sub"><span id="ds-withdrawn-sub"></span></div><div class="sc-icon">⚠️</div></div>
+        <!-- 수납 완료 → 수납 내역 -->
+        <div class="sc" onclick="nav('payments', document.querySelector('.sb-item[onclick*=payments]'))" style="cursor:pointer">
+          <div class="sc-accent" style="background:#3b82f6"></div><div class="sc-label">수납 완료</div><div class="sc-val" id="ds-paid">0</div><div class="sc-sub">명 납부</div><div class="sc-icon">✅</div>
+        </div>
+        <!-- 미납 → 미납 관리 -->
+        <div class="sc" onclick="nav('unpaid', document.querySelector('.sb-item[onclick*=unpaid]'))" style="cursor:pointer">
+          <div class="sc-accent" style="background:var(--danger)"></div><div class="sc-label">미납 / 이달퇴원</div><div class="sc-val" id="ds-unpaid">0</div><div class="sc-sub"><span id="ds-withdrawn-sub"></span></div><div class="sc-icon">⚠️</div>
+        </div>
       </div>
       <div class="grid-2col" style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px">
         <div class="card"><div class="card-head"><h3>최근 수납 내역</h3><button class="btn btn-neutral btn-sm" onclick="nav('payments',null)">전체 보기</button></div>
-          <div style="padding:0;overflow-x:auto"><table style="min-width:320px"><thead><tr><th>학생</th><th>과목</th><th>금액</th><th>일자</th><th>상태</th></tr></thead><tbody id="dash-recent"></tbody></table></div>
+          <div style="padding:0;overflow-x:auto;width:100%"><table style="width:100%;min-width:0;white-space:nowrap"><thead><tr><th>학생</th><th>과목</th><th>금액</th><th>일자</th><th>상태</th></tr></thead><tbody id="dash-recent"></tbody></table></div>
         </div>
         <div class="card"><div class="card-head">
             <h3 id="dash-chart-title">월별 수납 현황</h3>
