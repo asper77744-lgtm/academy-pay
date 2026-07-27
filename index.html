@@ -5230,92 +5230,45 @@ function buildMonthButtons(sid, defaultMonth){
   const today  = now();
   const curYm  = ym();
   const months = [];
-  // 지난달 ~ 12개월 후 = 14개월 범위 기본 표시
-  for(let i = -1; i <= 12; i++){
+  // 3달 전 ~ 2달 후 = 6개월만 표시 (스크롤로 충분)
+  for(let i = -3; i <= 2; i++){
     const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
     months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
   }
 
   const btns = document.getElementById('qp-month-btns');
 
-  // 빠른 선납 버튼 (3/6/12개월)
+  // 빠른 선납 버튼
   const quickBtns = `
     <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap">
       <span style="font-size:11px;color:var(--text3);font-weight:600;white-space:nowrap">빠른 선납:</span>
       <button type="button" onclick="quickSelectPrepay(3,'${sid}')"
-        style="padding:5px 12px;border:1.5px solid var(--accent);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;background:#eef2ff;color:var(--accent);font-family:inherit">3개월</button>
+        style="padding:4px 12px;border:1.5px solid var(--accent);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;background:#eef2ff;color:var(--accent);font-family:inherit">3개월</button>
       <button type="button" onclick="quickSelectPrepay(6,'${sid}')"
-        style="padding:5px 12px;border:1.5px solid var(--accent);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;background:#eef2ff;color:var(--accent);font-family:inherit">6개월</button>
+        style="padding:4px 12px;border:1.5px solid var(--accent);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;background:#eef2ff;color:var(--accent);font-family:inherit">6개월</button>
       <button type="button" onclick="quickSelectPrepay(12,'${sid}')"
-        style="padding:5px 12px;border:1.5px solid var(--accent);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;background:#eef2ff;color:var(--accent);font-family:inherit">12개월</button>
-      <span style="font-size:11px;color:var(--text3);margin-left:4px">※ 클릭하면 해당 월을 선납 처리합니다</span>
+        style="padding:4px 12px;border:1.5px solid var(--accent);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;background:#eef2ff;color:var(--accent);font-family:inherit">12개월</button>
+      <span style="font-size:11px;color:var(--text3)">※ 클릭하면 해당 월을 선납 처리합니다</span>
     </div>`;
 
-  // 월 버튼 스크롤 영역
+  // 월 버튼 — 깔끔한 원래 스타일
   const monthGrid = `
-    <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin" id="qp-month-scroll">
+    <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:6px" id="qp-month-scroll">
       ${months.map(m=>{
         const existing = (currentAcademy.payments||[]).find(p=>p.studentId===sid&&p.month===m);
         const isPaid   = existing?.status==='paid';
         const isFuture = m > curYm;
         const isCur    = m === curYm;
-        const isPast   = m < curYm;
-        const sel      = m === (defaultMonth||curYm);
-
-        // 상태별 스타일
-        // 납부완료: 초록 배경 + 초록 내부 → 선택해도 초록 유지, 테두리만 강조
-        let bg, textColor, innerBorder, outerBorder, checkMark, subLabel;
-
-        if(isPaid){
-          bg          = '#dcfce7';          // 연초록 배경
-          textColor   = '#166534';          // 진초록 글자
-          innerBorder = '#22c55e';          // 초록 안쪽 테두리
-          outerBorder = sel ? '#166534' : '#22c55e'; // 선택시 더 진한 테두리
-          checkMark   = '✅ ';
-          subLabel    = isCur ? '이번달' : isPast ? '납부완료' : '선납완료';
-        } else if(isFuture){
-          bg          = '#f0f4ff';
-          textColor   = '#4361ee';
-          innerBorder = sel ? 'var(--accent)' : '#c7d7fd';
-          outerBorder = sel ? 'var(--accent)' : '#c7d7fd';
-          checkMark   = '';
-          subLabel    = '🔖선납';
-        } else if(isCur){
-          bg          = sel ? '#eef2ff' : 'var(--surface)';
-          textColor   = sel ? 'var(--accent)' : 'var(--text2)';
-          innerBorder = sel ? 'var(--accent)' : 'var(--border)';
-          outerBorder = sel ? 'var(--accent)' : 'var(--border)';
-          checkMark   = '';
-          subLabel    = '이번달';
-        } else {
-          // 과거 미납
-          bg          = sel ? '#fff0f0' : 'var(--surface)';
-          textColor   = sel ? '#dc2626' : 'var(--text3)';
-          innerBorder = sel ? '#dc2626' : 'var(--border)';
-          outerBorder = sel ? '#dc2626' : 'var(--border)';
-          checkMark   = '';
-          subLabel    = '이전';
-        }
-
-        // 선택 표시: 납부완료는 테두리 이중으로, 나머지는 일반
-        const borderStyle = isPaid && sel
-          ? `border:3px solid ${outerBorder};outline:2px solid ${outerBorder};outline-offset:1px`
-          : `border:2px solid ${outerBorder}`;
-
+        const label    = isCur ? '이번달' : isFuture ? '🔖선납' : '이전';
         return `<button type="button" onclick="selectQpMonth('${m}')"
-            font-size:12px;font-weight:${sel?'700':'500'};cursor:pointer;line-height:1.4;
-            background:${bg};color:${textColor};font-family:inherit;text-align:center;
-            min-width:80px;transition:all .15s;position:relative"
+          style="flex-shrink:0;padding:8px 12px;border:2px solid var(--border);border-radius:8px;
+            font-size:12px;font-weight:500;cursor:pointer;line-height:1.4;
+            background:${isPaid?'#ecfdf5':isFuture?'#f8faff':'var(--surface)'};
+            color:${isPaid?'var(--success)':isFuture?'#4361ee':'var(--text2)'};
+            font-family:inherit;text-align:center;min-width:76px;transition:all .15s"
           id="qp-mbtn-${m}"
-          data-paid="${isPaid}" data-future="${isFuture}"
-        >${checkMark}${m}<span style="font-size:10px;display:block;opacity:.8">${subLabel}</span></button>`;
+        >${isPaid?'✅ ':''}${m}<span style="font-size:10px;display:block;opacity:.8">${label}</span></button>`;
       }).join('')}
-    </div>
-    <div style="font-size:11px;color:var(--text3);margin-top:4px;display:flex;gap:12px;flex-wrap:wrap">
-      <span>← 좌우 스크롤로 더 보기</span>
-      <span style="display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;background:#dcfce7;border:2px solid #22c55e;border-radius:2px;display:inline-block"></span>납부완료</span>
-      <span style="display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;background:#eef2ff;border:2px solid var(--accent);border-radius:2px;display:inline-block"></span>선택중</span>
-      <span style="display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;background:#f0f4ff;border:2px solid #c7d7fd;border-radius:2px;display:inline-block"></span>선납가능</span>
     </div>`;
 
   // 직접 입력
@@ -5327,6 +5280,7 @@ function buildMonthButtons(sid, defaultMonth){
     </div>`;
 
   btns.innerHTML = quickBtns + monthGrid + customInput;
+
   // 초기 선택
   const initMonth = defaultMonth||curYm;
   _qpSelectedMonths = [initMonth];
@@ -5334,9 +5288,9 @@ function buildMonthButtons(sid, defaultMonth){
   updateMonthBtnStyles(sid);
   updateMultiMonthCharge(sid);
 
-  // 선택된 월이 보이도록 스크롤
+  // 선택된 월로 스크롤
   setTimeout(()=>{
-    const selBtn = document.getElementById(`qp-mbtn-${defaultMonth||curYm}`);
+    const selBtn = document.getElementById(`qp-mbtn-${initMonth}`);
     if(selBtn) selBtn.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
   }, 100);
 }
