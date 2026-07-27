@@ -2377,10 +2377,19 @@ function updateDashboard(){
   // ── 이번달 수납 내역 (month === curYm)
   const mPays = payments.filter(p=>p.month===curYm && p.amount>0);
 
-  // ── 3번: 실수납액 = 이번달 실제 입금액
-  // 이번달 month + 입금일도 이번달인 것 (선납차감 제외, 선납 제외)
-  const realPays = mPays.filter(p=>p.date && p.date.startsWith(curDatePrefix));
-  const income   = realPays.reduce((a,p)=>a+p.amount, 0);
+  // ── 선납 입금: 이번달에 실제 입금됐는데 month가 미래인 것
+  const prepayIn = payments
+    .filter(p=>p.month>curYm && p.amount>0 && p.date && p.date.startsWith(curDatePrefix))
+    .reduce((a,p)=>a+p.amount, 0);
+
+  // ── 선납 차감: 이번달 month인데 입금일이 이전달 (이전에 선납해서 이번달에 적용)
+  const prepayOut = mPays
+    .filter(p=>p.date && !p.date.startsWith(curDatePrefix))
+    .reduce((a,p)=>a+p.amount, 0);
+
+  // ── 3번: 실수납액 = 이번달 청구 수납 + 선납입금 - 선납차감
+  const mPayTotal = mPays.reduce((a,p)=>a+p.amount, 0);
+  const income    = mPayTotal + prepayIn - prepayOut;
 
   // ── 4번: 수납완료
   // 인원: paid만 (완납한 학생만)
@@ -2405,12 +2414,6 @@ function updateDashboard(){
   }, 0);
   const unpaidRate = expectedRevenue > 0 ? Math.round(unpaidAmt/expectedRevenue*100) : 0;
 
-  // ── 선납 현금흐름 표시용
-  const prepayIn  = payments.filter(p=>p.date&&p.date.startsWith(curDatePrefix)&&p.amount>0&&p.month>curYm)
-                            .reduce((a,p)=>a+p.amount, 0);
-  const prepayOut = mPays.filter(p=>p.date&&!p.date.startsWith(curDatePrefix))
-                         .reduce((a,p)=>a+p.amount, 0);
-
   // ── DOM 업데이트
   document.getElementById('ds-students').textContent  = active.length;
   document.getElementById('ds-trial').textContent     = trial.length;
@@ -2424,7 +2427,7 @@ function updateDashboard(){
 
   document.getElementById('ds-paid').textContent      = paidCnt;
   document.getElementById('ds-paid-amt').textContent  = `${fmt(paidAmt)}만원`;
-  document.getElementById('ds-paid-rate').textContent = `부분납부 ${partialStudents.length}명 포함`;
+  document.getElementById('ds-paid-rate').textContent = `${paidRate}% · 부분납부 ${partialStudents.length}명 포함`;
 
   document.getElementById('ds-unpaid').textContent      = unpaidCnt;
   document.getElementById('ds-unpaid-amt').textContent  = `${fmt(unpaidAmt)}만원`;
@@ -2437,8 +2440,6 @@ function updateDashboard(){
     if(prepayOut>0) html += `<span style="color:#64748b">-선납차감 ${fmt(prepayOut)}만↓</span>`;
     cfEl.innerHTML = html;
   }
-
-  // 최근 수납 내역
   const recent = [...payments].filter(p=>p.date).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6);
   const sb={paid:'b-success',partial:'b-warning',pending:'b-danger'};
   const sl={paid:'완료',partial:'부분',pending:'미납'};
