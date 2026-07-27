@@ -614,7 +614,7 @@ tbody tr:hover td{background:#f8f9ff}
       </div>
       <div class="grid-2col" style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px">
         <div class="card"><div class="card-head"><h3>최근 수납 내역</h3><button class="btn btn-neutral btn-sm" onclick="nav('payments',null)">전체 보기</button></div>
-          <div style="padding:0;overflow-x:auto;width:100%"><table style="width:100%;min-width:0;white-space:nowrap"><thead><tr><th>학생</th><th>과목</th><th>금액</th><th>일자</th><th>상태</th></tr></thead><tbody id="dash-recent"></tbody></table></div>
+          <div style="padding:0"><table style="width:100%"><thead><tr><th>학생</th><th>과목</th><th>금액</th><th>일자</th><th>상태</th></tr></thead><tbody id="dash-recent"></tbody></table></div>
         </div>
         <div class="card"><div class="card-head">
             <h3 id="dash-chart-title">월별 수납 현황</h3>
@@ -4750,34 +4750,57 @@ function renderPayments(){
   }).join(''):`<tr><td colspan="10" class="empty-row"><div class="ei">💳</div><p>수납 내역이 없습니다</p></td></tr>`;
 }
 
+let _editPaymentId = null; // 편집 중인 수납 ID
+
 function editPayment(id){
   const p = currentAcademy.payments.find(x=>x.id===id);
   if(!p) return;
+  const s = getStudent(p.studentId);
+  if(!s) return;
 
-  // 모달 초기화 (신규 등록과 동일하게)
-  openModal('m-payment');
-  fillPaymentStudents();
+  _editPaymentId = id; // 편집 모드 플래그
 
-  // 편집 모드 설정
-  document.getElementById('mp-edit-id').value = id;
-  document.getElementById('mp-modal-title').textContent = '💳 수납 편집';
-  document.getElementById('mp-save-btn').textContent = '저장';
+  // 퀵페이 모달 열기 (기존 값으로)
+  openQuickPayModal(p.studentId, p.month, p.charge||calcTotalFee(s));
 
-  // 기존 값 채우기
+  // 모달 제목 변경
+  document.querySelector('#m-quick-pay h2').innerHTML =
+    `✏️ 수납 편집 — <span id="qp-student-name">${s.name}</span>`;
+
+  // 기존 값 채우기 (openQuickPayModal 렌더링 후)
   setTimeout(()=>{
-    const studentSel = document.getElementById('mp-student');
-    studentSel.value = p.studentId;
-    autoFillPayment(); // 과목/수강료 자동채우기
-    setTimeout(()=>{
-      document.getElementById('mp-month').value  = p.month;
-      document.getElementById('mp-charge').value = p.charge;
-      document.getElementById('mp-amount').value = p.amount;
-      document.getElementById('mp-date').value   = p.date;
-      document.getElementById('mp-method').value = p.method||'현금';
-      document.getElementById('mp-note').value   = p.note||'';
-      calcRemain();
-    }, 50);
-  }, 50);
+    // 납부월 선택
+    const monthBtns = document.querySelectorAll('.qp-month-btn');
+    monthBtns.forEach(btn=>{
+      btn.classList.remove('active');
+      if(btn.dataset.month===p.month) btn.classList.add('active');
+    });
+    _qpSelectedMonths = [p.month];
+    _qpIsPrepay = (p.prepaid === true);
+
+    // 금액
+    document.getElementById('qp-charge-disp').value = p.charge||calcTotalFee(s);
+    document.getElementById('qp-amount').value = p.amount||0;
+    qpCalcRemain();
+
+    // 납부 방법
+    _qpSelectedMethod = p.method||'현금';
+    document.querySelectorAll('.qp-method-btn').forEach(btn=>{
+      btn.classList.toggle('selected', btn.dataset.val===_qpSelectedMethod);
+    });
+    // 지역화폐면 입금자 섹션 표시
+    if(p.method==='지역화폐'){
+      document.getElementById('qp-local-pay-section').style.display='';
+      document.getElementById('qp-depositor').value = p.depositor||'';
+    }
+
+    // 날짜·메모
+    document.getElementById('qp-date').value = p.date||now().toISOString().slice(0,10);
+    document.getElementById('qp-note').value = p.note||'';
+
+    // 버튼 텍스트 변경
+    document.getElementById('qp-confirm-btn').textContent = '✅ 수정 완료';
+  }, 100);
 }
 
 function savePayment(){
@@ -5368,6 +5391,40 @@ function selectDepositor(depositorLabel, displayText){
 }
 
 function confirmQuickPay(){
+  // ── 편집 모드 처리 ──────────────────────────────
+  if(_editPaymentId){
+    const sid    = document.getElementById('qp-student-id').value;
+    const amount = parseFloat(document.getElementById('qp-amount').value)||0;
+    const charge = parseFloat(document.getElementById('qp-charge-disp').value)||0;
+    const date   = document.getElementById('qp-date').value;
+    const note   = document.getElementById('qp-note').value;
+    const depositor = document.getElementById('qp-depositor').value;
+    if(!_qpSelectedMethod){ showToast('납부 방법을 선택해주세요.','error'); return; }
+    if(!amount||amount<=0){ showToast('납부금액을 입력해주세요.','error'); return; }
+    if(!date){ showToast('납부일을 입력해주세요.','error'); return; }
+    if(_qpSelectedMethod==='지역화폐'&&!depositor){ showToast('지역화폐 입금자를 확인해주세요.','error'); return; }
+
+    const idx = currentAcademy.payments.findIndex(p=>p.id===_editPaymentId);
+    if(idx !== -1){
+      const month = _qpCurrentMonth || currentAcademy.payments[idx].month;
+      currentAcademy.payments[idx] = {
+        ...currentAcademy.payments[idx],
+        studentId: sid, month, charge, amount, date,
+        method: _qpSelectedMethod,
+        note, depositor: depositor||'',
+        status: getPayStatus(charge, amount)
+      };
+    }
+    _editPaymentId = null;
+    // 제목·버튼 원복
+    document.querySelector('#m-quick-pay h2').innerHTML = '💳 수납 처리 — <span id="qp-student-name"></span>';
+    document.getElementById('qp-confirm-btn').textContent = '✅ 수납 처리 완료';
+    saveAcademy(); closeModal('m-quick-pay'); refreshAll();
+    showToast('수납 내역이 수정되었습니다.','success');
+    return;
+  }
+
+  // ── 기존 신규 수납 처리 ──────────────────────────
   const sid      = document.getElementById('qp-student-id').value;
   const month    = _qpCurrentMonth;
   const charge   = parseFloat(document.getElementById('qp-charge').value)||0;
@@ -6377,6 +6434,12 @@ function quickPickSubject(name){
 }
 
 function openModal(id){
+  if(id==='m-quick-pay'){
+    _editPaymentId = null;
+    document.querySelector('#m-quick-pay h2').innerHTML = '💳 수납 처리 — <span id="qp-student-name"></span>';
+    const btn = document.getElementById('qp-confirm-btn');
+    if(btn) btn.textContent = '✅ 수납 처리 완료';
+  }
   if(id==='m-payment'){
     document.getElementById('mp-edit-id').value = '';
     document.getElementById('mp-modal-title').textContent = '💳 수납 등록';
