@@ -309,33 +309,78 @@ tbody tr:hover td{background:#f8f9ff}
 .mob-overlay.open{display:block}
 
 @media(max-width:768px){
+  /* ── 기본 레이아웃 ── */
   .mob-topbar{display:flex}
-  .main{padding:68px 12px 24px}
-  .sidebar{
-    position:fixed;top:0;left:-260px;z-index:400;
-    height:100vh;width:248px;
-    transition:left .25s ease;box-shadow:4px 0 20px rgba(0,0,0,.3);
-  }
+  .main{padding:60px 10px 20px}
+  .sidebar{position:fixed;top:0;left:-260px;z-index:400;height:100vh;width:248px;transition:left .25s ease;box-shadow:4px 0 20px rgba(0,0,0,.3)}
   .sidebar.mob-open{left:0}
   .layout{display:block}
-  .stats-grid{grid-template-columns:repeat(2,1fr)!important;gap:10px}
-  .sc-val{font-size:20px}
-  .sc{padding:12px 14px}
-  /* 대시보드 통계 5열 → 2열 */
+
+  /* ── 카드 그리드 ── */
+  .stats-grid{grid-template-columns:repeat(2,1fr)!important;gap:8px}
   [style*="grid-template-columns:repeat(5"]{grid-template-columns:repeat(2,1fr)!important}
+  [style*="grid-template-columns:repeat(4"]{grid-template-columns:repeat(2,1fr)!important}
+  [style*="grid-template-columns:repeat(3"]{grid-template-columns:repeat(2,1fr)!important}
   .grid-2col{grid-template-columns:1fr!important}
+  .sc{padding:10px 12px}
+  .sc-val{font-size:20px}
+  .sc-icon{font-size:20px}
+
+  /* ── 페이지 헤더 ── */
+  .ph{flex-direction:column;align-items:flex-start;gap:8px;margin-bottom:12px}
+  .ph-left h1{font-size:18px}
+  .ph-actions{flex-wrap:wrap;gap:5px;width:100%}
+  .ph-actions .btn{font-size:11px;padding:5px 8px}
+
+  /* ── 툴바 ── */
+  .toolbar{flex-wrap:wrap;gap:6px}
+  .si{width:100%;min-width:0}
+  .fs{font-size:12px;padding:6px 8px}
+
+  /* ── 카드 ── */
+  .card-head{flex-wrap:wrap;gap:6px;padding:10px 12px}
+  .card-head h3{font-size:14px}
+  .card-body{padding:10px 12px}
+
+  /* ── 표 가로 스크롤 ── */
+  .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .card > div > table{overflow-x:auto;display:block;width:100%}
+  table{font-size:11px;white-space:nowrap;min-width:400px}
+  th,td{padding:6px 8px}
+
+  /* ── frow 1열 ── */
   .frow{grid-template-columns:1fr!important}
-  .card-head{flex-wrap:wrap;gap:6px}
-  .ph{flex-direction:column;gap:8px;margin-bottom:14px}
-  .ph-actions{flex-wrap:wrap;gap:5px}
-  .ph-actions .btn{font-size:11px;padding:5px 9px}
-  .toolbar{flex-wrap:wrap}
-  .si{width:100%}
-  table{font-size:12px}
-  th,td{padding:7px 8px}
+
+  /* ── 모달 ── */
+  .modal{width:calc(100vw - 16px)!important;max-width:none!important;max-height:88vh;overflow-y:auto;border-radius:16px 16px 0 0}
+  .modal-overlay{align-items:flex-end;padding:0}
+
+  /* ── 버튼 ── */
+  .btn-sm{font-size:11px;padding:5px 8px}
+
+  /* ── 슈퍼관리자 화면 ── */
+  #superadmin-screen > div:first-child{padding:0 12px!important;height:auto!important;min-height:52px;flex-wrap:wrap;gap:8px;padding-top:8px!important;padding-bottom:8px!important}
+  #superadmin-screen .sa-tab{padding:8px 10px;font-size:11px}
+  #superadmin-screen table{font-size:11px;min-width:500px}
+  #superadmin-screen .tbl-wrap,
+  #superadmin-screen [style*="overflow-x"]{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  #superadmin-screen > div:nth-child(3){padding:12px!important}
+
+  /* ── 학생관리 표 ── */
+  #page-students table{min-width:520px}
+
+  /* ── 미납관리 표 ── */
+  #page-unpaid table{min-width:600px}
+
+  /* ── 수납내역 표 ── */
+  #page-payments table{min-width:550px}
 }
+
 @media(max-width:400px){
   .stats-grid{grid-template-columns:1fr!important}
+  .main{padding:58px 8px 16px}
+  table{font-size:10px}
+  th,td{padding:5px 6px}
 }
 </style>
 </head>
@@ -449,10 +494,10 @@ tbody tr:hover td{background:#f8f9ff}
 
     <!-- 전체 학원 -->
     <div id="sa-page-all" class="sa-page" style="display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
         <h2 style="font-size:18px;font-weight:700;color:#f1f5f9">전체 학원 목록</h2>
         <input id="sa-search" placeholder="학원명 / 원장 / 이메일 검색..." oninput="saRenderAll()"
-          style="padding:8px 14px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;width:280px;outline:none"/>
+          style="padding:8px 14px;background:#1e293b;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:13px;width:100%;max-width:280px;outline:none"/>
       </div>
       <div id="sa-all-list"></div>
     </div>
@@ -460,7 +505,7 @@ tbody tr:hover td{background:#f8f9ff}
     <!-- 현황 통계 -->
     <div id="sa-page-stats" class="sa-page" style="display:none">
       <h2 style="font-size:18px;font-weight:700;margin-bottom:20px;color:#f1f5f9">전체 현황 통계</h2>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:24px">
         <div class="sa-stat-card"><div class="sa-stat-val" id="sa-st-total">0</div><div class="sa-stat-label">전체 학원</div></div>
         <div class="sa-stat-card"><div class="sa-stat-val" style="color:#10b981" id="sa-st-approved">0</div><div class="sa-stat-label">승인됨</div></div>
         <div class="sa-stat-card"><div class="sa-stat-val" style="color:#f59e0b" id="sa-st-pending">0</div><div class="sa-stat-label">승인 대기</div></div>
@@ -6444,8 +6489,8 @@ function saRenderStats(){
 
   // 학원별 상세 테이블
   document.getElementById('sa-academy-table-wrap').innerHTML = `
-    <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden">
-      <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;overflow-x:auto;-webkit-overflow-scrolling:touch">
+      <table style="width:100%;min-width:600px;border-collapse:collapse;font-size:13px">
         <thead><tr style="background:#0f172a">
           ${['학원명','원장','이메일','학생수','수납내역','상태','가입일'].map(h=>`<th style="padding:12px 16px;text-align:left;color:#64748b;font-weight:600">${h}</th>`).join('')}
         </tr></thead>
