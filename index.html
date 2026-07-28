@@ -1125,23 +1125,44 @@ tbody tr:hover td{background:#f8f9ff}
 
         <!-- 우측: 발송내역 + 자동발송 -->
         <div style="display:flex;flex-direction:column;gap:16px">
-          <div class="card"><div class="card-head"><h3>⚡ 자동 발송 규칙</h3></div><div class="card-body" style="padding:0 16px 4px">
-            <div class="setting-row">
-              <div><div class="setting-label">수납일 전날 알림</div><div class="setting-desc">수납 예정일 하루 전 자동 발송</div></div>
-              <div class="tog" id="auto-sms1" onclick="this.classList.toggle('on')"></div>
+          <div class="card"><div class="card-head"><h3>⚡ 자동 발송 규칙</h3><span style="font-size:11px;color:var(--text2)">토글 클릭 시 자동 저장</span></div><div class="card-body" style="padding:0 16px 8px">
+            <!-- 수납일 전날 -->
+            <div class="setting-row" style="flex-wrap:wrap;gap:6px;padding:10px 0">
+              <div style="flex:1;min-width:120px"><div class="setting-label">수납일 전날 알림</div><div class="setting-desc">수납 예정일 하루 전 자동 발송</div></div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <select id="auto-sms1-tpl" class="fs" style="padding:5px 8px;font-size:12px;max-width:130px" onchange="saveNotifySettings()"><option value="">템플릿 선택</option></select>
+                <select id="auto-sms1-time" class="fs" style="padding:5px 8px;font-size:12px;width:80px" onchange="saveNotifySettings()"></select>
+                <div class="tog" id="auto-sms1" onclick="this.classList.toggle('on');saveNotifySettings()"></div>
+              </div>
             </div>
-            <div class="setting-row">
-              <div><div class="setting-label">미납 3일 후 알림</div><div class="setting-desc">수납일로부터 3일 경과 시</div></div>
-              <div class="tog on" id="auto-sms2" onclick="this.classList.toggle('on')"></div>
+            <!-- 미납 3일 -->
+            <div class="setting-row" style="flex-wrap:wrap;gap:6px;padding:10px 0">
+              <div style="flex:1;min-width:120px"><div class="setting-label">미납 3일 후 알림</div><div class="setting-desc">수납일로부터 3일 경과 시</div></div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <select id="auto-sms2-tpl" class="fs" style="padding:5px 8px;font-size:12px;max-width:130px" onchange="saveNotifySettings()"><option value="">템플릿 선택</option></select>
+                <select id="auto-sms2-time" class="fs" style="padding:5px 8px;font-size:12px;width:80px" onchange="saveNotifySettings()"></select>
+                <div class="tog" id="auto-sms2" onclick="this.classList.toggle('on');saveNotifySettings()"></div>
+              </div>
             </div>
-            <div class="setting-row">
-              <div><div class="setting-label">미납 7일 후 재알림</div><div class="setting-desc">수납일로부터 7일 경과 시</div></div>
-              <div class="tog" id="auto-sms3" onclick="this.classList.toggle('on')"></div>
+            <!-- 미납 7일 -->
+            <div class="setting-row" style="flex-wrap:wrap;gap:6px;padding:10px 0">
+              <div style="flex:1;min-width:120px"><div class="setting-label">미납 7일 후 재알림</div><div class="setting-desc">수납일로부터 7일 경과 시</div></div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <select id="auto-sms3-tpl" class="fs" style="padding:5px 8px;font-size:12px;max-width:130px" onchange="saveNotifySettings()"><option value="">템플릿 선택</option></select>
+                <select id="auto-sms3-time" class="fs" style="padding:5px 8px;font-size:12px;width:80px" onchange="saveNotifySettings()"></select>
+                <div class="tog" id="auto-sms3" onclick="this.classList.toggle('on');saveNotifySettings()"></div>
+              </div>
             </div>
-            <div class="setting-row">
-              <div><div class="setting-label">수납 완료 확인 알림</div><div class="setting-desc">수납 등록 즉시 발송</div></div>
-              <div class="tog" id="auto-sms4" onclick="this.classList.toggle('on')"></div>
+            <!-- 수납 완료 -->
+            <div class="setting-row" style="flex-wrap:wrap;gap:6px;padding:10px 0">
+              <div style="flex:1;min-width:120px"><div class="setting-label">수납 완료 확인 알림</div><div class="setting-desc">수납 등록 즉시 발송</div></div>
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <select id="auto-sms4-tpl" class="fs" style="padding:5px 8px;font-size:12px;max-width:130px" onchange="saveNotifySettings()"><option value="">템플릿 선택</option></select>
+                <select id="auto-sms4-time" class="fs" style="padding:5px 8px;font-size:12px;width:80px" onchange="saveNotifySettings()"></select>
+                <div class="tog" id="auto-sms4" onclick="this.classList.toggle('on');saveNotifySettings()"></div>
+              </div>
             </div>
+            <div style="font-size:11px;color:var(--text3);padding-bottom:4px">⏰ 시간은 해당 조건 충족 당일 발송 시각입니다. 앱이 열려있는 기기 기준으로 작동합니다.</div>
           </div></div>
 
           <div class="card" style="flex:1"><div class="card-head"><h3>📋 발송 내역</h3></div>
@@ -1243,39 +1264,7 @@ tbody tr:hover td{background:#f8f9ff}
             </div>
           </div>
         </div></div>
-        <div class="card"><div class="card-head"><h3>🔔 자동 알림 설정</h3><span style="font-size:11px;color:var(--text2)">토글 클릭 시 자동 저장</span></div><div class="card-body" style="padding:0 16px 4px">
-          <div class="setting-row" style="flex-wrap:wrap;gap:8px">
-            <div style="flex:1;min-width:160px"><div class="setting-label">수납일 전날 알림</div><div class="setting-desc">수납 예정일 하루 전 자동 발송</div></div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <select id="auto-sms1-time" class="fs" style="padding:5px 8px;font-size:12px" onchange="saveNotifySettings()"></select>
-              <div class="tog" id="auto-sms1" onclick="this.classList.toggle('on');saveNotifySettings()"></div>
-            </div>
-          </div>
-          <div class="setting-row" style="flex-wrap:wrap;gap:8px">
-            <div style="flex:1;min-width:160px"><div class="setting-label">미납 3일 후 알림</div><div class="setting-desc">수납일로부터 3일 경과 시 발송</div></div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <select id="auto-sms2-time" class="fs" style="padding:5px 8px;font-size:12px" onchange="saveNotifySettings()"></select>
-              <div class="tog" id="auto-sms2" onclick="this.classList.toggle('on');saveNotifySettings()"></div>
-            </div>
-          </div>
-          <div class="setting-row" style="flex-wrap:wrap;gap:8px">
-            <div style="flex:1;min-width:160px"><div class="setting-label">미납 7일 후 재알림</div><div class="setting-desc">수납일로부터 7일 경과 시 발송</div></div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <select id="auto-sms3-time" class="fs" style="padding:5px 8px;font-size:12px" onchange="saveNotifySettings()"></select>
-              <div class="tog" id="auto-sms3" onclick="this.classList.toggle('on');saveNotifySettings()"></div>
-            </div>
-          </div>
-          <div class="setting-row" style="flex-wrap:wrap;gap:8px">
-            <div style="flex:1;min-width:160px"><div class="setting-label">수납 완료 알림</div><div class="setting-desc">수납 등록 시 확인 문자 자동 발송</div></div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <select id="auto-sms4-time" class="fs" style="padding:5px 8px;font-size:12px" onchange="saveNotifySettings()"></select>
-              <div class="tog" id="auto-sms4" onclick="this.classList.toggle('on');saveNotifySettings()"></div>
-            </div>
-          </div>
-          <div style="padding:10px 0 6px;font-size:11px;color:var(--text3)">
-            ⏰ 시간 선택 후 토글을 켜면 해당 시각에 자동 발송됩니다. (앱이 열려있는 기기 기준)
-          </div>
-        </div></div>
+        <!-- 자동 알림 설정은 문자 알림 페이지에서 관리합니다 -->
         <div class="card"><div class="card-head"><h3>💾 데이터 관리</h3></div><div class="card-body">
           <div class="setting-row">
             <div><div class="setting-label">전체 데이터 내보내기</div><div class="setting-desc">학생·수납 데이터 일괄 엑셀 저장</div></div>
@@ -6759,18 +6748,27 @@ function loadSettings(){
   // 알림 설정 로드
   const notify = a.notify||{};
   const defaultTimes = {'auto-sms1':9,'auto-sms2':10,'auto-sms3':10,'auto-sms4':9};
+  const templates = a.smsTemplates||[];
+  const tplOptions = templates.map((t,i)=>`<option value="${i}">${t.name}</option>`).join('');
+
   ['auto-sms1','auto-sms2','auto-sms3','auto-sms4'].forEach(id=>{
     const el   = document.getElementById(id);
     const time = document.getElementById(id+'-time');
+    const tpl  = document.getElementById(id+'-tpl');
     if(!el) return;
     const defaultOn = id==='auto-sms2';
     el.classList.toggle('on', notify[id]!==undefined ? notify[id] : defaultOn);
+    // 시간 옵션
     if(time){
-      // 시간 옵션 JS로 생성
       const savedHour = notify[id+'_time']!==undefined ? notify[id+'_time'] : defaultTimes[id];
       time.innerHTML = Array.from({length:24},(_,h)=>
         `<option value="${h}" ${h===savedHour?'selected':''}>${String(h).padStart(2,'0')}:00</option>`
       ).join('');
+    }
+    // 템플릿 옵션
+    if(tpl){
+      tpl.innerHTML = '<option value="">템플릿 선택</option>' + tplOptions;
+      if(notify[id+'_tpl']!==undefined) tpl.value = notify[id+'_tpl'];
     }
   });
 }
@@ -6780,8 +6778,10 @@ function saveNotifySettings(){
   ['auto-sms1','auto-sms2','auto-sms3','auto-sms4'].forEach(id=>{
     const el   = document.getElementById(id);
     const time = document.getElementById(id+'-time');
-    if(el)   currentAcademy.notify[id]           = el.classList.contains('on');
-    if(time) currentAcademy.notify[id+'_time']   = parseInt(time.value)||9;
+    const tpl  = document.getElementById(id+'-tpl');
+    if(el)   currentAcademy.notify[id]         = el.classList.contains('on');
+    if(time) currentAcademy.notify[id+'_time'] = parseInt(time.value)||9;
+    if(tpl && tpl.value!=='') currentAcademy.notify[id+'_tpl'] = parseInt(tpl.value);
   });
   saveAcademy();
   showToast('알림 설정이 저장되었습니다.','success');
