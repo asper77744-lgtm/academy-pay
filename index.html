@@ -605,8 +605,12 @@ tbody tr:hover td{background:#f8f9ff}
           <!-- 1. 재원 학생 -->
           <div class="sc" onclick="nav('students', document.querySelector('.sb-item[onclick*=students]'))" style="cursor:pointer">
             <div class="sc-accent" style="background:var(--accent)"></div>
-            <div class="sc-label">재원 학생</div>
-            <div class="sc-val" id="ds-students">0</div>
+            <div class="sc-label">재원 학생 / 이달 신입</div>
+            <div style="padding:4px 16px 0;display:flex;align-items:baseline;gap:6px">
+              <span class="sc-val" id="ds-students" style="padding:0">0</span>
+              <span style="font-size:13px;color:var(--text3)">명</span>
+              <span id="ds-new-students" style="display:none;font-size:12px;color:#10b981;font-weight:600;margin-left:4px"></span>
+            </div>
             <div class="sc-sub">재원+재입학</div>
             <div class="sc-icon">👥</div>
           </div>
@@ -1852,6 +1856,35 @@ tbody tr:hover td{background:#f8f9ff}
 
 <!-- ══ 영수증 원부 출력 모달 ══ -->
 <!-- 지출 추가 모달 -->
+<!-- 학생 완전 삭제 확인 모달 -->
+<div class="modal-overlay" id="m-delete-student">
+  <div class="modal" style="max-width:380px">
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="width:56px;height:56px;background:#fef2f2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+          <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+        </svg>
+      </div>
+      <h2 style="font-size:17px;margin-bottom:6px;color:var(--danger)">학생 완전 삭제</h2>
+      <p id="del-student-name" style="font-size:15px;font-weight:700;margin-bottom:8px"></p>
+      <p style="font-size:13px;color:var(--text2);line-height:1.6">수납 내역 포함 모든 데이터가 삭제됩니다.<br>이 작업은 <strong style="color:var(--danger)">되돌릴 수 없습니다.</strong></p>
+    </div>
+    <!-- 2단계: 이름 직접 입력 -->
+    <div id="del-step2" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;margin-bottom:16px">
+      <p style="font-size:12px;color:#dc2626;margin-bottom:8px;font-weight:600">⚠️ 확인을 위해 학생 이름을 입력하세요:</p>
+      <input id="del-confirm-input" placeholder="학생 이름 입력..."
+        style="width:100%;padding:8px 10px;border:1.5px solid #fecaca;border-radius:7px;font-size:13px;font-family:inherit;outline:none"
+        oninput="checkDeleteInput()"/>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-neutral" onclick="closeModal('m-delete-student')">취소</button>
+      <button class="btn btn-danger" id="del-step1-btn" onclick="showDeleteStep2()">삭제 진행</button>
+      <button class="btn btn-danger" id="del-step2-btn" style="display:none" disabled onclick="confirmDeleteStudent()">최종 삭제</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="m-expense">
   <div class="modal" style="max-width:700px;width:95vw">
     <h2>💸 지출 내역 관리</h2>
@@ -2517,6 +2550,21 @@ function updateDashboard(){
 
   // ── DOM 업데이트
   document.getElementById('ds-students').textContent  = active.length;
+
+  // 이달 신입 (등록일이 이번달인 재원생)
+  const newStudents = active.filter(s=>{
+    const d = s.enrollDate || s.joinDate || s.createdAt || '';
+    return d.slice(0,7) === curYm;
+  });
+  const newEl = document.getElementById('ds-new-students');
+  if(newEl){
+    if(newStudents.length > 0){
+      newEl.style.display = '';
+      newEl.textContent   = `+${newStudents.length}명 신입`;
+    } else {
+      newEl.style.display = 'none';
+    }
+  }
   document.getElementById('ds-trial').textContent     = trial.length;
   document.getElementById('ds-withdrawn').textContent = monthWithdrawn.length;
   document.getElementById('ds-trial-sub').textContent = `체험 ${trial.length}명 / 퇴원 ${monthWithdrawn.length}명`;
@@ -3521,8 +3569,14 @@ function renderStudents(){
       actions += `<button class="btn btn-neutral btn-sm" onclick="editStudent('${s.id}')">편집</button> `;
       actions += `<button class="btn btn-danger btn-sm" onclick="openWithdrawModal('${s.id}')">퇴원</button> `;
     }
-    actions += `<button class="btn btn-sm" onclick="permanentDeleteStudent('${s.id}')" title="완전 삭제"
-      style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;margin-left:2px">🗑</button>`;
+    actions += `<button class="btn btn-sm" onclick="permanentDeleteStudent('${s.id}')"
+      data-tip="완전 삭제 (복구 불가)"
+      style="background:#dc2626;color:#fff;border:none;margin-left:2px;padding:5px 8px;font-size:13px;border-radius:6px;cursor:pointer">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle">
+        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
+        <path d="M9 6V4h6v2"/>
+      </svg>
+    </button>`;
 
     return `<tr style="${!isAct?'opacity:.72':''}">
       <td>
@@ -3697,24 +3751,50 @@ function saveStudent(){
   showToast(id?'수정되었습니다.':'등록되었습니다.','success');
 }
 
+let _deleteStudentId = null;
+
 function permanentDeleteStudent(id){
   const s = getStudent(id);
   if(!s) return;
-  if(currentUser.role!=='admin'&&!currentUser.permissions?.delete){
+  if(currentUser.role!=='admin' && !currentUser.permissions?.delete){
     showToast('삭제 권한이 없습니다.','error'); return;
   }
-  // 1단계 확인
-  if(!confirm(`⚠️ '${s.name}' 학생을 완전히 삭제하시겠습니까?\n\n수납 내역도 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return;
-  // 2단계 확인
-  if(!confirm(`'${s.name}' 학생을 정말로 삭제합니다.\n확인하려면 '확인'을 눌러주세요.`)) return;
+  _deleteStudentId = id;
+  // 1단계 초기화
+  document.getElementById('del-student-name').textContent = `"${s.name}" 학생`;
+  document.getElementById('del-step2').style.display = 'none';
+  document.getElementById('del-confirm-input').value = '';
+  document.getElementById('del-step1-btn').style.display = '';
+  document.getElementById('del-step2-btn').style.display = 'none';
+  document.getElementById('del-step2-btn').disabled = true;
+  openModal('m-delete-student');
+}
 
-  // 학생 삭제
+function showDeleteStep2(){
+  document.getElementById('del-step2').style.display = '';
+  document.getElementById('del-step1-btn').style.display = 'none';
+  document.getElementById('del-step2-btn').style.display = '';
+  setTimeout(()=>document.getElementById('del-confirm-input')?.focus(), 50);
+}
+
+function checkDeleteInput(){
+  const s = getStudent(_deleteStudentId);
+  const input = document.getElementById('del-confirm-input').value.trim();
+  const btn   = document.getElementById('del-step2-btn');
+  const match = input === s?.name;
+  btn.disabled = !match;
+  btn.style.opacity = match ? '1' : '0.5';
+}
+
+function confirmDeleteStudent(){
+  const id = _deleteStudentId;
+  const s  = getStudent(id);
+  if(!s) return;
   currentAcademy.students = (currentAcademy.students||[]).filter(x=>x.id!==id);
-  // 해당 학생 수납 내역도 삭제
   currentAcademy.payments = (currentAcademy.payments||[]).filter(p=>p.studentId!==id);
-
-  saveAcademy(); refreshAll();
-  showToast(`'${s.name}' 학생이 완전히 삭제되었습니다.`,'success');
+  _deleteStudentId = null;
+  saveAcademy(); closeModal('m-delete-student'); refreshAll();
+  showToast(`"${s.name}" 학생이 완전히 삭제되었습니다.`,'success');
 }
 
 function deleteStudent(id){ permanentDeleteStudent(id); }
