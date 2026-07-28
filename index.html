@@ -1189,6 +1189,27 @@ tbody tr:hover td{background:#f8f9ff}
                 </select>
               </div>
             </div>
+            <!-- 테스트 모드 -->
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin-bottom:14px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+                <div class="tog" id="sms-test-mode" onclick="this.classList.toggle('on');toggleSmsTestMode()"></div>
+                <label style="font-size:13px;font-weight:600;cursor:pointer;color:#1e40af" onclick="document.getElementById('sms-test-mode').classList.toggle('on');toggleSmsTestMode()">
+                  🧪 테스트 모드
+                </label>
+                <span style="font-size:11px;color:#3b82f6">활성화하면 모든 문자가 아래 번호로만 발송됩니다</span>
+              </div>
+              <div id="sms-test-mode-input" style="display:none">
+                <div class="ff" style="margin-bottom:0">
+                  <label>테스트 수신 번호 (내 번호)</label>
+                  <input id="cfg-sms-test-to" placeholder="010-0000-0000" style="width:100%"
+                    onchange="this.value=formatPhone(this.value)"/>
+                </div>
+                <div style="font-size:11px;color:#1e40af;margin-top:6px">
+                  ⚠ 테스트 모드 중에는 학부모 번호 대신 이 번호로만 발송됩니다.<br>
+                  실제 발송 전 반드시 테스트 모드를 해제하세요.
+                </div>
+              </div>
+            </div>
             <div style="display:flex;gap:8px;align-items:center">
               <div class="tog" id="sms-channel-on" onclick="this.classList.toggle('on')"></div>
               <label style="font-size:13px;cursor:pointer" onclick="document.getElementById('sms-channel-on').classList.toggle('on')">SMS 채널 활성화</label>
@@ -6485,11 +6506,22 @@ function sendSms(){
   showToast(`${receivers.length}명에게 ${channels.join('+')} 발송 완료 (시뮬레이션)`,'success');
 }
 
-// ── 문자 발송 확인 모달 ───────────────────────────
+// ── 실제 발송 시 수신번호 결정 ─────────────────────
+function getSmsTo(originalPhone){
+  const sms = currentAcademy.sms||{};
+  if(sms.testMode && sms.testTo) return sms.testTo; // 테스트 모드
+  return originalPhone;
+}
 let _smsPendingAction = null; // 확인 후 실행할 함수
 
 function confirmSms(title, desc, action){
-  document.getElementById('sms-confirm-body').innerHTML = `
+  const sms = currentAcademy.sms||{};
+  const testBanner = sms.testMode && sms.testTo
+    ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#1e40af">
+        🧪 <strong>테스트 모드</strong> — 실제 수신자 대신 <strong>${sms.testTo}</strong>으로 발송됩니다.
+       </div>`
+    : '';
+  document.getElementById('sms-confirm-body').innerHTML = testBanner + `
     <div style="font-weight:600;margin-bottom:8px">${title}</div>
     <div style="color:var(--text2)">${desc}</div>`;
   _smsPendingAction = action;
@@ -6579,6 +6611,14 @@ function loadSettings(){
   if(document.getElementById('cfg-sms-type'))document.getElementById('cfg-sms-type').value=a.sms?.type||'sms';
   const smsOn=document.getElementById('sms-channel-on');
   if(smsOn){smsOn.classList.toggle('on',!!a.sms?.on);}
+  // 테스트 모드
+  const testMode=document.getElementById('sms-test-mode');
+  if(testMode){
+    testMode.classList.toggle('on',!!a.sms?.testMode);
+    document.getElementById('sms-test-mode-input').style.display=a.sms?.testMode?'':'none';
+  }
+  if(document.getElementById('cfg-sms-test-to'))
+    document.getElementById('cfg-sms-test-to').value=a.sms?.testTo||'';
   // Kakao
   if(document.getElementById('cfg-kakao-key'))document.getElementById('cfg-kakao-key').value=a.kakao?.key||'';
   if(document.getElementById('cfg-kakao-pfid'))document.getElementById('cfg-kakao-pfid').value=a.kakao?.pfid||'';
@@ -6599,16 +6639,27 @@ function saveSettings(){
   showToast('설정이 저장되었습니다.','success');
 }
 
+function toggleSmsTestMode(){
+  const on = document.getElementById('sms-test-mode')?.classList.contains('on');
+  document.getElementById('sms-test-mode-input').style.display = on ? '' : 'none';
+}
+
 function saveSmsSettings(){
-  const on=document.getElementById('sms-channel-on')?.classList.contains('on');
+  const on      = document.getElementById('sms-channel-on')?.classList.contains('on');
+  const testMode= document.getElementById('sms-test-mode')?.classList.contains('on');
+  const testTo  = document.getElementById('cfg-sms-test-to')?.value||'';
   currentAcademy.sms={
     key:document.getElementById('cfg-sms-key').value,
     secret:document.getElementById('cfg-sms-secret').value,
     from:document.getElementById('cfg-sms-from').value,
     type:document.getElementById('cfg-sms-type')?.value||'sms',
-    on:!!on
+    on:!!on, testMode:!!testMode, testTo
   };
-  saveAcademy();updateSmsPreview();showToast('SMS 설정이 저장되었습니다.','success');
+  saveAcademy();updateSmsPreview();
+  if(testMode && testTo)
+    showToast(`테스트 모드 활성화 — 모든 문자를 ${testTo}으로 발송합니다.`,'info');
+  else
+    showToast('SMS 설정이 저장되었습니다.','success');
 }
 
 function saveKakaoSettings(){
