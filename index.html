@@ -136,7 +136,7 @@ body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text);
 
 /* ─── TOOLBAR ──────────────────────────── */
 .toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
-.si{flex:1;min-width:180px;padding:9px 14px 9px 36px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23a8afc0' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 12px center;transition:border-color .2s;color:var(--text)}
+.si{flex:1;min-width:180px;padding:9px 14px 9px 36px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:16px;font-family:inherit;outline:none;background:var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23a8afc0' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 12px center;transition:border-color .2s;color:var(--text)}
 .si:focus{border-color:var(--accent)}
 .fs{padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:var(--surface);color:var(--text2);cursor:pointer}
 .fs:focus{border-color:var(--accent)}
@@ -3431,8 +3431,8 @@ function renderStudents(){
         ${s.memo?`<br><span style="font-size:11px;color:var(--text3)">${s.memo}</span>`:''}
       </td>
       <td style="color:var(--text2);font-size:12px">
-        ${s.phone}
-        ${(s.parents&&s.parents.length ? s.parents : (s.parent?[{name:'',phone:s.parent}]:[])).map(p=>`<br><span style="color:var(--text3)">보호자${p.name?' ('+p.name+')':''} ${p.phone}</span>`).join('')}
+        ${s.phone ? `<a href="tel:${s.phone}" style="color:var(--accent);text-decoration:none;font-weight:500" onclick="event.stopPropagation()">📞 ${s.phone}</a>` : '-'}
+        ${(s.parents&&s.parents.length ? s.parents : (s.parent?[{name:'',phone:s.parent}]:[])).map(p=>`<br><span style="color:var(--text3)">보호자${p.name?' ('+p.name+')':''} ${p.phone ? `<a href="tel:${p.phone}" style="color:var(--text2);text-decoration:none" onclick="event.stopPropagation()">${p.phone}</a>` : ''}</span>`).join('')}
       </td>
       <td>${subjectBadges}</td>
       <td>${feeDisplay}</td>
