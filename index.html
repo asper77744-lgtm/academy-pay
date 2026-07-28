@@ -1092,7 +1092,26 @@ tbody tr:hover td{background:#f8f9ff}
 
           <div class="tab-panel" id="sms-tab-template">
             <div id="sms-templates" style="display:flex;flex-direction:column;gap:8px"></div>
-            <button class="btn btn-neutral btn-sm" style="margin-top:10px" onclick="saveSmsTemplate()">현재 내용 템플릿으로 저장</button>
+            <!-- 새 템플릿 추가 -->
+            <div id="tpl-add-area" style="margin-top:10px">
+              <button class="btn btn-neutral btn-sm" onclick="showAddTemplate()">+ 새 템플릿 추가</button>
+            </div>
+            <div id="tpl-add-form" style="display:none;margin-top:10px;background:var(--surface2);border:1.5px solid var(--accent);border-radius:8px;padding:14px">
+              <div class="ff" style="margin-bottom:8px">
+                <label style="font-size:12px;font-weight:600">템플릿 이름</label>
+                <input id="tpl-new-name" placeholder="예: 미납 2차 알림"
+                  style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;outline:none"/>
+              </div>
+              <div class="ff" style="margin-bottom:10px">
+                <label style="font-size:12px;font-weight:600">내용 <span style="color:var(--text3);font-weight:400">(변수: {학원명} {이름} {납부월} {금액} {수납일})</span></label>
+                <textarea id="tpl-new-body" rows="4" placeholder="안녕하세요, {학원명}입니다.&#10;{이름} 학생의 {납부월} 수강료 {금액}만원이 미납되어 있습니다.&#10;수납일은 매월 {수납일}일입니다.&#10;확인 부탁드립니다."
+                  style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:12px;font-family:inherit;outline:none;resize:vertical"></textarea>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button class="btn btn-primary btn-sm" onclick="saveNewTemplate()">💾 저장</button>
+                <button class="btn btn-neutral btn-sm" onclick="hideAddTemplate()">취소</button>
+              </div>
+            </div>
           </div>
 
           <div class="tab-panel" id="sms-tab-kakao-tpl">
@@ -6539,14 +6558,30 @@ function deleteTemplate(id){
   saveAcademy();renderSmsTemplates();showToast('삭제되었습니다.','success');
 }
 
-function saveSmsTemplate(){
-  const body=document.getElementById('sms-body')?.value?.trim();
-  if(!body){showToast('내용을 입력해주세요.','error');return}
-  const name=prompt('템플릿 이름을 입력하세요:');
-  if(!name)return;
-  if(!currentAcademy.smsTemplates)currentAcademy.smsTemplates=[];
-  currentAcademy.smsTemplates.push({id:uid(),name,body});
-  saveAcademy();renderSmsTemplates();showToast('템플릿이 저장되었습니다.','success');
+function showAddTemplate(){
+  document.getElementById('tpl-add-form').style.display='';
+  document.getElementById('tpl-add-area').style.display='none';
+  document.getElementById('tpl-new-name').value='';
+  document.getElementById('tpl-new-body').value='';
+  setTimeout(()=>document.getElementById('tpl-new-name')?.focus(), 50);
+}
+
+function hideAddTemplate(){
+  document.getElementById('tpl-add-form').style.display='none';
+  document.getElementById('tpl-add-area').style.display='';
+}
+
+function saveNewTemplate(){
+  const name = document.getElementById('tpl-new-name')?.value.trim();
+  const body = document.getElementById('tpl-new-body')?.value.trim();
+  if(!name){ showToast('템플릿 이름을 입력해주세요.','error'); return; }
+  if(!body){ showToast('내용을 입력해주세요.','error'); return; }
+  if(!currentAcademy.smsTemplates) currentAcademy.smsTemplates=[];
+  currentAcademy.smsTemplates.push({id:uid(), name, body});
+  saveAcademy();
+  hideAddTemplate();
+  renderSmsTemplates();
+  showToast('템플릿이 추가되었습니다.','success');
 }
 
 function sendSms(){
