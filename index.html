@@ -375,6 +375,10 @@ tbody tr:hover td{background:#f8f9ff}
 
   /* ── 수납내역 표 ── */
   #page-payments table{min-width:550px}
+  /* ── 학생관리 툴바 */
+  .stu-toolbar-wrap{grid-template-columns:1fr!important}
+  .stu-toolbar-wrap .si{max-width:100%!important;width:100%!important;font-size:16px!important}
+  .stu-toolbar-wrap select{font-size:16px!important}
 }
 
 @media(max-width:400px){
@@ -690,31 +694,38 @@ tbody tr:hover td{background:#f8f9ff}
       </div>
       <!-- 상태별 요약 카드 -->
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px" id="stu-summary-cards"></div>
-      <div class="card"><div class="card-body">
-        <div class="toolbar">
-          <input class="si" id="stu-q" placeholder="이름, 연락처 검색..." oninput="renderStudents()"/>
-          <select class="fs" id="stu-f-grade" onchange="renderStudents()">
-            <option value="">전체 학년</option>
-            <optgroup label="초등"><option value="초1">초1</option><option value="초2">초2</option><option value="초3">초3</option><option value="초4">초4</option><option value="초5">초5</option><option value="초6">초6</option></optgroup>
-            <optgroup label="중등"><option value="중1">중1</option><option value="중2">중2</option><option value="중3">중3</option></optgroup>
-            <optgroup label="고등"><option value="고1">고1</option><option value="고2">고2</option><option value="고3">고3</option></optgroup>
-            <option value="N수">N수</option><option value="성인">성인</option>
-          </select>
-          <select class="fs" id="stu-f-class" onchange="renderStudents()"><option value="">전체 반</option></select>
-          <select class="fs" id="stu-f-status" onchange="renderStudents()">
-            <option value="">전체 상태</option>
-            <option value="active">🟢 재원</option>
-            <option value="trial">🟡 체험중</option>
-            <option value="trial_end">⚪ 체험종료</option>
-            <option value="withdrawn">🔴 퇴원</option>
-            <option value="readmitted">🔵 재입학</option>
-          </select>
+      <div class="card"><div class="card-body" style="padding-bottom:8px">
+        <!-- 툴바: 데스크탑은 1행, 모바일은 2행 -->
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center" class="stu-toolbar-wrap">
+          <!-- 왼쪽: 필터들 -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <select class="fs" id="stu-f-grade" onchange="renderStudents()" style="font-size:13px;padding:8px 10px">
+              <option value="">전체 학년</option>
+              <optgroup label="초등"><option value="초1">초1</option><option value="초2">초2</option><option value="초3">초3</option><option value="초4">초4</option><option value="초5">초5</option><option value="초6">초6</option></optgroup>
+              <optgroup label="중등"><option value="중1">중1</option><option value="중2">중2</option><option value="중3">중3</option></optgroup>
+              <optgroup label="고등"><option value="고1">고1</option><option value="고2">고2</option><option value="고3">고3</option></optgroup>
+              <option value="N수">N수</option><option value="성인">성인</option>
+            </select>
+            <select class="fs" id="stu-f-class" onchange="renderStudents()" style="font-size:13px;padding:8px 10px"><option value="">전체 반</option></select>
+            <select class="fs" id="stu-f-status" onchange="renderStudents()" style="font-size:13px;padding:8px 10px">
+              <option value="">전체 상태</option>
+              <option value="active">🟢 재원</option>
+              <option value="trial">🟡 체험중</option>
+              <option value="trial_end">⚪ 체험종료</option>
+              <option value="withdrawn">🔴 퇴원</option>
+              <option value="readmitted">🔵 재입학</option>
+            </select>
+          </div>
+          <!-- 오른쪽: 검색창 -->
+          <input class="si" id="stu-q" placeholder="이름, 연락처 검색..." oninput="renderStudents()"
+            style="font-size:16px;min-width:0;width:100%;max-width:260px"/>
         </div>
+      </div>
         <div class="tbl-wrap"><table>
           <thead><tr><th>이름</th><th>연락처</th><th>반/과목</th><th>수강료</th><th>결제일</th><th>이번달</th><th>상태</th><th>주요일자</th><th></th></tr></thead>
           <tbody id="stu-tbody"></tbody>
         </table></div>
-      </div></div>
+      </div>
     </div>
 
     <!-- ── TEACHERS ── -->
@@ -788,15 +799,19 @@ tbody tr:hover td{background:#f8f9ff}
           <button class="btn btn-primary btn-sm" onclick="openModal('m-payment')">+ 수납 등록</button>
         </div>
       </div>
-      <div class="card"><div class="card-body">
-        <div class="toolbar">
-          <input class="si" id="pay-q" placeholder="학생 이름 검색..." oninput="renderPayments()"/>
-          <select class="fs" id="pay-f-month" onchange="renderPayments()"><option value="">전체 기간</option></select>
-          <select class="fs" id="pay-f-status" onchange="renderPayments()"><option value="">전체 상태</option><option value="paid">납부완료</option><option value="partial">부분납부</option><option value="pending">미납</option></select>
-          <select class="fs" id="pay-f-method" onchange="renderPayments()"><option value="">전체 방법</option><option>현금</option><option>계좌이체</option><option>카드</option></select>
+      <div class="card"><div class="card-body" style="padding-bottom:8px">
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center" class="stu-toolbar-wrap">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <select class="fs" id="pay-f-month" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 기간</option></select>
+            <select class="fs" id="pay-f-status" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 상태</option><option value="paid">납부완료</option><option value="partial">부분납부</option><option value="pending">미납</option></select>
+            <select class="fs" id="pay-f-method" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 방법</option><option>현금</option><option>계좌이체</option><option>카드</option></select>
+          </div>
+          <input class="si" id="pay-q" placeholder="학생 이름 검색..." oninput="renderPayments()"
+            style="font-size:16px;min-width:0;width:100%;max-width:220px"/>
         </div>
+      </div>
         <div class="tbl-wrap"><table><thead><tr><th>학생</th><th>반/과목</th><th>납부월</th><th>청구</th><th>납부</th><th>잔액</th><th>방법</th><th>일자</th><th>상태</th><th></th></tr></thead><tbody id="pay-tbody"></tbody></table></div>
-      </div></div>
+      </div>
     </div>
 
     <!-- ── UNPAID ── -->
