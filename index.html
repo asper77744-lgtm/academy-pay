@@ -698,19 +698,19 @@ tbody tr:hover td{background:#f8f9ff}
         <!-- 툴바: 데스크탑은 1행, 모바일은 2행 -->
         <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center" class="stu-toolbar-wrap">
           <!-- 왼쪽: 필터들 -->
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            <select class="fs" id="stu-f-grade" onchange="renderStudents()" style="font-size:13px;padding:8px 10px">
-              <option value="">전체 학년</option>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap;overflow-x:auto">
+            <select class="fs" id="stu-f-grade" onchange="renderStudents()" style="font-size:13px;padding:7px 6px;min-width:0;flex-shrink:0">
+              <option value="">학년</option>
               <optgroup label="초등"><option value="초1">초1</option><option value="초2">초2</option><option value="초3">초3</option><option value="초4">초4</option><option value="초5">초5</option><option value="초6">초6</option></optgroup>
               <optgroup label="중등"><option value="중1">중1</option><option value="중2">중2</option><option value="중3">중3</option></optgroup>
               <optgroup label="고등"><option value="고1">고1</option><option value="고2">고2</option><option value="고3">고3</option></optgroup>
               <option value="N수">N수</option><option value="성인">성인</option>
             </select>
-            <select class="fs" id="stu-f-class" onchange="renderStudents()" style="font-size:13px;padding:8px 10px"><option value="">전체 반</option></select>
-            <select class="fs" id="stu-f-status" onchange="renderStudents()" style="font-size:13px;padding:8px 10px">
-              <option value="">전체 상태</option>
+            <select class="fs" id="stu-f-class" onchange="renderStudents()" style="font-size:13px;padding:7px 6px;min-width:0;flex-shrink:0"><option value="">반</option></select>
+            <select class="fs" id="stu-f-status" onchange="renderStudents()" style="font-size:13px;padding:7px 6px;min-width:0;flex-shrink:0">
+              <option value="">상태</option>
               <option value="active">🟢 재원</option>
-              <option value="trial">🟡 체험중</option>
+              <option value="trial">🟡 체험</option>
               <option value="trial_end">⚪ 체험종료</option>
               <option value="withdrawn">🔴 퇴원</option>
               <option value="readmitted">🔵 재입학</option>
