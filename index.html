@@ -296,7 +296,24 @@ tbody tr:hover td{background:#f8f9ff}
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ─── MOBILE ─────────────────────────────── */
+/* ── 툴팁 ── */
+[data-tip]{position:relative}
+[data-tip]::after{
+  content:attr(data-tip);
+  position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:#1e293b;color:#f1f5f9;font-size:11px;font-weight:500;
+  padding:5px 9px;border-radius:6px;white-space:nowrap;pointer-events:none;
+  opacity:0;transition:opacity .15s;z-index:9999;line-height:1.4;
+  box-shadow:0 2px 8px rgba(0,0,0,.25);
+}
+[data-tip]::before{
+  content:'';position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);
+  border:4px solid transparent;border-top-color:#1e293b;
+  opacity:0;transition:opacity .15s;pointer-events:none;z-index:9999;
+}
+[data-tip]:hover::after,[data-tip]:hover::before{opacity:1}
+
+
 .mob-topbar{
   display:none;position:fixed;top:0;left:0;right:0;z-index:200;
   height:52px;background:var(--text);
@@ -1815,6 +1832,21 @@ tbody tr:hover td{background:#f8f9ff}
     <div class="modal-footer">
       <button class="btn btn-neutral" onclick="closeModal('m-expense')">취소</button>
       <button class="btn btn-primary" onclick="saveAllExpenses()">💾 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 문자 발송 확인 모달 -->
+<div class="modal-overlay" id="m-sms-confirm">
+  <div class="modal" style="max-width:400px">
+    <h2>📱 문자 발송 확인</h2>
+    <div id="sms-confirm-body" style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;line-height:1.7"></div>
+    <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 14px;font-size:12px;color:#795548;margin-bottom:16px">
+      📋 발송 내용은 <strong>문자 알림 → 템플릿</strong>에서 확인하세요.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-neutral" onclick="closeModal('m-sms-confirm')">취소</button>
+      <button class="btn btn-warning" id="sms-confirm-btn" onclick="executeSms()">📤 발송하기</button>
     </div>
   </div>
 </div>
@@ -5061,8 +5093,8 @@ function renderUnpaid(){
       <td><strong style="color:${r.unpaidAmt>0?'var(--danger)':'var(--text2)'}">${r.unpaidAmt}만원</strong></td>
       <td><span class="badge ${dayBadgeFor(d)}">${dayTextFor(d)}</span></td>
       <td style="white-space:nowrap">
-        <button class="btn btn-success btn-sm" onclick="openQuickPayModal('${r.s.id}','${curYm}',${r.unpaidAmt})">수납처리</button>
-        <button class="btn btn-warning btn-sm" onclick="sendSmsTo('${r.s.id}')" style="margin-left:4px">📱</button>
+        <button class="btn btn-success btn-sm" data-tip="수납 처리" onclick="openQuickPayModal('${r.s.id}','${curYm}',${r.unpaidAmt})">수납처리</button>
+        <button class="btn btn-warning btn-sm" data-tip="문자 발송" onclick="sendSmsTo('${r.s.id}')" style="margin-left:4px">📱</button>
       </td>
     </tr>`;
   }).join('') : `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--success);font-size:13px">🎉 미납 학생이 없습니다!</td></tr>`;
@@ -5088,8 +5120,8 @@ function renderUnpaid(){
           :`<span style="font-size:11px;color:var(--text3)">${r.nextYm} 미납부</span>`}</td>
         <td style="white-space:nowrap">
           ${r.nextPaid
-            ?`<button class="btn btn-neutral btn-sm" onclick="openQuickPayModal('${r.s.id}','${r.nextYm}',${fee})" title="추가 선납">+ 더 선납</button>`
-            :`<button class="btn btn-primary btn-sm" onclick="openQuickPayModal('${r.s.id}','${r.nextYm}',${fee})">🔖 선납</button>`
+            ?`<button class="btn btn-neutral btn-sm" data-tip="${r.nextYm} 추가 선납" onclick="openQuickPayModal('${r.s.id}','${r.nextYm}',${fee})">+ 더 선납</button>`
+            :`<button class="btn btn-primary btn-sm" data-tip="${r.nextYm} 선납 처리" onclick="openQuickPayModal('${r.s.id}','${r.nextYm}',${fee})">🔖 선납</button>`
           }
         </td>
       </tr>`;
@@ -6453,12 +6485,62 @@ function sendSms(){
   showToast(`${receivers.length}명에게 ${channels.join('+')} 발송 완료 (시뮬레이션)`,'success');
 }
 
+// ── 문자 발송 확인 모달 ───────────────────────────
+let _smsPendingAction = null; // 확인 후 실행할 함수
+
+function confirmSms(title, desc, action){
+  document.getElementById('sms-confirm-body').innerHTML = `
+    <div style="font-weight:600;margin-bottom:8px">${title}</div>
+    <div style="color:var(--text2)">${desc}</div>`;
+  _smsPendingAction = action;
+  openModal('m-sms-confirm');
+}
+
+function executeSms(){
+  closeModal('m-sms-confirm');
+  if(_smsPendingAction){ _smsPendingAction(); _smsPendingAction=null; }
+}
+
+function sendBulkSms(){
+  const curYm = ym();
+  const unpaid = currentAcademy.students.filter(s=>
+    isActiveStudent(s) &&
+    !currentAcademy.payments.find(p=>p.studentId===s.id&&p.month===curYm&&p.status==='paid')
+  );
+  if(!unpaid.length){ showToast('미납 학생이 없습니다.','info'); return; }
+  confirmSms(
+    `📱 전체 미납 문자 발송`,
+    `미납 학생 <strong>${unpaid.length}명</strong>에게 수납 안내 문자를 발송합니다.<br>
+     대상: ${unpaid.slice(0,5).map(s=>s.name).join(', ')}${unpaid.length>5?` 외 ${unpaid.length-5}명`:''}`,
+    ()=>{
+      logSms(unpaid.length,'SMS', `전체 미납 ${unpaid.length}명 발송`);
+      renderSmsLog();
+      showToast(`${unpaid.length}명에게 문자 발송 완료 (시뮬레이션)`,'success');
+    }
+  );
+}
+
 // sendSmsTo — individual from unpaid page
 function sendSmsTo(sid){
-  const s=getStudent(sid);
-  const body=applyVars((currentAcademy.smsTemplates?.[0]?.body)||'{학원명} {이름} 학생의 {납부월} 수강료 미납 안내입니다.',s);
-  logSms(1,'SMS', s?.name+' 개별 알림');
-  renderSmsLog();showToast('문자 발송 완료 (시뮬레이션)','success');
+  const s = getStudent(sid);
+  if(!s){ showToast('학생 정보를 찾을 수 없습니다.','error'); return; }
+  const curYm = ym();
+  const pay   = currentAcademy.payments.find(p=>p.studentId===sid&&p.month===curYm);
+  const charge = calcTotalFee(s);
+  const already = pay?.amount||0;
+  const remain = charge - already;
+  const body  = applyVars((currentAcademy.smsTemplates?.[0]?.body)||'{학원명} {이름} 학생의 {납부월} 수강료 미납 안내입니다.', s);
+  confirmSms(
+    `📱 ${s.name} 학생 문자 발송`,
+    `수신: <strong>${s.phone||'번호 없음'}</strong><br>
+     이번달 청구: ${charge}만원 / 납부: ${already}만원 / 잔액: <strong style="color:var(--danger)">${remain}만원</strong><br>
+     <div style="margin-top:8px;padding:8px;background:var(--bg);border-radius:6px;font-size:12px;color:var(--text2)">${body}</div>`,
+    ()=>{
+      logSms(1,'SMS', `${s.name} 개별 알림`);
+      renderSmsLog();
+      showToast(`${s.name} 학생에게 문자 발송 완료 (시뮬레이션)`,'success');
+    }
+  );
 }
 
 function logSms(cnt, channel, preview){
