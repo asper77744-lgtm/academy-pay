@@ -5396,7 +5396,7 @@ function searchDepositorUnpaid(){
       const fee    = calcTotalFee(s);
       const unpaid = unpaidPay ? (unpaidPay.charge - unpaidPay.amount) : fee;
 
-      // 매칭된 번호들 수집 (학생 + 보호자)
+      // 매칭된 번호들 수집 (학생 + 보호자 + 입금자)
       const matchedNumbers = [];
       if(stuMatch) matchedNumbers.push({label:'학생', name:s.name, phone:s.phone});
       parentMatches.forEach(p => matchedNumbers.push({
@@ -5404,6 +5404,21 @@ function searchDepositorUnpaid(){
         name: p.name || '보호자',
         phone: p.phone
       }));
+      // 입금자명 매칭 표시
+      if(depositorMatch){
+        const depositorPays = payments.filter(p=>
+          p.studentId===s.id &&
+          (p.method==='계좌이체'||p.method==='지역화폐') &&
+          (p.depositor||'').toLowerCase().includes(qClean)
+        );
+        const seen = new Set();
+        depositorPays.forEach(p=>{
+          if(p.depositor && !seen.has(p.depositor)){
+            seen.add(p.depositor);
+            matchedNumbers.push({label:p.method+' 입금자', name:p.depositor, phone:'', depositor:true});
+          }
+        });
+      }
 
       matched.push({ s, subj, fee, unpaid, isPaid, matchedNumbers, curYm });
     }
@@ -5426,8 +5441,13 @@ function searchDepositorUnpaid(){
     const dayTxt  = elapsed<0?`D${elapsed}`:elapsed===0?'D-Day':`+${elapsed}일`;
     const dayColor= elapsed<0?'var(--accent)':elapsed===0?'var(--warning)':'var(--danger)';
 
-    // 매칭 번호 표시 + 마스킹 레이블 생성
+    // 매칭 항목 표시
     const numBadges = r.matchedNumbers.map(m=>{
+      if(m.depositor){
+        return `<span style="background:#e0f2fe;border:1px solid #bae6fd;border-radius:6px;padding:2px 8px;font-size:11px;color:#0369a1">
+          ${m.label}: <strong>${m.name}</strong>
+        </span>`;
+      }
       const label = makeDepositorLabel(m.name, m.phone);
       return `<span style="background:#f0f5ff;border:1px solid #c7d7fd;border-radius:6px;padding:2px 8px;font-size:11px;color:var(--accent)">
         ${m.label}: ${m.phone}
