@@ -892,18 +892,32 @@ tbody tr:hover td{background:#f8f9ff}
           <button class="btn btn-neutral btn-sm" onclick="exportUnpaidExcel()">📥 엑셀</button>
         </div>
       </div>
-      <!-- 학생 이름 / 입금자 검색 -->
-      <div class="card" style="margin-bottom:12px"><div class="card-body" style="padding:10px 16px">
-        <div class="unpaid-desk-toolbar" style="display:flex;gap:8px;align-items:center">
-          <input class="si" id="unpaid-q" placeholder="학생 이름 또는 입금자명 검색..." oninput="renderUnpaid()"
-            style="flex:1;font-size:14px"/>
-          <button class="btn btn-neutral btn-sm" onclick="document.getElementById('unpaid-q').value='';renderUnpaid()">초기화</button>
+      <!-- 🔍 통합 검색 -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-body" style="padding:16px 20px">
+          <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:10px">
+            🔍 통합 검색
+            <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:8px">학생 이름, 전화번호, 보호자 번호, 입금자명으로 검색</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:flex-start">
+            <div style="flex:1;position:relative">
+              <input id="depositor-search-input" placeholder="이름 / 전화번호 뒷자리 / 입금자명..." oninput="searchDepositorUnpaid()"
+                style="width:100%;padding:11px 16px 11px 40px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:inherit;outline:none;transition:border-color .2s"
+                onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+              <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none">🔍</span>
+            </div>
+            <button class="btn btn-neutral" onclick="clearDepositorSearch()">초기화</button>
+          </div>
+          <!-- 검색 결과 -->
+          <div id="depositor-search-results" style="display:none;margin-top:10px">
+            <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.5px;margin-bottom:6px">검색 결과 — 클릭하면 수납처리로 이동합니다</div>
+            <div id="depositor-result-list" style="display:flex;flex-direction:column;gap:6px"></div>
+          </div>
+          <div id="depositor-no-result" style="display:none;margin-top:10px;font-size:13px;color:var(--text3)">
+            검색 결과가 없습니다. 이름, 번호 또는 입금자명을 다시 확인해주세요.
+          </div>
         </div>
-        <div class="unpaid-mob-toolbar" style="display:none;gap:6px">
-          <input placeholder="이름 / 입금자 검색..." oninput="document.getElementById('unpaid-q').value=this.value;renderUnpaid()"
-            style="flex:1;font-size:16px;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)"/>
-        </div>
-      </div></div>
+      </div>
 
       <div class="card"><div class="card-body" style="padding:0;overflow-x:auto">
         <table style="min-width:0;width:100%">
@@ -5241,17 +5255,7 @@ function renderUnpaid(){
   const {students,payments}=currentAcademy;
   const curYm=ym();
   const defaultPayDay=currentAcademy.payDay||25;
-  const q = (document.getElementById('unpaid-q')?.value||'').toLowerCase();
-
-  // 이름 또는 입금자명으로 검색
-  const active=students.filter(s=>{
-    if(!isActiveStudent(s)) return false;
-    if(!q) return true;
-    if(s.name.toLowerCase().includes(q)) return true;
-    // 이번달 수납 입금자명 검색
-    const pays = payments.filter(p=>p.studentId===s.id && p.depositor);
-    return pays.some(p=>(p.depositor||'').toLowerCase().includes(q));
-  });
+  const active=students.filter(s=>isActiveStudent(s));
   const today=now();
 
   // 다음달 ym
@@ -5379,7 +5383,14 @@ function searchDepositorUnpaid(){
       (p.name||'').toLowerCase().includes(qClean)
     );
 
-    if(stuMatch || parentMatches.length){
+    // 입금자명 검색 (계좌이체 + 지역화폐)
+    const depositorMatch = payments.some(p=>
+      p.studentId===s.id &&
+      (p.method==='계좌이체'||p.method==='지역화폐') &&
+      (p.depositor||'').toLowerCase().includes(qClean)
+    );
+
+    if(stuMatch || parentMatches.length || depositorMatch){
       const enrs   = getEnrollments(s);
       const subj   = enrs.map(e=>e.subject).filter(Boolean).join('+') || '-';
       const fee    = calcTotalFee(s);
