@@ -5187,10 +5187,19 @@ function editPayment(id){
         document.querySelectorAll('.qp-method-btn').forEach(btn=>{
           btn.classList.toggle('selected', btn.dataset.val===method);
         });
+        // 지역화폐 섹션
         document.getElementById('qp-local-pay-section').style.display =
           method==='지역화폐' ? '' : 'none';
         if(method==='지역화폐'){
           document.getElementById('qp-depositor').value = p.depositor||'';
+          showDepositorHistory(p.studentId);
+        }
+        // 계좌이체 섹션
+        document.getElementById('qp-bank-section').style.display =
+          method==='계좌이체' ? '' : 'none';
+        if(method==='계좌이체'){
+          document.getElementById('qp-bank-depositor').value = p.depositor||'';
+          showBankHistory(p.studentId);
         }
 
         // 날짜·메모
@@ -5957,11 +5966,16 @@ function confirmQuickPay(){
     const charge = parseFloat(document.getElementById('qp-charge-disp').value)||0;
     const date   = document.getElementById('qp-date').value;
     const note   = document.getElementById('qp-note').value;
-    const depositor = document.getElementById('qp-depositor').value;
+    const depositor = _qpSelectedMethod==='지역화폐'
+      ? document.getElementById('qp-depositor').value
+      : _qpSelectedMethod==='계좌이체'
+      ? document.getElementById('qp-bank-depositor').value
+      : '';
     if(!_qpSelectedMethod){ showToast('납부 방법을 선택해주세요.','error'); return; }
     if(!amount||amount<=0){ showToast('납부금액을 입력해주세요.','error'); return; }
     if(!date){ showToast('납부일을 입력해주세요.','error'); return; }
     if(_qpSelectedMethod==='지역화폐'&&!depositor){ showToast('지역화폐 입금자를 확인해주세요.','error'); return; }
+    if(_qpSelectedMethod==='계좌이체'&&!depositor){ showToast('계좌이체 입금자명을 입력해주세요.','error'); return; }
 
     const idx = currentAcademy.payments.findIndex(p=>p.id===_editPaymentId);
     if(idx !== -1){
