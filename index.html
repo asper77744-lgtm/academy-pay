@@ -300,10 +300,12 @@ tbody tr:hover td{background:#f8f9ff}
 #stu-tbody tr.stu-selected{background:#dcfce7!important}
 #stu-tbody tr.stu-selected td{background:#dcfce7!important}
 #stu-tbody tr:hover{background:#f0fdf4}
-/* sticky 이름 컬럼 배경 상속 */
-#stu-tbody tr td:first-child{position:sticky;left:0;z-index:1;background:inherit}
+/* sticky 이름 컬럼 - 배경 명시적으로 지정 */
+#stu-tbody tr td:first-child{position:sticky;left:0;z-index:1;background:var(--surface);box-shadow:2px 0 5px rgba(0,0,0,.08)}
 #stu-tbody tr:hover td:first-child{background:#f0fdf4}
 #stu-tbody tr.stu-selected td:first-child{background:#dcfce7!important}
+/* 헤더 이름도 동일하게 */
+#stu-tbody tr:nth-child(even) td:first-child{background:var(--surface)}
 [data-tip]{position:relative}
 [data-tip]::after{
   content:attr(data-tip);
@@ -3603,7 +3605,7 @@ function renderStudents(){
 
     return `<tr style="${!isAct?'opacity:.72':''}"
       onclick="document.querySelectorAll('#stu-tbody tr').forEach(r=>r.classList.remove('stu-selected'));this.classList.add('stu-selected')">
-      <td style="box-shadow:2px 0 4px rgba(0,0,0,.06)">
+      <td>
         <strong>${s.name}</strong>
         ${s.grade?`<span class="badge b-purple" style="margin-left:4px;font-size:10px">${s.grade}</span>`:''}
         ${schoolInfo?`<br><span style="font-size:11px;color:var(--text3)">${schoolInfo}</span>`:''}
