@@ -742,8 +742,11 @@ tbody tr:hover td{background:#f8f9ff}
             style="font-size:16px;min-width:0;width:100%;max-width:260px"/>
         </div>
       </div>
-        <div class="tbl-wrap"><table>
-          <thead><tr><th>이름</th><th>연락처</th><th>반/과목</th><th>수강료</th><th>결제일</th><th>이번달</th><th>상태</th><th>주요일자</th><th></th></tr></thead>
+        <div class="tbl-wrap" style="overflow-x:auto"><table style="min-width:600px">
+          <thead><tr>
+            <th style="position:sticky;left:0;z-index:2;background:var(--surface);min-width:72px">이름</th>
+            <th>연락처</th><th>반/과목</th><th>수강료</th><th>결제일</th><th>이번달</th><th>상태</th><th>주요일자</th><th></th>
+          </tr></thead>
           <tbody id="stu-tbody"></tbody>
         </table></div>
       </div>
@@ -871,8 +874,16 @@ tbody tr:hover td{background:#f8f9ff}
         </div>
       </div>
 
-      <div class="card"><div class="card-body" style="padding:0">
-        <table><thead><tr><th><input type="checkbox" id="unpaid-all" onchange="toggleAllUnpaid(this)"/></th><th>학생</th><th>연락처</th><th>반/과목</th><th>미납월</th><th>수납일</th><th>미납금액</th><th>경과일</th><th></th></tr></thead><tbody id="unpaid-tbody"></tbody></table>
+      <div class="card"><div class="card-body" style="padding:0;overflow-x:auto">
+        <table style="min-width:650px">
+          <thead><tr>
+            <th style="position:sticky;left:0;z-index:2;background:var(--surface)"><input type="checkbox" id="unpaid-all" onchange="toggleAllUnpaid(this)"/></th>
+            <th style="position:sticky;left:32px;z-index:2;background:var(--surface);min-width:70px">학생</th>
+            <th>연락처</th><th>반/과목</th><th>미납월</th><th>수납일</th><th>미납금액</th><th>경과일</th>
+            <th style="min-width:110px">처리</th>
+          </tr></thead>
+          <tbody id="unpaid-tbody"></tbody>
+        </table>
       </div></div>
     </div>
 
@@ -3579,7 +3590,7 @@ function renderStudents(){
     </button>`;
 
     return `<tr style="${!isAct?'opacity:.72':''}">
-      <td>
+      <td style="position:sticky;left:0;background:${!isAct?'var(--surface)':'var(--surface)'};z-index:1;box-shadow:2px 0 4px rgba(0,0,0,.06)">
         <strong>${s.name}</strong>
         ${s.grade?`<span class="badge b-purple" style="margin-left:4px;font-size:10px">${s.grade}</span>`:''}
         ${schoolInfo?`<br><span style="font-size:11px;color:var(--text3)">${schoolInfo}</span>`:''}
@@ -5218,8 +5229,8 @@ function renderUnpaid(){
     const d=r.elapsedDays;
     const pd=getStudentPayDay(r.s);
     return`<tr>
-      <td><input type="checkbox" class="unpaid-cb" value="${r.s.id}"/></td>
-      <td><strong>${r.s.name}</strong>${r.s.grade?`<br><span style="font-size:11px;color:var(--text3)">${r.s.grade}</span>`:''}</td>
+      <td style="position:sticky;left:0;background:var(--surface);z-index:1"><input type="checkbox" class="unpaid-cb" value="${r.s.id}"/></td>
+      <td style="position:sticky;left:32px;background:var(--surface);z-index:1;box-shadow:2px 0 4px rgba(0,0,0,.06)"><strong>${r.s.name}</strong>${r.s.grade?`<br><span style="font-size:11px;color:var(--text3)">${r.s.grade}</span>`:''}</td>
       <td style="color:var(--text2);font-size:12px">${r.s.phone}</td>
       <td>${subjectLabel!=='-'?`<span class="badge b-info">${subjectLabel}</span>`:'-'}</td>
       <td style="font-family:'DM Mono',monospace">${curYm}</td>
