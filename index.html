@@ -420,6 +420,9 @@ tbody tr:hover td{background:#f8f9ff}
   /* ── 학생관리 툴바 */
   .stu-desk-toolbar{display:none!important}
   .stu-mob-toolbar{display:flex!important}
+  /* ── 미납관리 툴바 */
+  .unpaid-desk-toolbar{display:none!important}
+  .unpaid-mob-toolbar{display:flex!important}
   /* ── 수납내역 툴바 */
   .pay-desk-toolbar{display:none!important}
   .pay-mob-toolbar{display:flex!important}
@@ -889,6 +892,18 @@ tbody tr:hover td{background:#f8f9ff}
           <button class="btn btn-neutral btn-sm" onclick="exportUnpaidExcel()">📥 엑셀</button>
         </div>
       </div>
+      <!-- 학생 이름 검색 -->
+      <div class="card" style="margin-bottom:12px"><div class="card-body" style="padding:10px 16px">
+        <div class="unpaid-desk-toolbar" style="display:flex;gap:8px;align-items:center">
+          <input class="si" id="unpaid-q" placeholder="학생 이름 검색..." oninput="renderUnpaid()"
+            style="flex:1;font-size:14px"/>
+          <button class="btn btn-neutral btn-sm" onclick="document.getElementById('unpaid-q').value='';renderUnpaid()">초기화</button>
+        </div>
+        <div class="unpaid-mob-toolbar" style="display:none;gap:6px">
+          <input placeholder="학생 이름 검색..." oninput="document.getElementById('unpaid-q').value=this.value;renderUnpaid()"
+            style="flex:1;font-size:16px;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)"/>
+        </div>
+      </div></div>
 
       <!-- 🔍 입금자 번호 검색 -->
       <div class="card" style="margin-bottom:16px">
@@ -1756,6 +1771,19 @@ tbody tr:hover td{background:#f8f9ff}
     </div>
 
     <!-- 지역화폐 입금자 검색 -->
+    <!-- 계좌이체 입금자 -->
+    <div id="qp-bank-section" style="display:none;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:14px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:600;color:#0369a1;margin-bottom:8px">🏦 계좌이체 입금자 확인</div>
+      <div id="qp-bank-history" style="display:none;margin-bottom:10px">
+        <div style="font-size:11px;color:#0369a1;margin-bottom:5px">이전 입금자 이력 (클릭하면 선택)</div>
+        <div id="qp-bank-history-list" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+      </div>
+      <div class="ff" style="margin-bottom:0">
+        <label style="color:#0369a1">입금자명 *</label>
+        <input id="qp-bank-depositor" placeholder="입금자명 입력..." style="width:100%;padding:9px 12px;border:1.5px solid #bae6fd;border-radius:8px;font-size:13px;font-family:inherit;outline:none"/>
+      </div>
+    </div>
+
     <div id="qp-local-pay-section" style="display:none;background:#fff8e1;border:1px solid #ffe082;border-radius:10px;padding:14px;margin-bottom:14px">
       <div style="font-size:12px;font-weight:600;color:#f57f17;margin-bottom:6px">🪙 지역화폐 입금자 확인</div>
       <!-- 이전 입금자 이력 -->
@@ -5240,7 +5268,8 @@ function renderUnpaid(){
   const {students,payments}=currentAcademy;
   const curYm=ym();
   const defaultPayDay=currentAcademy.payDay||25;
-  const active=students.filter(s=>isActiveStudent(s));
+  const q = (document.getElementById('unpaid-q')?.value||'').toLowerCase();
+  const active=students.filter(s=>isActiveStudent(s) && (!q || s.name.toLowerCase().includes(q)));
   const today=now();
 
   // 다음달 ym
@@ -5743,12 +5772,35 @@ function selectPayMethod(btn){
   btn.classList.add('selected');
   _qpSelectedMethod = btn.dataset.val;
   const isLocal = _qpSelectedMethod === '지역화폐';
+  const isBank  = _qpSelectedMethod === '계좌이체';
   document.getElementById('qp-local-pay-section').style.display = isLocal ? '' : 'none';
+  document.getElementById('qp-bank-section').style.display      = isBank  ? '' : 'none';
   if(isLocal){
-    // 이전 입금자 이력 표시
     const sid = document.getElementById('qp-student-id').value;
     showDepositorHistory(sid);
   }
+  if(isBank){
+    const sid = document.getElementById('qp-student-id').value;
+    showBankHistory(sid);
+  }
+}
+
+function showBankHistory(sid){
+  const histEl = document.getElementById('qp-bank-history');
+  const listEl = document.getElementById('qp-bank-history-list');
+  if(!histEl||!listEl) return;
+  const history = (currentAcademy.payments||[])
+    .filter(p=>p.studentId===sid && p.method==='계좌이체' && p.depositor)
+    .sort((a,b)=>b.date.localeCompare(a.date));
+  const seen = new Set();
+  const unique = history.filter(p=>{ if(seen.has(p.depositor)) return false; seen.add(p.depositor); return true; });
+  if(!unique.length){ histEl.style.display='none'; return; }
+  histEl.style.display='';
+  listEl.innerHTML = unique.map(p=>`
+    <button type="button" onclick="document.getElementById('qp-bank-depositor').value='${p.depositor.replace(/'/g,"\\'")}';this.style.background='#bae6fd';this.style.fontWeight='700'"
+      style="padding:5px 10px;border:1.5px solid #bae6fd;border-radius:20px;background:#fff;font-size:12px;cursor:pointer;font-family:inherit;color:#0369a1;transition:all .15s">
+      ${p.depositor} <span style="font-size:10px;color:#aaa">${p.month}</span>
+    </button>`).join('');
 }
 
 function showDepositorHistory(sid){
@@ -5923,7 +5975,11 @@ function confirmQuickPay(){
   const totalInputAmt = parseFloat(document.getElementById('qp-amount').value)||0;
   const date     = document.getElementById('qp-date').value;
   const note     = document.getElementById('qp-note').value;
-  const depositor= document.getElementById('qp-depositor').value;
+  const depositor = _qpSelectedMethod==='지역화폐'
+    ? document.getElementById('qp-depositor').value
+    : _qpSelectedMethod==='계좌이체'
+    ? document.getElementById('qp-bank-depositor').value
+    : '';
   const curYm    = ym();
   const months   = _qpSelectedMonths.length ? _qpSelectedMonths : [_qpCurrentMonth];
 
