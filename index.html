@@ -417,8 +417,12 @@ tbody tr:hover td{background:#f8f9ff}
   #page-payments table{min-width:550px}
   /* ── 모바일 테이블: 덜 중요한 컬럼 숨기기 */
   .mob-hide{display:none!important}
-  .stu-toolbar-wrap .si{max-width:100%!important;width:100%!important;font-size:16px!important}
-  .stu-toolbar-wrap select{font-size:16px!important}
+  /* ── 학생관리 툴바 */
+  .stu-desk-toolbar{display:none!important}
+  .stu-mob-toolbar{display:flex!important}
+  /* ── 수납내역 툴바 */
+  .pay-desk-toolbar{display:none!important}
+  .pay-mob-toolbar{display:flex!important}
 }
 
 @media(max-width:400px){
@@ -739,30 +743,36 @@ tbody tr:hover td{background:#f8f9ff}
       <!-- 상태별 요약 카드 -->
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px" id="stu-summary-cards"></div>
       <div class="card"><div class="card-body" style="padding-bottom:8px">
-        <!-- 툴바: 데스크탑은 1행, 모바일은 2행 -->
-        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center" class="stu-toolbar-wrap">
-          <!-- 왼쪽: 필터들 -->
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap;overflow-x:auto">
-            <select class="fs" id="stu-f-grade" onchange="renderStudents()" style="font-size:13px;padding:7px 6px;min-width:0;flex-shrink:0">
-              <option value="">학년</option>
-              <optgroup label="초등"><option value="초1">초1</option><option value="초2">초2</option><option value="초3">초3</option><option value="초4">초4</option><option value="초5">초5</option><option value="초6">초6</option></optgroup>
-              <optgroup label="중등"><option value="중1">중1</option><option value="중2">중2</option><option value="중3">중3</option></optgroup>
-              <optgroup label="고등"><option value="고1">고1</option><option value="고2">고2</option><option value="고3">고3</option></optgroup>
-              <option value="N수">N수</option><option value="성인">성인</option>
-            </select>
-            <select class="fs" id="stu-f-class" onchange="renderStudents()" style="font-size:13px;padding:7px 6px;min-width:0;flex-shrink:0"><option value="">반</option></select>
-            <select class="fs" id="stu-f-status" onchange="renderStudents()" style="font-size:13px;padding:7px 6px;min-width:0;flex-shrink:0">
-              <option value="">상태</option>
-              <option value="active">🟢 재원</option>
-              <option value="trial">🟡 체험</option>
-              <option value="trial_end">⚪ 체험종료</option>
-              <option value="withdrawn">🔴 퇴원</option>
-              <option value="readmitted">🔵 재입학</option>
-            </select>
-          </div>
-          <!-- 오른쪽: 검색창 -->
-          <input class="si" id="stu-q" placeholder="이름, 연락처 검색..." oninput="renderStudents()"
-            style="font-size:16px;min-width:0;width:100%;max-width:260px"/>
+        <!-- 데스크탑 툴바 -->
+        <div class="stu-desk-toolbar" style="display:flex;gap:8px;align-items:center;flex-wrap:nowrap">
+          <select class="fs" id="stu-f-grade" onchange="renderStudents()" style="font-size:13px;padding:7px 6px">
+            <option value="">학년</option>
+            <optgroup label="초등"><option value="초1">초1</option><option value="초2">초2</option><option value="초3">초3</option><option value="초4">초4</option><option value="초5">초5</option><option value="초6">초6</option></optgroup>
+            <optgroup label="중등"><option value="중1">중1</option><option value="중2">중2</option><option value="중3">중3</option></optgroup>
+            <optgroup label="고등"><option value="고1">고1</option><option value="고2">고2</option><option value="고3">고3</option></optgroup>
+            <option value="N수">N수</option><option value="성인">성인</option>
+          </select>
+          <select class="fs" id="stu-f-class" onchange="renderStudents()" style="font-size:13px;padding:7px 6px"><option value="">반</option></select>
+          <select class="fs" id="stu-f-status" onchange="renderStudents()" style="font-size:13px;padding:7px 6px">
+            <option value="">상태</option>
+            <option value="active">🟢 재원</option><option value="trial">🟡 체험</option>
+            <option value="trial_end">⚪ 체험종료</option><option value="withdrawn">🔴 퇴원</option>
+            <option value="readmitted">🔵 재입학</option>
+          </select>
+          <input class="si" id="stu-q" placeholder="이름, 연락처 검색..." oninput="renderStudents()" style="flex:1;font-size:14px"/>
+        </div>
+        <!-- 모바일 툴바: 검색75% + 학년25% -->
+        <div class="stu-mob-toolbar" style="display:none;gap:6px">
+          <input placeholder="이름 검색..." oninput="document.getElementById('stu-q').value=this.value;renderStudents()"
+            style="flex:3;min-width:0;font-size:16px;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)"/>
+          <select onchange="document.getElementById('stu-f-grade').value=this.value;renderStudents()"
+            style="flex:1;min-width:0;font-size:16px;padding:8px 4px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)">
+            <option value="">학년</option>
+            <optgroup label="초등"><option value="초1">초1</option><option value="초2">초2</option><option value="초3">초3</option><option value="초4">초4</option><option value="초5">초5</option><option value="초6">초6</option></optgroup>
+            <optgroup label="중등"><option value="중1">중1</option><option value="중2">중2</option><option value="중3">중3</option></optgroup>
+            <optgroup label="고등"><option value="고1">고1</option><option value="고2">고2</option><option value="고3">고3</option></optgroup>
+            <option value="N수">N수</option><option value="성인">성인</option>
+          </select>
         </div>
       </div>
         <div class="tbl-wrap" style="overflow-x:auto"><table style="min-width:0;width:100%">
@@ -847,14 +857,21 @@ tbody tr:hover td{background:#f8f9ff}
         </div>
       </div>
       <div class="card"><div class="card-body" style="padding-bottom:8px">
-        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center" class="stu-toolbar-wrap">
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            <select class="fs" id="pay-f-month" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 기간</option></select>
-            <select class="fs" id="pay-f-status" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 상태</option><option value="paid">납부완료</option><option value="partial">부분납부</option><option value="pending">미납</option></select>
-            <select class="fs" id="pay-f-method" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 방법</option><option>현금</option><option>계좌이체</option><option>카드</option></select>
-          </div>
-          <input class="si" id="pay-q" placeholder="학생 이름 검색..." oninput="renderPayments()"
-            style="font-size:16px;min-width:0;width:100%;max-width:220px"/>
+        <!-- 데스크탑 툴바 -->
+        <div class="pay-desk-toolbar" style="display:flex;gap:8px;align-items:center;flex-wrap:nowrap">
+          <select class="fs" id="pay-f-month" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 기간</option></select>
+          <select class="fs" id="pay-f-status" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 상태</option><option value="paid">납부완료</option><option value="partial">부분납부</option><option value="pending">미납</option></select>
+          <select class="fs" id="pay-f-method" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 방법</option><option>현금</option><option>계좌이체</option><option>카드</option></select>
+          <input class="si" id="pay-q" placeholder="학생 이름 검색..." oninput="renderPayments()" style="flex:1;font-size:14px"/>
+        </div>
+        <!-- 모바일 툴바: 검색75% + 기간25% -->
+        <div class="pay-mob-toolbar" style="display:none;gap:6px">
+          <input placeholder="이름 검색..." oninput="document.getElementById('pay-q').value=this.value;renderPayments()"
+            style="flex:3;min-width:0;font-size:16px;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)"/>
+          <select id="pay-f-month-mob" onchange="document.getElementById('pay-f-month').value=this.value;renderPayments()"
+            style="flex:1;min-width:0;font-size:16px;padding:8px 4px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)">
+            <option value="">기간</option>
+          </select>
         </div>
       </div>
         <div class="tbl-wrap" style="overflow-x:auto"><table style="min-width:0;width:100%"><thead><tr>
@@ -3489,7 +3506,11 @@ function fillMonthFilter(){
   const months=[...new Set((currentAcademy.payments||[]).map(p=>p.month))].sort().reverse();
   const sel=document.getElementById('pay-f-month');
   const cur=sel.value;
-  sel.innerHTML='<option value="">전체 기간</option>'+months.map(m=>`<option ${cur===m?'selected':''}>${m}</option>`).join('');
+  const opts='<option value="">전체 기간</option>'+months.map(m=>`<option ${cur===m?'selected':''}>${m}</option>`).join('');
+  sel.innerHTML=opts;
+  // 모바일 기간 드롭다운에도 동기화
+  const mobSel=document.getElementById('pay-f-month-mob');
+  if(mobSel){ mobSel.innerHTML=opts; mobSel.value=cur; }
 }
 
 // ════════════════════════════════════════════════════════
