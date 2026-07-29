@@ -892,45 +892,18 @@ tbody tr:hover td{background:#f8f9ff}
           <button class="btn btn-neutral btn-sm" onclick="exportUnpaidExcel()">📥 엑셀</button>
         </div>
       </div>
-      <!-- 학생 이름 검색 -->
+      <!-- 학생 이름 / 입금자 검색 -->
       <div class="card" style="margin-bottom:12px"><div class="card-body" style="padding:10px 16px">
         <div class="unpaid-desk-toolbar" style="display:flex;gap:8px;align-items:center">
-          <input class="si" id="unpaid-q" placeholder="학생 이름 검색..." oninput="renderUnpaid()"
+          <input class="si" id="unpaid-q" placeholder="학생 이름 또는 입금자명 검색..." oninput="renderUnpaid()"
             style="flex:1;font-size:14px"/>
           <button class="btn btn-neutral btn-sm" onclick="document.getElementById('unpaid-q').value='';renderUnpaid()">초기화</button>
         </div>
         <div class="unpaid-mob-toolbar" style="display:none;gap:6px">
-          <input placeholder="학생 이름 검색..." oninput="document.getElementById('unpaid-q').value=this.value;renderUnpaid()"
+          <input placeholder="이름 / 입금자 검색..." oninput="document.getElementById('unpaid-q').value=this.value;renderUnpaid()"
             style="flex:1;font-size:16px;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)"/>
         </div>
       </div></div>
-
-      <!-- 🔍 입금자 번호 검색 -->
-      <div class="card" style="margin-bottom:16px">
-        <div class="card-body" style="padding:16px 20px">
-          <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:10px">
-            🪙 지역화폐·계좌이체 입금자 검색
-            <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:8px">전화번호 뒷자리를 입력하면 학생·보호자를 모두 찾아줍니다</span>
-          </div>
-          <div style="display:flex;gap:8px;align-items:flex-start">
-            <div style="flex:1;position:relative">
-              <input id="depositor-search-input" placeholder="예: 0001  /  8721  /  홍길동  (학생 또는 보호자 이름·번호)" oninput="searchDepositorUnpaid()"
-                style="width:100%;padding:11px 16px 11px 40px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:inherit;outline:none;transition:border-color .2s"
-                onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
-              <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none">🔍</span>
-            </div>
-            <button class="btn btn-neutral" onclick="clearDepositorSearch()">초기화</button>
-          </div>
-          <!-- 검색 결과 -->
-          <div id="depositor-search-results" style="display:none;margin-top:10px">
-            <div style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:6px">검색 결과 — 클릭하면 수납처리로 이동합니다</div>
-            <div id="depositor-result-list" style="display:flex;flex-direction:column;gap:6px"></div>
-          </div>
-          <div id="depositor-no-result" style="display:none;margin-top:10px;font-size:13px;color:var(--text3)">
-            검색 결과가 없습니다. 번호 또는 이름을 다시 확인해주세요.
-          </div>
-        </div>
-      </div>
 
       <div class="card"><div class="card-body" style="padding:0;overflow-x:auto">
         <table style="min-width:0;width:100%">
@@ -5269,7 +5242,16 @@ function renderUnpaid(){
   const curYm=ym();
   const defaultPayDay=currentAcademy.payDay||25;
   const q = (document.getElementById('unpaid-q')?.value||'').toLowerCase();
-  const active=students.filter(s=>isActiveStudent(s) && (!q || s.name.toLowerCase().includes(q)));
+
+  // 이름 또는 입금자명으로 검색
+  const active=students.filter(s=>{
+    if(!isActiveStudent(s)) return false;
+    if(!q) return true;
+    if(s.name.toLowerCase().includes(q)) return true;
+    // 이번달 수납 입금자명 검색
+    const pays = payments.filter(p=>p.studentId===s.id && p.depositor);
+    return pays.some(p=>(p.depositor||'').toLowerCase().includes(q));
+  });
   const today=now();
 
   // 다음달 ym
