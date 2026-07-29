@@ -296,7 +296,14 @@ tbody tr:hover td{background:#f8f9ff}
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── 툴팁 ── */
+/* 학생 행 선택 하이라이트 */
+#stu-tbody tr.stu-selected{background:#dcfce7!important}
+#stu-tbody tr.stu-selected td{background:#dcfce7!important}
+#stu-tbody tr:hover{background:#f0fdf4}
+/* sticky 이름 컬럼 배경 상속 */
+#stu-tbody tr td:first-child{position:sticky;left:0;z-index:1;background:inherit}
+#stu-tbody tr:hover td:first-child{background:#f0fdf4}
+#stu-tbody tr.stu-selected td:first-child{background:#dcfce7!important}
 [data-tip]{position:relative}
 [data-tip]::after{
   content:attr(data-tip);
@@ -744,15 +751,8 @@ tbody tr:hover td{background:#f8f9ff}
       </div>
         <div class="tbl-wrap" style="overflow-x:auto"><table style="min-width:0;width:100%">
           <thead><tr>
-            <th>이름</th>
-            <th class="mob-hide">연락처</th>
-            <th>반/과목</th>
-            <th class="mob-hide">수강료</th>
-            <th class="mob-hide">결제일</th>
-            <th>이번달</th>
-            <th>상태</th>
-            <th class="mob-hide">주요일자</th>
-            <th></th>
+            <th style="position:sticky;left:0;z-index:2;background:var(--surface)">이름</th>
+            <th>연락처</th><th>반/과목</th><th>수강료</th><th>결제일</th><th>이번달</th><th>상태</th><th>주요일자</th><th></th>
           </tr></thead>
           <tbody id="stu-tbody"></tbody>
         </table></div>
@@ -3590,9 +3590,9 @@ function renderStudents(){
       actions += `<button class="btn btn-neutral btn-sm" onclick="editStudent('${s.id}')">편집</button> `;
     } else {
       actions += `<button class="btn btn-neutral btn-sm" onclick="editStudent('${s.id}')">편집</button> `;
-      actions += `<button class="btn btn-danger btn-sm" onclick="openWithdrawModal('${s.id}')">퇴원</button> `;
+      actions += `<button class="btn btn-danger btn-sm mob-hide" onclick="openWithdrawModal('${s.id}')">퇴원</button> `;
     }
-    actions += `<button class="btn btn-sm" onclick="permanentDeleteStudent('${s.id}')"
+    actions += `<button class="btn btn-sm mob-hide" onclick="permanentDeleteStudent('${s.id}')"
       data-tip="완전 삭제 (복구 불가)"
       style="background:#dc2626;color:#fff;border:none;margin-left:2px;padding:5px 8px;font-size:13px;border-radius:6px;cursor:pointer">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:middle">
@@ -3601,28 +3601,29 @@ function renderStudents(){
       </svg>
     </button>`;
 
-    return `<tr style="${!isAct?'opacity:.72':''}">
-      <td>
+    return `<tr style="${!isAct?'opacity:.72':''}"
+      onclick="document.querySelectorAll('#stu-tbody tr').forEach(r=>r.classList.remove('stu-selected'));this.classList.add('stu-selected')">
+      <td style="box-shadow:2px 0 4px rgba(0,0,0,.06)">
         <strong>${s.name}</strong>
         ${s.grade?`<span class="badge b-purple" style="margin-left:4px;font-size:10px">${s.grade}</span>`:''}
         ${schoolInfo?`<br><span style="font-size:11px;color:var(--text3)">${schoolInfo}</span>`:''}
         ${s.memo?`<br><span style="font-size:11px;color:var(--text3)">${s.memo}</span>`:''}
       </td>
-      <td class="mob-hide" style="color:var(--text2);font-size:12px">
+      <td style="color:var(--text2);font-size:12px">
         ${s.phone ? `<a href="tel:${s.phone}" style="color:var(--accent);text-decoration:none;font-weight:500" onclick="event.stopPropagation()">📞 ${s.phone}</a>` : '-'}
         ${(s.parents&&s.parents.length ? s.parents : (s.parent?[{name:'',phone:s.parent}]:[])).map(p=>`<br><span style="color:var(--text3)">보호자${p.name?' ('+p.name+')':''} ${p.phone ? `<a href="tel:${p.phone}" style="color:var(--text2);text-decoration:none" onclick="event.stopPropagation()">${p.phone}</a>` : ''}</span>`).join('')}
       </td>
       <td>${subjectBadges}</td>
-      <td class="mob-hide">${feeDisplay}</td>
-      <td class="mob-hide" style="text-align:center;font-size:12px;color:var(--text2)">${
+      <td>${feeDisplay}</td>
+      <td style="text-align:center;font-size:12px;color:var(--text2)">${
         s.payDay
           ? `<span style="font-size:12px;color:var(--accent);font-weight:600">${s.payDay}일</span>`
           : `<span style="color:var(--text3);font-size:11px">${currentAcademy.payDay||25}일<br><span style="font-size:10px">(기본)</span></span>`
       }</td>
       <td>${isAct?`<span class="badge ${payBadge[pStatus]||'b-gray'}">${payLabel[pStatus]}</span>`:'<span style="color:var(--text3);font-size:12px">-</span>'}</td>
       <td><span class="badge ${st.badge}">${st.dot} ${st.label}</span></td>
-      <td class="mob-hide">${dateInfo}</td>
-      <td style="white-space:nowrap;position:sticky;right:0;background:var(--surface);box-shadow:-2px 0 6px rgba(0,0,0,.08)">${actions}</td>
+      <td>${dateInfo}</td>
+      <td style="white-space:nowrap">${actions}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="9" class="empty-row"><div class="ei">👥</div><p>학생이 없습니다</p></td></tr>`;
 }
