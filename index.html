@@ -905,12 +905,12 @@ tbody tr:hover td{background:#f8f9ff}
           <thead><tr>
             <th style="position:sticky;left:0;z-index:2;background:var(--surface);width:32px"><input type="checkbox" id="unpaid-all" onchange="toggleAllUnpaid(this)"/></th>
             <th style="position:sticky;left:32px;z-index:2;background:var(--surface)">학생</th>
-            <th class="mob-hide">연락처</th>
+            <th>연락처</th>
             <th>반/과목</th>
-            <th class="mob-hide">미납월</th>
-            <th class="mob-hide">수납일</th>
+            <th>미납월</th>
+            <th>수납일</th>
             <th>미납금액</th>
-            <th class="mob-hide">경과일</th>
+            <th>경과일</th>
             <th>처리</th>
           </tr></thead>
           <tbody id="unpaid-tbody"></tbody>
@@ -5263,12 +5263,12 @@ function renderUnpaid(){
     return`<tr onclick="document.querySelectorAll('#unpaid-tbody tr').forEach(r=>r.classList.remove('row-selected'));this.classList.add('row-selected')">
       <td><input type="checkbox" class="unpaid-cb" value="${r.s.id}" onclick="event.stopPropagation()"/></td>
       <td><strong>${r.s.name}</strong>${r.s.grade?`<br><span style="font-size:11px;color:var(--text3)">${r.s.grade}</span>`:''}</td>
-      <td class="mob-hide" style="color:var(--text2);font-size:12px">${r.s.phone}</td>
+      <td style="color:var(--text2);font-size:12px">${r.s.phone}</td>
       <td>${subjectLabel!=='-'?`<span class="badge b-info">${subjectLabel}</span>`:'-'}</td>
-      <td class="mob-hide" style="font-family:'DM Mono',monospace">${curYm}</td>
-      <td class="mob-hide" style="font-size:12px;color:var(--text3)">매월 <strong style="color:var(--text)">${pd}일</strong></td>
+      <td style="font-family:'DM Mono',monospace">${curYm}</td>
+      <td style="font-size:12px;color:var(--text3)">매월 <strong style="color:var(--text)">${pd}일</strong></td>
       <td><strong style="color:${r.unpaidAmt>0?'var(--danger)':'var(--text2)'}">${r.unpaidAmt}만원</strong></td>
-      <td class="mob-hide"><span class="badge ${dayBadgeFor(d)}">${dayTextFor(d)}</span></td>
+      <td><span class="badge ${dayBadgeFor(d)}">${dayTextFor(d)}</span></td>
       <td style="white-space:nowrap">
         <button class="btn btn-success btn-sm" data-tip="수납 처리" onclick="event.stopPropagation();openQuickPayModal('${r.s.id}','${curYm}',${r.unpaidAmt})">수납처리</button>
         <button class="btn btn-warning btn-sm" data-tip="문자 발송" onclick="event.stopPropagation();sendSmsTo('${r.s.id}')" style="margin-left:4px">📱</button>
