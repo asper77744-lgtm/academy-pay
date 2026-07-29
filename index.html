@@ -304,8 +304,22 @@ tbody tr:hover td{background:#f8f9ff}
 #stu-tbody tr td:first-child{position:sticky;left:0;z-index:1;background:var(--surface);box-shadow:2px 0 5px rgba(0,0,0,.08)}
 #stu-tbody tr:hover td:first-child{background:#f0fdf4}
 #stu-tbody tr.stu-selected td:first-child{background:#dcfce7!important}
-/* 헤더 이름도 동일하게 */
 #stu-tbody tr:nth-child(even) td:first-child{background:var(--surface)}
+
+/* 수납내역 */
+#pay-tbody tr.row-selected td{background:#dcfce7!important}
+#pay-tbody tr:hover{background:#f0fdf4}
+#pay-tbody tr td:first-child{position:sticky;left:0;z-index:1;background:var(--surface);box-shadow:2px 0 5px rgba(0,0,0,.08)}
+#pay-tbody tr:hover td:first-child{background:#f0fdf4}
+#pay-tbody tr.row-selected td:first-child{background:#dcfce7!important}
+
+/* 미납관리 */
+#unpaid-tbody tr.row-selected td{background:#dcfce7!important}
+#unpaid-tbody tr:hover{background:#f0fdf4}
+#unpaid-tbody tr td:nth-child(2){position:sticky;left:32px;z-index:1;background:var(--surface);box-shadow:2px 0 5px rgba(0,0,0,.08)}
+#unpaid-tbody tr:hover td:nth-child(2){background:#f0fdf4}
+#unpaid-tbody tr.row-selected td:nth-child(2){background:#dcfce7!important}
+#unpaid-tbody tr td:first-child{position:sticky;left:0;z-index:1;background:var(--surface)}
 [data-tip]{position:relative}
 [data-tip]::after{
   content:attr(data-tip);
@@ -843,7 +857,10 @@ tbody tr:hover td{background:#f8f9ff}
             style="font-size:16px;min-width:0;width:100%;max-width:220px"/>
         </div>
       </div>
-        <div class="tbl-wrap"><table><thead><tr><th>학생</th><th>반/과목</th><th>납부월</th><th>청구</th><th>납부</th><th>잔액</th><th>방법</th><th>일자</th><th>상태</th><th></th></tr></thead><tbody id="pay-tbody"></tbody></table></div>
+        <div class="tbl-wrap" style="overflow-x:auto"><table style="min-width:0;width:100%"><thead><tr>
+          <th style="position:sticky;left:0;z-index:2;background:var(--surface)">학생</th>
+          <th>반/과목</th><th>납부월</th><th>청구</th><th>납부</th><th>잔액</th><th>방법</th><th>일자</th><th>상태</th><th></th>
+        </tr></thead><tbody id="pay-tbody"></tbody></table></div>
       </div>
     </div>
 
@@ -886,8 +903,8 @@ tbody tr:hover td{background:#f8f9ff}
       <div class="card"><div class="card-body" style="padding:0;overflow-x:auto">
         <table style="min-width:0;width:100%">
           <thead><tr>
-            <th><input type="checkbox" id="unpaid-all" onchange="toggleAllUnpaid(this)"/></th>
-            <th>학생</th>
+            <th style="position:sticky;left:0;z-index:2;background:var(--surface);width:32px"><input type="checkbox" id="unpaid-all" onchange="toggleAllUnpaid(this)"/></th>
+            <th style="position:sticky;left:32px;z-index:2;background:var(--surface)">학생</th>
             <th class="mob-hide">연락처</th>
             <th>반/과목</th>
             <th class="mob-hide">미납월</th>
@@ -5074,7 +5091,7 @@ function renderPayments(){
       ? `<span class="badge b-warning" style="font-family:'DM Mono',monospace">🪙 ${p.depositor}</span>`
       : `<span class="badge b-gray">${p.method||'-'}</span>`;
     const prepaidBadge = p.prepaid ? `<span class="badge b-info" style="margin-left:3px">🔖선납</span>` : '';
-    return`<tr>
+    return`<tr onclick="document.querySelectorAll('#pay-tbody tr').forEach(r=>r.classList.remove('row-selected'));this.classList.add('row-selected')">
       <td><strong>${s?.name||'-'}</strong></td>
       <td>${subj?`<span class="badge b-info">${subj}</span>`:'-'}</td>
       <td style="font-family:'DM Mono',monospace">${p.month}</td>
@@ -5085,8 +5102,8 @@ function renderPayments(){
       <td style="color:var(--text2);font-size:12px">${p.date}</td>
       <td><span class="badge ${sb[p.status]}">${sl[p.status]}</span></td>
       <td style="white-space:nowrap">
-        <button class="btn btn-neutral btn-sm" onclick="editPayment('${p.id}')">편집</button>
-        <button class="btn btn-danger btn-sm" onclick="deletePayment('${p.id}')" style="margin-left:4px">삭제</button>
+        <button class="btn btn-neutral btn-sm" onclick="event.stopPropagation();editPayment('${p.id}')">편집</button>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deletePayment('${p.id}')" style="margin-left:4px">삭제</button>
       </td>
     </tr>`;
   }).join(''):`<tr><td colspan="10" class="empty-row"><div class="ei">💳</div><p>수납 내역이 없습니다</p></td></tr>`;
@@ -5243,8 +5260,8 @@ function renderUnpaid(){
     const subjectLabel=enrs.map(e=>e.subject).filter(Boolean).join('+') || '-';
     const d=r.elapsedDays;
     const pd=getStudentPayDay(r.s);
-    return`<tr>
-      <td><input type="checkbox" class="unpaid-cb" value="${r.s.id}"/></td>
+    return`<tr onclick="document.querySelectorAll('#unpaid-tbody tr').forEach(r=>r.classList.remove('row-selected'));this.classList.add('row-selected')">
+      <td><input type="checkbox" class="unpaid-cb" value="${r.s.id}" onclick="event.stopPropagation()"/></td>
       <td><strong>${r.s.name}</strong>${r.s.grade?`<br><span style="font-size:11px;color:var(--text3)">${r.s.grade}</span>`:''}</td>
       <td class="mob-hide" style="color:var(--text2);font-size:12px">${r.s.phone}</td>
       <td>${subjectLabel!=='-'?`<span class="badge b-info">${subjectLabel}</span>`:'-'}</td>
@@ -5253,8 +5270,8 @@ function renderUnpaid(){
       <td><strong style="color:${r.unpaidAmt>0?'var(--danger)':'var(--text2)'}">${r.unpaidAmt}만원</strong></td>
       <td class="mob-hide"><span class="badge ${dayBadgeFor(d)}">${dayTextFor(d)}</span></td>
       <td style="white-space:nowrap">
-        <button class="btn btn-success btn-sm" data-tip="수납 처리" onclick="openQuickPayModal('${r.s.id}','${curYm}',${r.unpaidAmt})">수납처리</button>
-        <button class="btn btn-warning btn-sm" data-tip="문자 발송" onclick="sendSmsTo('${r.s.id}')" style="margin-left:4px">📱</button>
+        <button class="btn btn-success btn-sm" data-tip="수납 처리" onclick="event.stopPropagation();openQuickPayModal('${r.s.id}','${curYm}',${r.unpaidAmt})">수납처리</button>
+        <button class="btn btn-warning btn-sm" data-tip="문자 발송" onclick="event.stopPropagation();sendSmsTo('${r.s.id}')" style="margin-left:4px">📱</button>
       </td>
     </tr>`;
   }).join('') : `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--success);font-size:13px">🎉 미납 학생이 없습니다!</td></tr>`;
