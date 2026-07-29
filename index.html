@@ -392,8 +392,8 @@ tbody tr:hover td{background:#f8f9ff}
 
   /* ── 수납내역 표 ── */
   #page-payments table{min-width:550px}
-  /* ── 학생관리 툴바 */
-  .stu-toolbar-wrap{grid-template-columns:1fr!important}
+  /* ── 모바일 테이블: 덜 중요한 컬럼 숨기기 */
+  .mob-hide{display:none!important}
   .stu-toolbar-wrap .si{max-width:100%!important;width:100%!important;font-size:16px!important}
   .stu-toolbar-wrap select{font-size:16px!important}
 }
@@ -742,11 +742,17 @@ tbody tr:hover td{background:#f8f9ff}
             style="font-size:16px;min-width:0;width:100%;max-width:260px"/>
         </div>
       </div>
-        <div class="tbl-wrap" style="overflow-x:auto"><table style="min-width:600px">
+        <div class="tbl-wrap" style="overflow-x:auto"><table style="min-width:0;width:100%">
           <thead><tr>
             <th>이름</th>
-            <th>연락처</th><th>반/과목</th><th>수강료</th><th>결제일</th><th>이번달</th><th>상태</th><th>주요일자</th>
-            <th style="position:sticky;right:0;z-index:2;background:var(--surface)"></th>
+            <th class="mob-hide">연락처</th>
+            <th>반/과목</th>
+            <th class="mob-hide">수강료</th>
+            <th class="mob-hide">결제일</th>
+            <th>이번달</th>
+            <th>상태</th>
+            <th class="mob-hide">주요일자</th>
+            <th></th>
           </tr></thead>
           <tbody id="stu-tbody"></tbody>
         </table></div>
@@ -876,11 +882,17 @@ tbody tr:hover td{background:#f8f9ff}
       </div>
 
       <div class="card"><div class="card-body" style="padding:0;overflow-x:auto">
-        <table style="min-width:620px">
+        <table style="min-width:0;width:100%">
           <thead><tr>
             <th><input type="checkbox" id="unpaid-all" onchange="toggleAllUnpaid(this)"/></th>
-            <th>학생</th><th>연락처</th><th>반/과목</th><th>미납월</th><th>수납일</th><th>미납금액</th><th>경과일</th>
-            <th style="position:sticky;right:0;z-index:2;background:var(--surface);min-width:110px">처리</th>
+            <th>학생</th>
+            <th class="mob-hide">연락처</th>
+            <th>반/과목</th>
+            <th class="mob-hide">미납월</th>
+            <th class="mob-hide">수납일</th>
+            <th>미납금액</th>
+            <th class="mob-hide">경과일</th>
+            <th>처리</th>
           </tr></thead>
           <tbody id="unpaid-tbody"></tbody>
         </table>
@@ -3596,20 +3608,20 @@ function renderStudents(){
         ${schoolInfo?`<br><span style="font-size:11px;color:var(--text3)">${schoolInfo}</span>`:''}
         ${s.memo?`<br><span style="font-size:11px;color:var(--text3)">${s.memo}</span>`:''}
       </td>
-      <td style="color:var(--text2);font-size:12px">
+      <td class="mob-hide" style="color:var(--text2);font-size:12px">
         ${s.phone ? `<a href="tel:${s.phone}" style="color:var(--accent);text-decoration:none;font-weight:500" onclick="event.stopPropagation()">📞 ${s.phone}</a>` : '-'}
         ${(s.parents&&s.parents.length ? s.parents : (s.parent?[{name:'',phone:s.parent}]:[])).map(p=>`<br><span style="color:var(--text3)">보호자${p.name?' ('+p.name+')':''} ${p.phone ? `<a href="tel:${p.phone}" style="color:var(--text2);text-decoration:none" onclick="event.stopPropagation()">${p.phone}</a>` : ''}</span>`).join('')}
       </td>
       <td>${subjectBadges}</td>
-      <td>${feeDisplay}</td>
-      <td style="text-align:center;font-size:12px;color:var(--text2)">${
+      <td class="mob-hide">${feeDisplay}</td>
+      <td class="mob-hide" style="text-align:center;font-size:12px;color:var(--text2)">${
         s.payDay
           ? `<span style="font-size:12px;color:var(--accent);font-weight:600">${s.payDay}일</span>`
           : `<span style="color:var(--text3);font-size:11px">${currentAcademy.payDay||25}일<br><span style="font-size:10px">(기본)</span></span>`
       }</td>
       <td>${isAct?`<span class="badge ${payBadge[pStatus]||'b-gray'}">${payLabel[pStatus]}</span>`:'<span style="color:var(--text3);font-size:12px">-</span>'}</td>
       <td><span class="badge ${st.badge}">${st.dot} ${st.label}</span></td>
-      <td>${dateInfo}</td>
+      <td class="mob-hide">${dateInfo}</td>
       <td style="white-space:nowrap;position:sticky;right:0;background:var(--surface);box-shadow:-2px 0 6px rgba(0,0,0,.08)">${actions}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="9" class="empty-row"><div class="ei">👥</div><p>학생이 없습니다</p></td></tr>`;
@@ -5231,13 +5243,13 @@ function renderUnpaid(){
     return`<tr>
       <td><input type="checkbox" class="unpaid-cb" value="${r.s.id}"/></td>
       <td><strong>${r.s.name}</strong>${r.s.grade?`<br><span style="font-size:11px;color:var(--text3)">${r.s.grade}</span>`:''}</td>
-      <td style="color:var(--text2);font-size:12px">${r.s.phone}</td>
+      <td class="mob-hide" style="color:var(--text2);font-size:12px">${r.s.phone}</td>
       <td>${subjectLabel!=='-'?`<span class="badge b-info">${subjectLabel}</span>`:'-'}</td>
-      <td style="font-family:'DM Mono',monospace">${curYm}</td>
-      <td style="font-size:12px;color:var(--text3)">매월 <strong style="color:var(--text)">${pd}일</strong></td>
+      <td class="mob-hide" style="font-family:'DM Mono',monospace">${curYm}</td>
+      <td class="mob-hide" style="font-size:12px;color:var(--text3)">매월 <strong style="color:var(--text)">${pd}일</strong></td>
       <td><strong style="color:${r.unpaidAmt>0?'var(--danger)':'var(--text2)'}">${r.unpaidAmt}만원</strong></td>
-      <td><span class="badge ${dayBadgeFor(d)}">${dayTextFor(d)}</span></td>
-      <td style="white-space:nowrap;position:sticky;right:0;background:var(--surface);box-shadow:-2px 0 6px rgba(0,0,0,.08)">
+      <td class="mob-hide"><span class="badge ${dayBadgeFor(d)}">${dayTextFor(d)}</span></td>
+      <td style="white-space:nowrap">
         <button class="btn btn-success btn-sm" data-tip="수납 처리" onclick="openQuickPayModal('${r.s.id}','${curYm}',${r.unpaidAmt})">수납처리</button>
         <button class="btn btn-warning btn-sm" data-tip="문자 발송" onclick="sendSmsTo('${r.s.id}')" style="margin-left:4px">📱</button>
       </td>
