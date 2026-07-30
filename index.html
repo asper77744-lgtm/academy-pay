@@ -2943,13 +2943,33 @@ function renderStats(){
   if(tbody){
     tbody.innerHTML=months.map(m=>{
       const my=`${year}-${String(m).padStart(2,'0')}`;
-      const mp=payments.filter(p=>p.month===my);
-      const charge=mp.reduce((a,p)=>a+(p.charge||0),0);
-      const paid=mp.reduce((a,p)=>a+p.amount,0);
-      const unpaid=Math.max(0,charge-paid);
-      const r=charge?Math.round(paid/charge*100):0;
-      const stdCnt=new Set(mp.filter(p=>p.amount>0).map(p=>p.studentId)).size;
+      const mp=payments.filter(p=>p.month===my && p.amount>0);
       const isCur=my===curYm;
+
+      // 학생수: 해당 월에 수납 기록이 있거나 현재 재원인 학생
+      // 이번달은 현재 재원생 기준, 과거달은 수납 기록 기준
+      let monthStudents, charge;
+      if(isCur){
+        // 이번달: 현재 재원생 기준
+        monthStudents = active;
+        charge = monthStudents.reduce((a,s)=>a+calcTotalFee(s),0);
+      } else {
+        // 과거/미래달: 수납 기록에 등장한 학생 기준
+        const stuIds = [...new Set(mp.map(p=>p.studentId))];
+        monthStudents = students.filter(s=>stuIds.includes(s.id));
+        // charge는 수납기록의 charge 합산 (중복 제거: studentId당 최대값)
+        const chargeMap = {};
+        mp.forEach(p=>{ chargeMap[p.studentId] = Math.max(chargeMap[p.studentId]||0, p.charge||0); });
+        charge = Object.values(chargeMap).reduce((a,v)=>a+v,0);
+        // charge가 없으면 수납액으로 대체
+        if(!charge) charge = mp.reduce((a,p)=>a+(p.charge||p.amount||0),0);
+      }
+
+      const paid   = mp.reduce((a,p)=>a+p.amount,0);
+      const unpaid = Math.max(0, charge - paid);
+      const r      = charge ? Math.round(paid/charge*100) : 0;
+      const stdCnt = monthStudents.length;
+
       return`<tr style="${isCur?'background:rgba(99,102,241,.06);font-weight:600':''}">
         <td>${m}월${isCur?' <span style="font-size:10px;color:var(--accent)">(이번달)</span>':''}</td>
         <td>${charge?fmt(charge)+'만원':'-'}</td>
