@@ -2997,6 +2997,14 @@ function switchDashChart(mode){
 
   [btnS,btnM,btnD].forEach(b=>{if(b){b.style.background='var(--surface)';b.style.color='var(--text2)';b.style.fontWeight='400';}});
 
+  const container = document.getElementById('dash-chart');
+  if(container){
+    container.style.height='';
+    container.style.overflowX='';
+    container.style.overflowY='';
+    container.style.alignItems='flex-end';
+  }
+
   if(mode==='students'){
     if(btnS){btnS.style.background='var(--accent)';btnS.style.color='#fff';btnS.style.fontWeight='600';}
     selMonth.style.display='none';
@@ -3120,7 +3128,8 @@ function renderDailyChart(){
   const totalMinW = lastDay * (minBarW + 4);
 
   container.style.height='auto';
-  container.style.overflowX='auto';
+  container.style.overflowX='visible';
+  container.style.overflowY='visible';
   container.style.alignItems='stretch';
 
   const barsHtml = Array.from({length:lastDay},(_,i)=>{
@@ -3141,7 +3150,8 @@ function renderDailyChart(){
     </div>`;
   }).join('');
 
-  container.innerHTML = `<div style="display:flex;align-items:flex-end;min-width:${totalMinW}px;width:100%">${barsHtml}</div>`;
+  // 스크롤 래퍼를 container 안에 넣어서 헤더 클릭 방해 안 함
+  container.innerHTML = `<div style="overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch"><div style="display:flex;align-items:flex-end;min-width:${totalMinW}px;width:100%">${barsHtml}</div></div>`;
 
   const legendEl=document.getElementById('dash-chart-legend');
   if(legendEl){
