@@ -3104,28 +3104,33 @@ function renderDailyChart(){
   const year=now().getFullYear();
   const payments=currentAcademy.payments||[];
   const lastDay=new Date(year,month,0).getDate();
-  const ym=`${year}-${String(month).padStart(2,'0')}`;
+  const ym_=`${year}-${String(month).padStart(2,'0')}`;
 
   const dailyAmts=Array.from({length:lastDay},(_,i)=>{
     const d=String(i+1).padStart(2,'0');
-    return payments.filter(p=>p.date===`${ym}-${d}`&&p.amount>0).reduce((s,p)=>s+p.amount,0);
+    return payments.filter(p=>p.date===`${ym_}-${d}`&&p.amount>0).reduce((s,p)=>s+p.amount,0);
   });
   const maxAmt=Math.max(...dailyAmts,1);
   const chartH=130;
   const container=document.getElementById('dash-chart');
   if(!container) return;
-  container.style.height=(chartH+20)+'px';
-  container.style.alignItems='flex-end';
-  container.style.position='relative';
 
-  container.innerHTML=Array.from({length:lastDay},(_,i)=>{
+  // 바 최소 너비 16px 보장 → 31일 × 16px = 496px 최소
+  const minBarW = 16;
+  const totalMinW = lastDay * (minBarW + 4);
+
+  container.style.height='auto';
+  container.style.overflowX='auto';
+  container.style.alignItems='stretch';
+
+  const barsHtml = Array.from({length:lastDay},(_,i)=>{
     const d=i+1;
     const amt=dailyAmts[i];
     const barH=amt?Math.max(Math.round(amt/maxAmt*chartH),3):0;
     const isToday=d===now().getDate()&&month===now().getMonth()+1;
     const color=isToday?'var(--accent)':'#4361ee';
     const tipData=JSON.stringify({month:`${year}년 ${month}월 ${d}일`,total:amt,normal:amt,prepayIn:0,prepayOut:0,expected:0,rate:null,color}).replace(/"/g,'&quot;');
-    return `<div class="cb" style="justify-content:flex-end;min-height:${chartH+4}px;cursor:${amt?'pointer':'default'}"
+    return `<div class="cb" style="justify-content:flex-end;min-height:${chartH+4}px;min-width:${minBarW}px;flex:1;cursor:${amt?'pointer':'default'}"
       onmouseenter="showChartTip(event,'${tipData}')" onmousemove="moveChartTip(event)" onmouseleave="hideChartTip()">
       <div style="font-size:8px;color:var(--text2);margin-bottom:1px;font-family:'DM Mono',monospace;text-align:center">${amt||''}</div>
       <div style="width:100%;display:flex;flex-direction:column;align-items:stretch">
@@ -3135,6 +3140,8 @@ function renderDailyChart(){
       <div class="cb-label" style="font-size:9px">${d}일</div>
     </div>`;
   }).join('');
+
+  container.innerHTML = `<div style="display:flex;align-items:flex-end;min-width:${totalMinW}px;width:100%">${barsHtml}</div>`;
 
   const legendEl=document.getElementById('dash-chart-legend');
   if(legendEl){
