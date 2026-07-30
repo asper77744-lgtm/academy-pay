@@ -641,7 +641,7 @@ tbody tr:hover td{background:#f8f9ff}
               <span style="font-size:13px;color:var(--text3)">명</span>
               <span id="ds-new-students" style="display:none;font-size:12px;color:#10b981;font-weight:600;margin-left:4px"></span>
             </div>
-            <div class="sc-sub">재원+재입학</div>
+            <div class="sc-sub" id="ds-students-sub">재원+재입학</div>
             <div class="sc-icon">👥</div>
           </div>
           <!-- 2. 체험중 / 이달퇴원 -->
@@ -2295,7 +2295,19 @@ async function doRegister(){
   const exists = await sbCheckEmailExists(email);
   if(exists){
     if(btn){ btn.textContent='학원 가입'; btn.disabled=false; }
-    showErr('r-err1','이미 가입된 이메일입니다.'); return;
+    showErr('r-err1','이미 가입된 이메일입니다. 로그인 탭을 이용해주세요.'); return;
+  }
+
+  // 학원명 + 원장명 중복 체크 (추가 방어)
+  if(_sb){
+    const {data} = await _sb.from('academies').select('data');
+    const dup = (data||[]).find(row=>
+      row.data?.name === name && row.data?.ownerName === ownerName
+    );
+    if(dup){
+      if(btn){ btn.textContent='학원 가입'; btn.disabled=false; }
+      showErr('r-err1','동일한 학원명과 원장명으로 이미 가입된 계정이 있습니다.'); return;
+    }
   }
 
   if(_sb){
@@ -2324,7 +2336,6 @@ async function doRegister(){
   };
 
   await sbSaveAcademy(academy);
-  localSaveAcademy(academy);
 
   // 승인 대기 상태 등록
   if(_sb){
@@ -2624,6 +2635,17 @@ function updateDashboard(){
 
   // ── DOM 업데이트
   document.getElementById('ds-students').textContent  = active.length;
+
+  // 재원/재입학 세분화
+  const activeOnly     = students.filter(s=>s.status==='active').length;
+  const readmittedOnly = students.filter(s=>s.status==='readmitted').length;
+  const subEl = document.getElementById('ds-students-sub');
+  if(subEl){
+    if(readmittedOnly > 0)
+      subEl.textContent = `재원 ${activeOnly}명 + 재입학 ${readmittedOnly}명`;
+    else
+      subEl.textContent = `재원 ${activeOnly}명`;
+  }
 
   // 이달 신입 (등록일이 이번달인 재원생)
   const newStudents = active.filter(s=>{
