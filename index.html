@@ -704,12 +704,15 @@ tbody tr:hover td{background:#f8f9ff}
           <div style="padding:0"><table style="width:100%;table-layout:fixed"><thead><tr><th style="width:18%">학생</th><th>과목</th><th style="width:14%">금액</th><th style="width:20%">일자</th><th style="width:14%">상태</th></tr></thead><tbody id="dash-recent"></tbody></table></div>
         </div>
         <div class="card"><div class="card-head">
-            <h3 id="dash-chart-title">월별 수납 현황</h3>
+            <h3 id="dash-chart-title">월별 재원생 현황</h3>
             <div style="display:flex;align-items:center;gap:6px">
               <div style="display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;font-size:12px">
+                <button id="btn-chart-students" onclick="switchDashChart('students')"
+                  style="padding:4px 10px;border:none;cursor:pointer;font-family:inherit;font-size:12px;
+                    background:var(--accent);color:#fff;font-weight:600">재원생</button>
                 <button id="btn-chart-monthly" onclick="switchDashChart('monthly')"
                   style="padding:4px 10px;border:none;cursor:pointer;font-family:inherit;font-size:12px;
-                    background:var(--accent);color:#fff;font-weight:600">월별</button>
+                    background:var(--surface);color:var(--text2)">월별수납</button>
                 <button id="btn-chart-daily" onclick="switchDashChart('daily')"
                   style="padding:4px 10px;border:none;cursor:pointer;font-family:inherit;font-size:12px;
                     background:var(--surface);color:var(--text2)">일별</button>
@@ -2704,6 +2707,8 @@ function updateDashboard(){
     : `<tr><td colspan="5" class="empty-row"><div class="ei">💳</div><p>수납 내역이 없습니다</p></td></tr>`;
 
   renderBarChart('dash-chart', payments, now().getFullYear(), expectedRevenue);
+  // 기본 탭을 재원생으로
+  setTimeout(()=>switchDashChart('students'), 50);
 }
 
 let _statsTab = 'subj';
@@ -2984,21 +2989,27 @@ function renderStats(){
 
 function switchDashChart(mode){
   _dashChartMode = mode;
+  const btnS    = document.getElementById('btn-chart-students');
   const btnM    = document.getElementById('btn-chart-monthly');
   const btnD    = document.getElementById('btn-chart-daily');
   const selMonth= document.getElementById('dash-chart-month');
   const titleEl = document.getElementById('dash-chart-title');
 
-  [btnM, btnD].forEach(b=>{b.style.background='var(--surface)';b.style.color='var(--text2)';b.style.fontWeight='400';});
-  const active = mode==='monthly'?btnM:btnD;
-  active.style.background='var(--accent)'; active.style.color='#fff'; active.style.fontWeight='600';
+  [btnS,btnM,btnD].forEach(b=>{if(b){b.style.background='var(--surface)';b.style.color='var(--text2)';b.style.fontWeight='400';}});
 
-  if(mode==='monthly'){
+  if(mode==='students'){
+    if(btnS){btnS.style.background='var(--accent)';btnS.style.color='#fff';btnS.style.fontWeight='600';}
+    selMonth.style.display='none';
+    titleEl.textContent='월별 재원생 현황';
+    renderStudentChart();
+  } else if(mode==='monthly'){
+    if(btnM){btnM.style.background='var(--accent)';btnM.style.color='#fff';btnM.style.fontWeight='600';}
     selMonth.style.display='none';
     titleEl.textContent='월별 수납 현황';
     const expectedRevenue=(currentAcademy.students||[]).filter(s=>isActiveStudent(s)).reduce((sum,s)=>sum+calcTotalFee(s),0);
     renderBarChart('dash-chart',currentAcademy.payments||[],now().getFullYear(),expectedRevenue);
   } else {
+    if(btnD){btnD.style.background='var(--accent)';btnD.style.color='#fff';btnD.style.fontWeight='600';}
     selMonth.style.display='';
     titleEl.textContent='일별 수납 현황';
     if(selMonth.options.length===0){
@@ -3007,6 +3018,84 @@ function switchDashChart(mode){
     }
     renderDailyChart();
   }
+}
+
+function getStudentLevel(s){
+  const g=s.grade||''; const sc=s.school||'';
+  if(/초/.test(g)||/초등/.test(sc)) return '초등';
+  if(/중/.test(g)||/중학/.test(sc)) return '중등';
+  if(/고/.test(g)||/고등/.test(sc)) return '고등';
+  return '기타';
+}
+
+function renderStudentChart(){
+  const container=document.getElementById('dash-chart');
+  const legend=document.getElementById('dash-chart-legend');
+  if(!container) return;
+
+  const year=parseInt(document.getElementById('dash-chart-year')?.value)||now().getFullYear();
+  const students=currentAcademy.students||[];
+  const payments=currentAcademy.payments||[];
+  const curYm=ym();
+
+  const COLORS={초등:'#6366f1',중등:'#10b981',고등:'#f59e0b',기타:'#94a3b8'};
+  const LEVELS=['초등','중등','고등','기타'];
+
+  // 월별 재원생 집계
+  const monthData=Array.from({length:12},(_,i)=>{
+    const my=`${year}-${String(i+1).padStart(2,'0')}`;
+    let stuList;
+    if(my===curYm){
+      stuList=students.filter(s=>isActiveStudent(s));
+    } else {
+      const ids=[...new Set(payments.filter(p=>p.month===my&&p.amount>0).map(p=>p.studentId))];
+      stuList=students.filter(s=>ids.includes(s.id));
+    }
+    const counts={초등:0,중등:0,고등:0,기타:0};
+    stuList.forEach(s=>{counts[getStudentLevel(s)]++;});
+    return{month:i+1,total:stuList.length,counts};
+  });
+
+  const maxVal=Math.max(...monthData.map(d=>d.total),1);
+  const W=560,H=210,PAD={top:24,right:10,bottom:30,left:36};
+  const chartW=W-PAD.left-PAD.right;
+  const chartH=H-PAD.top-PAD.bottom;
+  const barW=Math.floor(chartW/12)-4;
+
+  let bars='',labels='',yAxis='';
+
+  for(let i=0;i<=5;i++){
+    const v=Math.round(maxVal*i/5);
+    const y=PAD.top+chartH-Math.round(chartH*i/5);
+    yAxis+=`<line x1="${PAD.left}" y1="${y}" x2="${W-PAD.right}" y2="${y}" stroke="var(--border)" stroke-width="0.5"/>
+      <text x="${PAD.left-4}" y="${y+4}" text-anchor="end" font-size="9" fill="var(--text3)">${v}</text>`;
+  }
+
+  monthData.forEach((d,i)=>{
+    const x=PAD.left+Math.round(chartW*i/12)+2;
+    let stackY=PAD.top+chartH;
+    LEVELS.forEach(lv=>{
+      const cnt=d.counts[lv]||0;
+      if(!cnt) return;
+      const bh=Math.round(chartH*cnt/maxVal);
+      stackY-=bh;
+      bars+=`<rect x="${x}" y="${stackY}" width="${barW}" height="${bh}" fill="${COLORS[lv]}" rx="2" opacity="0.9">
+        <title>${i+1}월 ${lv}: ${cnt}명</title></rect>`;
+      if(bh>12)
+        bars+=`<text x="${x+barW/2}" y="${stackY+bh/2+4}" text-anchor="middle" font-size="8" fill="#fff" font-weight="600">${cnt}</text>`;
+    });
+    if(d.total>0){
+      const topY=PAD.top+chartH-Math.round(chartH*d.total/maxVal);
+      bars+=`<text x="${x+barW/2}" y="${topY-5}" text-anchor="middle" font-size="9" fill="var(--text)" font-weight="700">${d.total}</text>`;
+    }
+    labels+=`<text x="${x+barW/2}" y="${H-4}" text-anchor="middle" font-size="9" fill="var(--text3)">${i+1}월</text>`;
+  });
+
+  container.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:190px">${yAxis}${bars}${labels}</svg>`;
+  legend.innerHTML=LEVELS.filter(lv=>monthData.some(d=>d.counts[lv]>0)).map(lv=>
+    `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px;font-size:11px">
+      <span style="width:10px;height:10px;border-radius:2px;background:${COLORS[lv]};display:inline-block"></span>${lv}
+    </span>`).join('');
 }
 
 function renderDailyChart(){
