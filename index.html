@@ -7081,7 +7081,7 @@ function renderSmsTemplates(){
   const el=document.getElementById('sms-templates');if(!el)return;
   el.innerHTML=templates.length?templates.map(t=>`
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px" id="tpl-card-${t.id}">
-      <div style="font-weight:600;font-size:13px;margin-bottom:4px">${t.name}</div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:4px">${t.name}${findKakaoTplFor(t.id)?' <span class="badge b-warning" style="font-weight:500">💬 알림톡</span>':''}</div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:8px;white-space:pre-wrap">${t.body}</div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-primary btn-sm" onclick="useTemplate('${t.id}')">사용</button>
@@ -7391,7 +7391,7 @@ function confirmSms(title, desc, action, student){
   const templates = currentAcademy.smsTemplates || [];
   const sel = document.getElementById('sms-confirm-template');
   sel.innerHTML = templates.map((t,i)=>
-    `<option value="${i}">${t.name}</option>`
+    `<option value="${i}">${findKakaoTplFor(t.id)?'💬 ':''}${t.name}</option>`
   ).join('') || '<option value="0">기본 템플릿</option>';
   sel.value = '0';
   onSmsTemplateChange();
@@ -7405,7 +7405,9 @@ function onSmsTemplateChange(){
   const templates = currentAcademy.smsTemplates||[];
   const tpl = templates[idx]?.body || '';
   const body = applyVars(tpl, _smsConfirmStudent);
-  document.getElementById('sms-confirm-preview').textContent = body;
+  const kt  = findKakaoTplFor(templates[idx]?.id);
+  document.getElementById('sms-confirm-preview').textContent =
+    (kt ? `💬 알림톡으로 발송됩니다 (실패 시 아래 문구로 문자 대체)\n\n` : '') + body;
   // 선택된 템플릿을 실행 시 사용하도록 action에 반영
   if(_smsPendingActionBase) _smsPendingAction = ()=>_smsPendingActionBase(idx);
 }
