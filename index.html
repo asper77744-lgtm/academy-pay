@@ -2172,11 +2172,20 @@ function initPhoneInput(elOrId){
 }
 
 // ── Supabase DB 함수들 ──────────────────────────────────
+// 저장 직전에 자격증명을 털어낸다.
+// (시크릿은 academy_secrets 테이블에만 존재해야 한다)
+function stripSecrets(academy){
+  const clone = JSON.parse(JSON.stringify(academy));
+  if(clone.sms){   delete clone.sms.key;   delete clone.sms.secret; }
+  if(clone.kakao){ delete clone.kakao.key; }
+  return clone;
+}
+
 async function sbSaveAcademy(academy){
   if(!_sb) return; // Supabase 없으면 저장 불가
   const { error } = await _sb.from('academies').upsert({
     id: academy.id,
-    data: academy,
+    data: stripSecrets(academy),
     updated_at: new Date().toISOString()
   }, { onConflict: 'id' });
   if(error) console.error('Supabase 저장 오류:', error.message);
@@ -2217,9 +2226,11 @@ async function sbFindAllByEmail(email){
 
 async function sbCheckEmailExists(email){
   if(!_sb) return false;
-  const { data } = await _sb.from('academies').select('data');
-  if(!data) return false;
-  return data.some(row=>(row.data?.users||[]).find(u=>u.email===email));
+  // RLS 적용 후 비로그인 상태에서는 academies를 조회할 수 없다.
+  // boolean만 돌려주는 SECURITY DEFINER RPC로 대체.
+  const { data, error } = await _sb.rpc('email_registered', { p_email: email });
+  if(error){ console.error('email_registered 오류:', error.message); return false; }
+  return !!data;
 }
 
 // academy 데이터는 Supabase가 유일한 저장소
@@ -2459,10 +2470,7 @@ async function doRegister(){
 
   // 학원명 + 원장명 중복 체크 (추가 방어)
   if(_sb){
-    const {data} = await _sb.from('academies').select('data');
-    const dup = (data||[]).find(row=>
-      row.data?.name === name && row.data?.ownerName === ownerName
-    );
+    const { data: dup } = await _sb.rpc('academy_name_taken', { p_name: name, p_owner: ownerName });
     if(dup){
       if(btn){ btn.textContent='학원 가입'; btn.disabled=false; }
       showErr('r-err1','동일한 학원명과 원장명으로 이미 가입된 계정이 있습니다.'); return;
@@ -2685,6 +2693,7 @@ function startRealtimeSync(){
 }
 
 function refreshAll(){
+  refreshSmsCredState();
   const a=currentAcademy;
   updateDashboard();
   renderStudents();
@@ -6982,7 +6991,7 @@ function updateSmsPreview(){
   // channel warn
   const warn=document.getElementById('sms-channel-warn');
   if(warn){
-    const smsOk=currentAcademy.sms?.key;const kakaoOk=currentAcademy.kakao?.key;
+    const smsOk=_smsCredReady;const kakaoOk=currentAcademy.kakao?.pfid;
     const needWarn=(chSms&&!smsOk)||(chKakao&&!kakaoOk);
     warn.style.display=needWarn?'':'none';
     warn.textContent=chSms&&!smsOk?'⚠ SMS API 키를 설정해주세요 (학원 설정 > SMS)':chKakao&&!kakaoOk?'⚠ 카카오 API 키를 설정해주세요 (학원 설정 > 카카오)':'';
@@ -7134,60 +7143,34 @@ function sendSms(){
 
 // ── 실제 CoolSMS API 발송 ─────────────────────────
 async function callCoolSmsApi(to, text){
-  const sms    = currentAcademy.sms||{};
-  const apiKey = sms.key;
-  const secret = sms.secret;
-  const from   = sms.from?.replace(/[^0-9]/g,'');
-  const toNum  = to?.replace(/[^0-9]/g,'');
+  if(!_sb){ showToast('서버에 연결할 수 없습니다.','error'); return false; }
+  if(!currentAcademy?.id){ showToast('학원 정보가 없습니다.','error'); return false; }
 
-  if(!apiKey||!secret||!from){
-    showToast('SMS 설정에서 API Key, Secret, 발신번호를 먼저 입력해주세요.','error');
-    return false;
-  }
-  if(!toNum){ showToast('수신 번호가 없습니다.','error'); return false; }
-
-  // HMAC-SHA256 서명 생성
-  const date    = new Date().toISOString();
-  const salt    = Math.random().toString(36).slice(2);
-  const message = date + salt;
-
-  // Web Crypto API로 HMAC-SHA256
-  const enc     = new TextEncoder();
-  const keyData = await crypto.subtle.importKey('raw', enc.encode(secret),
-    {name:'HMAC',hash:'SHA-256'}, false, ['sign']);
-  const sig     = await crypto.subtle.sign('HMAC', keyData, enc.encode(message));
-  const signature = Array.from(new Uint8Array(sig)).map(b=>b.toString(16).padStart(2,'0')).join('');
-  const authorization = `HMAC-SHA256 apiKey=${apiKey}, date=${date}, salt=${salt}, signature=${signature}`;
-
+  // API Key/Secret은 브라우저에 존재하지 않는다.
+  // Edge Function이 호출자 권한을 확인한 뒤 서버에서 서명·발송한다.
+  // 테스트 모드도 서버에서 강제 적용된다.
   try {
-    const res = await fetch('https://api.coolsms.co.kr/messages/v4/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': authorization
-      },
-      body: JSON.stringify({
-        message: {
-          to: toNum,
-          from: from,
-          text: text,
-          type: text.length > 90 ? 'LMS' : 'SMS'
-        }
-      })
+    const { data, error } = await _sb.functions.invoke('send-sms', {
+      body: { academyId: currentAcademy.id, to, text }
     });
-    const data = await res.json();
-    if(res.ok){ return true; }
-    else {
-      console.error('CoolSMS 오류:', data);
-      showToast(`발송 실패: ${data.errorMessage||data.message||'알 수 없는 오류'}`, 'error');
+
+    if(error){
+      let msg = '발송에 실패했습니다.';
+      try { msg = (await error.context?.json())?.error || msg; } catch(_){}
+      showToast(msg, 'error');
       return false;
     }
-  } catch(e){
-    console.error('CoolSMS 네트워크 오류:', e);
+    if(data?.ok) return true;
+
+    showToast(data?.error || '발송에 실패했습니다.', 'error');
+    return false;
+  } catch(e) {
+    console.error('send-sms 호출 오류:', e);
     showToast('네트워크 오류로 발송 실패. 잠시 후 다시 시도해주세요.', 'error');
     return false;
   }
 }
+
 let _smsPendingAction = null;
 let _smsConfirmStudent = null; // 미리보기용 학생 객체
 
@@ -7280,8 +7263,8 @@ function sendSmsTo(sid){
     const btn  = document.getElementById('sms-confirm-btn');
     if(btn){ btn.disabled=true; btn.textContent='발송중...'; }
 
-    if(sms.key && sms.secret && sms.from){
-      // 실제 발송
+    if(_smsCredReady){
+      // 실제 발송 (키/시크릿은 서버에만 있음)
       const ok = await callCoolSmsApi(toNum, body);
       if(ok){
         logSms(1,'SMS', `${s.name} — ${tpl?.name||'개별 알림'}`);
@@ -7335,9 +7318,11 @@ function loadSettings(){
   document.getElementById('cfg-addr').value=a.addr||'';
   document.getElementById('cfg-pay-day').value=a.payDay||25;
   // SMS
-  document.getElementById('cfg-sms-key').value=a.sms?.key||'';
-  document.getElementById('cfg-sms-secret').value=a.sms?.secret||'';
+  // 키/시크릿은 서버에서 되읽지 않는다 (등록 여부만 표시)
+  document.getElementById('cfg-sms-key').value='';
+  document.getElementById('cfg-sms-secret').value='';
   document.getElementById('cfg-sms-from').value=a.sms?.from||'';
+  refreshSmsCredState();
   if(document.getElementById('cfg-sms-type'))document.getElementById('cfg-sms-type').value=a.sms?.type||'sms';
   const smsOn=document.getElementById('sms-channel-on');
   if(smsOn){smsOn.classList.toggle('on',!!a.sms?.on);}
@@ -7350,7 +7335,7 @@ function loadSettings(){
   if(document.getElementById('cfg-sms-test-to'))
     document.getElementById('cfg-sms-test-to').value=a.sms?.testTo||'';
   // Kakao
-  if(document.getElementById('cfg-kakao-key'))document.getElementById('cfg-kakao-key').value=a.kakao?.key||'';
+  if(document.getElementById('cfg-kakao-key'))document.getElementById('cfg-kakao-key').value='';
   if(document.getElementById('cfg-kakao-pfid'))document.getElementById('cfg-kakao-pfid').value=a.kakao?.pfid||'';
   if(document.getElementById('cfg-kakao-cid'))document.getElementById('cfg-kakao-cid').value=a.kakao?.cid||'';
   const kakaoOn=document.getElementById('kakao-channel-on');
@@ -7409,6 +7394,23 @@ function saveSettings(){
   showToast('설정이 저장되었습니다.','success');
 }
 
+// SMS 자격증명이 서버에 등록돼 있는지 여부 (값 자체는 클라이언트에 없음)
+let _smsCredReady = false;
+
+// 등록 여부만 확인해서 플래그를 갱신하고, 입력창에 안내를 띄운다
+function refreshSmsCredState(){
+  if(!_sb || !currentAcademy?.id) return;
+  _sb.rpc('has_sms_credentials',{ p_academy_id: currentAcademy.id }).then(({data})=>{
+    _smsCredReady = !!data;
+    const keyEl = document.getElementById('cfg-sms-key');
+    const secEl = document.getElementById('cfg-sms-secret');
+    const ph = _smsCredReady ? '등록됨 — 변경할 때만 입력하세요' : '입력해주세요';
+    if(keyEl) keyEl.placeholder = ph;
+    if(secEl) secEl.placeholder = ph;
+    if(typeof updateSmsPreview==='function') updateSmsPreview();
+  });
+}
+
 function toggleSmsTestMode(){
   const on = document.getElementById('sms-test-mode')?.classList.contains('on');
   document.getElementById('sms-test-mode-input').style.display = on ? '' : 'none';
@@ -7418,14 +7420,27 @@ function saveSmsSettings(){
   const on      = document.getElementById('sms-channel-on')?.classList.contains('on');
   const testMode= document.getElementById('sms-test-mode')?.classList.contains('on');
   const testTo  = document.getElementById('cfg-sms-test-to')?.value||'';
+  const key    = document.getElementById('cfg-sms-key').value.trim();
+  const secret = document.getElementById('cfg-sms-secret').value.trim();
+  const from   = document.getElementById('cfg-sms-from').value.trim();
+
+  // 시크릿은 academies.data에 넣지 않는다
   currentAcademy.sms={
-    key:document.getElementById('cfg-sms-key').value,
-    secret:document.getElementById('cfg-sms-secret').value,
-    from:document.getElementById('cfg-sms-from').value,
+    from,
     type:document.getElementById('cfg-sms-type')?.value||'sms',
     on:!!on, testMode:!!testMode, testTo
   };
   saveAcademy();updateSmsPreview();
+
+  if(_sb && (key||secret||from)){
+    _sb.rpc('save_sms_credentials',{
+      p_academy_id: currentAcademy.id, p_key: key, p_secret: secret, p_from: from
+    }).then(({error})=>{
+      if(error){ showToast('자격증명 저장 실패: '+error.message,'error'); return; }
+      document.getElementById('cfg-sms-secret').value='';
+      refreshSmsCredState();
+    });
+  }
   if(testMode && testTo)
     showToast(`테스트 모드 활성화 — 모든 문자를 ${testTo}으로 발송합니다.`,'info');
   else
@@ -7686,7 +7701,9 @@ let _saAllAcademies = [];
 async function checkSuperAdmin(email){
   if(email !== SUPER_EMAIL) return false;
   if(!_sb) return false;
-  const { data } = await _sb.from('superadmin').select('email').eq('email', email).single();
+  // superadmin 테이블은 클라이언트에 열려있지 않다. RPC로 확인.
+  const { data, error } = await _sb.rpc('is_superadmin');
+  if(error){ console.error('is_superadmin 오류:', error.message); return false; }
   return !!data;
 }
 
