@@ -588,7 +588,10 @@ tbody tr:hover td{background:#f8f9ff}
   <nav class="sidebar" id="sidebar">
     <div class="sb-head">
       <div class="sb-logo"><div class="sb-logo-mark">🎓</div><div class="sb-logo-text">AcademyPay</div></div>
-      <div class="sb-academy-name" id="sb-academy-name">내 학원</div>
+      <div class="sb-academy-name" id="sb-academy-name" style="cursor:pointer;display:flex;align-items:center;gap:4px" onclick="showAcademySwitcher()">
+        <span id="sb-academy-name-text">내 학원</span>
+        <span id="sb-academy-switch-arrow" style="display:none;font-size:10px;opacity:.6">▼</span>
+      </div>
     </div>
     <div class="sb-nav">
       <div class="sb-section-label">메인</div>
@@ -606,6 +609,11 @@ tbody tr:hover td{background:#f8f9ff}
       <div class="sb-section-label" id="sb-admin-label">관리</div>
       <div class="sb-item" id="sb-settings-item" onclick="nav('settings',this)"><span class="ico">⚙️</span>학원 설정</div>
       <div class="sb-item" id="sb-users-item" onclick="nav('users',this)"><span class="ico">🔑</span>사용자 관리</div>
+      <!-- 학원 추가 신청 -->
+      <div class="sb-item" id="sb-add-academy-item" onclick="addNewAcademy()"
+        style="opacity:.7;border-top:1px solid rgba(255,255,255,.08);margin-top:4px">
+        <span class="ico">➕</span>학원 추가 신청
+      </div>
       <!-- 슈퍼관리자 전용 메뉴 -->
       <div class="sb-item" id="sb-superadmin-item" onclick="backToSuperAdmin()" style="display:none;background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(139,92,246,.1));border:1px solid rgba(99,102,241,.3);margin:4px 8px;border-radius:8px">
         <span class="ico">🛡</span><span style="color:#818cf8;font-weight:600">관리자 대시보드</span>
@@ -1934,6 +1942,25 @@ tbody tr:hover td{background:#f8f9ff}
 <!-- ══ 영수증 원부 출력 모달 ══ -->
 <!-- 지출 추가 모달 -->
 <!-- 학생 완전 삭제 확인 모달 -->
+<!-- 학원 추가 신청 모달 -->
+<div class="modal-overlay" id="m-add-academy">
+  <div class="modal" style="max-width:420px">
+    <h2>🏫 학원 추가 신청</h2>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">슈퍼관리자 승인 후 학원 전환이 가능합니다.</p>
+    <div class="ff"><label>학원명 *</label><input id="new-academy-name" placeholder="학원 이름"/></div>
+    <div class="ff"><label>원장명 *</label><input id="new-academy-owner" placeholder="원장 이름"/></div>
+    <div class="ff"><label>전화번호</label><input id="new-academy-phone" placeholder="031-000-0000"/></div>
+    <div class="ff"><label>주소</label><input id="new-academy-addr" placeholder="학원 주소"/></div>
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;font-size:12px;color:#1e40af;margin-bottom:16px">
+      ℹ️ 승인까지 1~2 영업일 소요될 수 있습니다. 승인 후 사이드바에서 학원을 전환할 수 있습니다.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-neutral" onclick="closeModal('m-add-academy')">취소</button>
+      <button class="btn btn-primary" onclick="submitNewAcademy()">신청하기</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="m-delete-student">
   <div class="modal" style="max-width:380px">
     <div style="text-align:center;margin-bottom:16px">
@@ -2174,6 +2201,20 @@ async function sbFindByEmail(email){
   return null;
 }
 
+// 이메일로 연결된 모든 학원 조회
+async function sbFindAllByEmail(email){
+  if(!_sb) return [];
+  const { data } = await _sb.from('academies').select('data');
+  if(!data) return [];
+  const results=[];
+  for(const row of data){
+    const a=row.data;
+    const u=(a?.users||[]).find(u=>u.email===email&&u.active);
+    if(u) results.push({academy:a, user:u});
+  }
+  return results;
+}
+
 async function sbCheckEmailExists(email){
   if(!_sb) return false;
   const { data } = await _sb.from('academies').select('data');
@@ -2219,8 +2260,8 @@ async function doLogin(){
     if(error){ showErr('l-err1','이메일 또는 비밀번호가 올바르지 않습니다.'); return; }
   }
 
-  const found = await sbFindByEmail(email);
-  if(!found){ showErr('l-err1','등록된 학원 정보를 찾을 수 없습니다.'); return; }
+  const allFound = await sbFindAllByEmail(email);
+  if(!allFound.length){ showErr('l-err1','등록된 학원 정보를 찾을 수 없습니다.'); return; }
 
   // 슈퍼관리자 체크
   const isSA = await checkSuperAdmin(email);
@@ -2230,8 +2271,10 @@ async function doLogin(){
     return;
   }
 
-  currentUser    = found.user;
-  currentAcademy = found.academy;
+  // 학원 1개면 바로 로그인
+  if(allFound.length===1){
+    currentUser    = allFound[0].user;
+    currentAcademy = allFound[0].academy;
   currentUser.lastLogin = now().toISOString();
 
   if(_sb){
@@ -2244,17 +2287,130 @@ async function doLogin(){
       }
     }
   }
-
   localSaveAcademy(currentAcademy);
-  S.set('session',{userId:currentUser.id, academyId:currentAcademy.id, screen:'academy'});
+  S.set('session',{userId:currentUser.id, academyId:currentAcademy.id, screen:'academy', email});
   bootApp();
+  } else {
+    // 학원 2개 이상 → 선택 화면
+    showAcademySelectScreen(allFound, email);
+  }
 }
 
 // 하위 호환
 function sendLoginOtp(){ doLogin(); }
 function verifyLoginOtp(){}
 
-// ── 비밀번호 찾기 ──────────────────────────────────
+// ── 멀티 학원 선택 화면 ─────────────────────────────
+let _loginEmail = '';
+let _allAcademies = []; // 로그인 시 찾은 모든 학원
+
+function showAcademySelectScreen(allFound, email){
+  _loginEmail   = email;
+  _allAcademies = allFound;
+  document.getElementById('auth-screen').style.display='none';
+  const sel = document.getElementById('academy-select-screen');
+  if(!sel){ createAcademySelectScreen(allFound, email); return; }
+  sel.style.display='flex';
+  renderAcademySelectList(allFound);
+}
+
+function createAcademySelectScreen(allFound, email){
+  const div = document.createElement('div');
+  div.id='academy-select-screen';
+  div.style.cssText='position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000';
+  div.innerHTML=`
+    <div style="background:var(--surface);border-radius:16px;padding:32px;min-width:320px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="font-size:32px;margin-bottom:8px">🏫</div>
+        <h2 style="font-size:20px;font-weight:700;margin-bottom:4px">학원 선택</h2>
+        <p style="font-size:13px;color:var(--text3)">${email}</p>
+      </div>
+      <div id="academy-select-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px"></div>
+      <button class="btn btn-neutral" style="width:100%" onclick="addNewAcademy()">+ 새 학원 추가 신청</button>
+      <button class="btn btn-neutral" style="width:100%;margin-top:8px;font-size:12px" onclick="doLogout()">로그아웃</button>
+    </div>`;
+  document.body.appendChild(div);
+  renderAcademySelectList(allFound);
+}
+
+function renderAcademySelectList(allFound){
+  const list = document.getElementById('academy-select-list');
+  if(!list) return;
+  const now_ = now();
+  list.innerHTML = allFound.map((f,i)=>{
+    const a=f.academy;
+    // 미활동 경고: updated_at이 3개월 이상 지났으면
+    const lastUpdate = new Date(a.updated_at||0);
+    const diffDays = Math.floor((now_-lastUpdate)/86400000);
+    const warn = diffDays>90 ? `<span style="color:var(--danger);font-size:11px">⚠️ ${diffDays}일 미활동</span>` : '';
+    return `<button onclick="selectAcademy(${i})"
+      style="text-align:left;padding:16px;border:1.5px solid var(--border);border-radius:10px;
+        background:var(--surface2);cursor:pointer;font-family:inherit;transition:all .15s;width:100%"
+      onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="font-weight:700;font-size:15px;margin-bottom:3px">${a.name}</div>
+      <div style="font-size:12px;color:var(--text3)">원장: ${a.ownerName} · 재원생 ${(a.students||[]).filter(s=>s.status==='active').length}명 ${warn}</div>
+    </button>`;
+  }).join('');
+}
+
+async function selectAcademy(idx){
+  const f = _allAcademies[idx];
+  if(!f) return;
+  currentUser    = f.user;
+  currentAcademy = f.academy;
+  currentUser.lastLogin = now().toISOString();
+  if(_sb){
+    const fresh = await sbLoadAcademy(currentAcademy.id);
+    if(fresh) currentAcademy = fresh;
+  }
+  S.set('session',{userId:currentUser.id, academyId:currentAcademy.id, screen:'academy', email:_loginEmail});
+  const sel=document.getElementById('academy-select-screen');
+  if(sel) sel.style.display='none';
+  bootApp();
+}
+
+function showAcademySwitcher(){
+  if(_allAcademies.length<=1) return;
+  showAcademySelectScreen(_allAcademies, _loginEmail||S.get('session')?.email||'');
+}
+
+// ── 학원 추가 신청 ───────────────────────────────────
+function addNewAcademy(){
+  openModal('m-add-academy');
+}
+
+async function submitNewAcademy(){
+  const name      = document.getElementById('new-academy-name').value.trim();
+  const ownerName = document.getElementById('new-academy-owner').value.trim();
+  const phone     = document.getElementById('new-academy-phone').value.trim();
+  const addr      = document.getElementById('new-academy-addr').value.trim();
+  if(!name||!ownerName){ showToast('학원명과 원장명을 입력해주세요.','error'); return; }
+
+  // 승인 대기 상태로 새 academy 생성
+  const newId = uid();
+  const newAcademy = {
+    id:newId, name, ownerName, phone, addr,
+    subjects:[], classes:[], teachers:[], students:[], payments:[],
+    smsLog:[], smsTemplates:[],
+    users:[{...currentUser, id:currentUser.id}],
+    status:'pending', // 승인 대기
+    requestedAt: now().toISOString(),
+    requestedBy: currentUser.email||''
+  };
+  await sbSaveAcademy(newAcademy);
+  closeModal('m-add-academy');
+  showToast(`"${name}" 학원 추가 신청이 완료되었습니다. 슈퍼관리자 승인 후 사용 가능합니다.`, 'success');
+}
+
+// ── 3개월 미활동 경고 체크 ──────────────────────────
+function checkInactivityWarning(){
+  if(!currentAcademy) return;
+  const lastUpdate = new Date(currentAcademy.updated_at||0);
+  const diffDays   = Math.floor((now()-lastUpdate)/86400000);
+  if(diffDays>=80 && diffDays<90){
+    showToast(`⚠️ ${diffDays}일간 활동이 없습니다. 90일이 지나면 계정이 삭제될 수 있습니다.`,'error');
+  }
+}
 function showForgotPassword(){
   document.getElementById('forgot-panel').style.display='';
   const em = document.getElementById('l-email').value;
@@ -2443,7 +2599,7 @@ function bootApp(){
   hideLoading();
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('app').style.display='block';
-  document.getElementById('sb-academy-name').textContent=currentAcademy.name;
+  document.getElementById('sb-academy-name-text').textContent=currentAcademy.name; const _arrow=document.getElementById('sb-academy-switch-arrow'); if(_arrow) _arrow.style.display=_allAcademies.length>1?'':'none';
   document.getElementById('sb-avatar').textContent=currentUser.name[0];
   document.getElementById('sb-uname').textContent=currentUser.name;
   document.getElementById('sb-urole').textContent=currentUser.role==='admin'?'운영자':'부운영자';
@@ -2464,6 +2620,13 @@ function bootApp(){
   loadSettings();
   refreshAll();
   checkBackToSuperAdmin();
+  checkInactivityWarning();
+
+  // 다중 학원 로드 (전환용)
+  const email = S.get('session')?.email || currentUser?.email || '';
+  if(email && _allAcademies.length===0){
+    sbFindAllByEmail(email).then(all=>{ if(all.length>1) _allAcademies=all; });
+  }
 
   // ── Realtime & Keep-Alive 시작 ──
   if(_sb && currentAcademy.id){
@@ -7242,7 +7405,7 @@ function saveSettings(){
   currentAcademy.addr=document.getElementById('cfg-addr').value;
   currentAcademy.payDay=parseInt(document.getElementById('cfg-pay-day').value)||25;
   saveAcademy();
-  document.getElementById('sb-academy-name').textContent=currentAcademy.name;
+  document.getElementById('sb-academy-name-text').textContent=currentAcademy.name; const _arrow=document.getElementById('sb-academy-switch-arrow'); if(_arrow) _arrow.style.display=_allAcademies.length>1?'':'none';
   showToast('설정이 저장되었습니다.','success');
 }
 
@@ -7562,7 +7725,8 @@ function saNav(page, el){
 }
 
 function saRenderPending(){
-  const list = _saAllAcademies.filter(a=>a._status==='pending');
+  // academy_status 테이블 pending + academy.data.status==='pending' (새 학원 추가 신청)
+  const list = _saAllAcademies.filter(a=>a._status==='pending' || a.status==='pending');
   const el = document.getElementById('sa-pending-list');
   if(!list.length){
     el.innerHTML=`<div style="text-align:center;padding:60px;color:#475569">
@@ -7570,19 +7734,39 @@ function saRenderPending(){
       <p>승인 대기 학원이 없습니다.</p>
     </div>`; return;
   }
-  el.innerHTML = list.map(a=>saAcademyCard(a, true)).join('');
+  el.innerHTML = list.map(a=>{
+    const isAddReq = a.status==='pending'; // 학원 추가 신청
+    const badge = isAddReq
+      ? `<span style="background:#f59e0b;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;margin-left:6px">추가 신청</span>`
+      : '';
+    return saAcademyCard(a, true, badge);
+  }).join('');
 }
 
 function saRenderAll(){
   const q = (document.getElementById('sa-search')?.value||'').toLowerCase();
+  const now_=now();
   const list = _saAllAcademies.filter(a=>
     !q || a.name?.toLowerCase().includes(q) ||
     a.ownerName?.toLowerCase().includes(q) ||
     (a.users||[]).some(u=>u.email?.toLowerCase().includes(q))
-  );
+  ).map(a=>{
+    // 미활동 일수 계산
+    const lastUpdate=new Date(a.updated_at||0);
+    const diffDays=Math.floor((now_-lastUpdate)/86400000);
+    a._inactiveDays=diffDays;
+    return a;
+  });
   const el = document.getElementById('sa-all-list');
   if(!list.length){ el.innerHTML=`<div style="text-align:center;padding:40px;color:#475569">검색 결과가 없습니다.</div>`; return; }
-  el.innerHTML = list.map(a=>saAcademyCard(a, false)).join('');
+  el.innerHTML = list.map(a=>{
+    const warn = a._inactiveDays>=90
+      ? `<span style="color:#ef4444;font-size:11px;font-weight:600">⚠️ ${a._inactiveDays}일 미활동 (삭제 대상)</span>`
+      : a._inactiveDays>=80
+      ? `<span style="color:#f59e0b;font-size:11px">⚠️ ${a._inactiveDays}일 미활동</span>`
+      : '';
+    return saAcademyCard(a, false, warn);
+  }).join('');
 }
 
 function saRenderStats(){
@@ -7620,18 +7804,20 @@ function saRenderStats(){
     </div>`;
 }
 
-function saAcademyCard(a, showApprove){
+function saAcademyCard(a, showApprove, extraBadge=''){
   const adminUser = (a.users||[]).find(u=>u.role==='admin');
   const stuCnt    = (a.students||[]).filter(s=>['active','trial','readmitted'].includes(s.status)).length;
   const payCnt    = (a.payments||[]).length;
   const statusMap = {pending:'pending',approved:'approved',rejected:'rejected',suspended:'suspended'};
   const statusLabel = {pending:'승인 대기',approved:'승인됨',rejected:'거절됨',suspended:'정지됨'};
+  const canDelete = a._inactiveDays>=90 || a.status==='pending';
   return `<div class="sa-card">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
       <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
           <strong style="font-size:16px;color:#f1f5f9">${a.name||'(학원명 없음)'}</strong>
           <span class="sa-badge ${statusMap[a._status]||'pending'}">${statusLabel[a._status]||'대기'}</span>
+          ${extraBadge}
         </div>
         <div style="font-size:13px;color:#64748b;display:flex;gap:20px;flex-wrap:wrap">
           <span>👤 원장: <strong style="color:#94a3b8">${a.ownerName||'-'}</strong></span>
@@ -7640,11 +7826,12 @@ function saAcademyCard(a, showApprove){
           <span>👥 재원생 ${stuCnt}명</span>
           <span>💳 수납 ${payCnt}건</span>
           ${a._approvedAt?`<span>✅ 승인일: ${a._approvedAt.slice(0,10)}</span>`:''}
+          ${a._inactiveDays>=80?`<span style="color:${a._inactiveDays>=90?'#ef4444':'#f59e0b'}">⚠️ ${a._inactiveDays}일 미활동</span>`:''}
         </div>
         ${a._memo?`<div style="margin-top:8px;font-size:12px;color:#475569;background:#0f172a;padding:6px 10px;border-radius:6px">📝 ${a._memo}</div>`:''}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
-        ${showApprove||a._status==='pending'?`
+        ${showApprove||a._status==='pending'||a.status==='pending'?`
           <button class="sa-btn sa-btn-approve" onclick="saApprove('${a.id}')">✅ 승인</button>
           <button class="sa-btn sa-btn-reject" onclick="saReject('${a.id}')">❌ 거절</button>
         `:''}
@@ -7655,6 +7842,8 @@ function saAcademyCard(a, showApprove){
         ${a._status==='suspended'?`
           <button class="sa-btn sa-btn-approve" onclick="saApprove('${a.id}')">▶ 재개</button>
         `:''}
+        <button class="sa-btn" onclick="saDeleteAcademy('${a.id}')"
+          style="background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b">🗑 삭제</button>
       </div>
     </div>
   </div>`;
@@ -7672,7 +7861,28 @@ async function saSetStatus(academyId, status, memo=''){
 
 async function saApprove(id){
   await saSetStatus(id,'approved');
+  // academy.data.status도 approved로 업데이트
+  const a = _saAllAcademies.find(x=>x.id===id);
+  if(a && a.status==='pending'){
+    a.status='approved';
+    a.approvedAt=now().toISOString();
+    await sbSaveAcademy(a);
+  }
   showToast('승인되었습니다.','success');
+}
+
+async function saDeleteAcademy(id){
+  const a = _saAllAcademies.find(x=>x.id===id);
+  if(!a) return;
+  if(!confirm(`⚠️ "${a.name}" 학원을 완전 삭제하시겠습니까?\n\n모든 학생·수납 데이터가 삭제됩니다. 되돌릴 수 없습니다.`)) return;
+  if(!confirm(`"${a.name}" 학원을 정말 삭제합니다. 확인하시겠습니까?`)) return;
+  if(_sb){
+    await _sb.from('academies').delete().eq('id',id);
+    await _sb.from('academy_status').delete().eq('academy_id',id).catch(()=>{});
+  }
+  _saAllAcademies = _saAllAcademies.filter(x=>x.id!==id);
+  saRenderPending(); saRenderAll(); saRenderStats();
+  showToast(`"${a.name}" 학원이 삭제되었습니다.`,'success');
 }
 
 async function saReject(id){
