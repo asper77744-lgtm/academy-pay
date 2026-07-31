@@ -937,9 +937,9 @@ tbody tr:hover td{background:#f8f9ff}
             <th style="position:sticky;left:32px;z-index:2;background:var(--surface)">학생</th>
             <th>연락처</th>
             <th>반/과목</th>
-            <th>미납월</th>
+            <th>미납 월</th>
             <th>수납일</th>
-            <th>미납금액</th>
+            <th>총 미납액</th>
             <th>경과일</th>
             <th>처리</th>
           </tr></thead>
@@ -5606,6 +5606,50 @@ function deletePayment(id){
 // ════════════════════════════════════════════════════════
 // UNPAID
 // ════════════════════════════════════════════════════════
+// 'YYYY-MM' 에 n개월 더하기
+function addMonth(m, n){
+  const [y,mo]=m.split('-').map(Number);
+  const d=new Date(y, mo-1+n, 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
+// 이 학원이 앱으로 수납을 시작한 달.
+// 그 이전 달은 "기록이 없다"는 이유만으로 미납 처리하면 안 된다.
+function getAcademyStartMonth(){
+  const ms=(currentAcademy.payments||[]).map(p=>p.month).filter(Boolean).sort();
+  return ms[0] || ym();
+}
+
+// 학생의 미납 월 목록 (오래된 순).
+// 판정: 기록이 없거나, 있어도 status가 paid가 아니면 미납.
+// 시작점은 [학원 수납 시작월 / 학생 등록월 / 12개월 전] 중 가장 늦은 달.
+function getUnpaidMonths(s){
+  const cur     = ym();
+  const enrollM = (s.enrollDate||'').slice(0,7);
+  const pays    = currentAcademy.payments||[];
+
+  // 이 학생의 첫 수납기록 이전은 앱으로 관리하기 전이라고 본다.
+  // (학원 전체 기준으로 잡으면 늦게 등록된 학생에게 없던 미납이 생긴다)
+  const mine = pays.filter(x=>x.studentId===s.id)
+                   .map(x=>x.month).filter(m=>m && m<=cur).sort();
+
+  let start = mine[0] || getAcademyStartMonth();
+  if(enrollM && enrollM > start) start = enrollM;
+  const cap = addMonth(cur, -11);
+  if(cap > start) start = cap;
+
+  const out = [];
+  for(let m=start; m<=cur; m=addMonth(m,1)){
+    const p = pays.find(x=>x.studentId===s.id && x.month===m);
+    if(p && p.status==='paid') continue;
+    const charge = (p && p.charge) ? p.charge : calcTotalFee(s);
+    const paid   = p ? (p.amount||0) : 0;
+    const unpaid = Math.max(0, charge - paid);
+    if(unpaid > 0) out.push({month:m, charge, paid, unpaid});
+  }
+  return out;
+}
+
 function renderUnpaid(){
   const {students,payments}=currentAcademy;
   const curYm=ym();
@@ -5624,24 +5668,30 @@ function renderUnpaid(){
     return Math.floor((today - dueDate) / 86400000);
   };
 
-  // 미납 행 (이번달 미납/부분납부)
-  const unpaidRows = active.map(s=>{
-    const p=payments.find(x=>x.studentId===s.id&&x.month===curYm);
-    if(p&&p.status==='paid') return null;
-    const unpaidAmt=p?(p.charge-p.amount):calcTotalFee(s);
-    const elapsedDays=getElapsed(s);
-    return{s,p,unpaidAmt,elapsedDays,isPaid:false};
-  }).filter(Boolean);
+  // 학생별 누적 미납 계산
+  const info = active.map(s=>({s, months:getUnpaidMonths(s)}));
 
-  // 납부완료 행 (이번달 완납 → 선납 가능)
-  const paidRows = active.map(s=>{
-    const p=payments.find(x=>x.studentId===s.id&&x.month===curYm);
-    if(!p||p.status!=='paid') return null;
-    // 다음달 선납 여부 확인
-    const nextP=payments.find(x=>x.studentId===s.id&&x.month===nextYm);
-    const nextPaid=nextP?.status==='paid';
-    return{s,p,nextPaid,nextYm};
-  }).filter(Boolean);
+  // 미납 행 — 밀린 달이 하나라도 있으면 여기 들어온다.
+  // (이번달은 냈지만 지난달이 밀린 학생도 잡힌다)
+  const unpaidRows = info.filter(x=>x.months.length).map(x=>{
+    const total  = x.months.reduce((a,m)=>a+m.unpaid, 0);
+    const oldest = x.months[0].month;
+    const pd     = getStudentPayDay(x.s);
+    const [oy,om]= oldest.split('-').map(Number);
+    const due    = new Date(oy, om-1, pd);
+    return {
+      s: x.s, months: x.months, total, oldest,
+      oldestUnpaid: x.months[0].unpaid,
+      elapsedDays: Math.floor((today - due) / 86400000)
+    };
+  }).sort((a,b)=> b.months.length - a.months.length || b.total - a.total);
+
+  // 완납 행 — 밀린 달이 없는 학생
+  const paidRows = info.filter(x=>!x.months.length).map(x=>{
+    const p       = payments.find(y=>y.studentId===x.s.id && y.month===curYm);
+    const nextP   = payments.find(y=>y.studentId===x.s.id && y.month===nextYm);
+    return {s:x.s, p, nextPaid:nextP?.status==='paid', nextYm};
+  });
 
   const dayBadgeFor = d => d<0?'b-info':d===0?'b-warning':d>14?'b-danger':d>7?'b-warning':'b-success';
   const dayTextFor  = d => d<0?`D${d}`:d===0?'D-Day':`+${d}일`;
@@ -5656,12 +5706,15 @@ function renderUnpaid(){
       <td><strong>${r.s.name}</strong>${r.s.grade?`<br><span style="font-size:11px;color:var(--text3)">${r.s.grade}</span>`:''}</td>
       <td style="color:var(--text2);font-size:12px">${r.s.phone}</td>
       <td>${subjectLabel!=='-'?`<span class="badge b-info">${subjectLabel}</span>`:'-'}</td>
-      <td style="font-family:'DM Mono',monospace">${curYm}</td>
+      <td style="font-family:'DM Mono',monospace;min-width:120px">
+        ${r.months.length>1?`<span class="badge b-danger" style="margin-bottom:3px">${r.months.length}개월 밀림</span><br>`:''}
+        ${r.months.map(m=>`<span class="badge ${m.month===curYm?'b-warning':'b-danger'}" style="margin:1px 2px 1px 0;font-size:10px">${m.month}${m.paid>0?' 부분':''}</span>`).join('')}
+      </td>
       <td style="font-size:12px;color:var(--text3)">매월 <strong style="color:var(--text)">${pd}일</strong></td>
-      <td><strong style="color:${r.unpaidAmt>0?'var(--danger)':'var(--text2)'}">${r.unpaidAmt}만원</strong></td>
-      <td><span class="badge ${dayBadgeFor(d)}">${dayTextFor(d)}</span></td>
+      <td><strong style="color:${r.total>0?'var(--danger)':'var(--text2)'}">${r.total}만원</strong>${r.months.length>1?`<br><span style="font-size:10px;color:var(--text3)">${r.months.map(m=>m.unpaid).join(' + ')}</span>`:''}</td>
+      <td><span class="badge ${dayBadgeFor(d)}">${dayTextFor(d)}</span>${r.months.length>1?`<br><span style="font-size:10px;color:var(--text3)">${r.oldest} 기준</span>`:''}</td>
       <td style="white-space:nowrap">
-        <button class="btn btn-success btn-sm" data-tip="수납 처리" onclick="event.stopPropagation();openQuickPayModal('${r.s.id}','${curYm}',${r.unpaidAmt})">수납처리</button>
+        <button class="btn btn-success btn-sm" data-tip="${r.oldest}부터 수납 처리" onclick="event.stopPropagation();openQuickPayModal('${r.s.id}','${r.oldest}',${r.oldestUnpaid})">수납처리</button>
         <button class="btn btn-warning btn-sm" data-tip="문자 발송" onclick="event.stopPropagation();sendSmsTo('${r.s.id}')" style="margin-left:4px">📱</button>
       </td>
     </tr>`;
