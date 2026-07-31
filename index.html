@@ -5613,19 +5613,41 @@ function addMonth(m, n){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
 
+// 그 달에 학원이 실제로 수납 관리를 했는지 판단한다.
+// 기록이 극소수인 달은 앱을 쓰지 않던 달로 보고 미납 판정에서 아예 제외한다.
+// (이 구분이 없으면 앱 도입 전 달까지 전부 미납으로 잡힌다)
+function getTrackedMonths(){
+  const pays        = currentAcademy.payments||[];
+  const activeCount = (currentAcademy.students||[]).filter(isActiveStudent).length || 1;
+  const need        = Math.max(5, Math.round(activeCount * 0.3));
+
+  const cnt = {};
+  pays.forEach(p=>{ if(p.month) cnt[p.month] = (cnt[p.month]||0) + 1; });
+
+  const set = new Set();
+  Object.keys(cnt).forEach(m=>{ if(cnt[m] >= need) set.add(m); });
+  return set;
+}
+
 // 학생의 미납 월 목록 (오래된 순).
 //
-// 판정 기준 — 여기가 중요하다:
-//   · 과거 달: 수납 기록이 남아 있고 완납이 아닌 경우에만 미납으로 센다.
-//              기록이 아예 없는 과거 달은 "안 낸 것"이 아니라 "알 수 없는 것"이므로 세지 않는다.
-//              (앱 도입 전이거나 다른 방법으로 받은 경우가 섞여 있다)
-//   · 이번 달: 기록이 없으면 미납으로 본다. (기존 동작 유지)
+// 어떤 달을 검사 대상으로 삼는가:
+//   · 그 학생의 수납 기록이 있는 달
+//   · 학원이 실제로 관리한 달 (getTrackedMonths) 중 학생 등록월 이후
+//   · 이번 달 (항상)
+// 그 달들 중 완납이 아니면 미납으로 본다. 기록이 아예 없으면 안 낸 것으로 본다.
+//
+// recorded: 수납 기록이 남아 있는 미납인지(true), 기록 자체가 없는 미납인지(false)
 function getUnpaidMonths(s){
-  const cur  = ym();
-  const pays = currentAcademy.payments||[];
-  const mine = pays.filter(x=>x.studentId===s.id && x.month && x.month<=cur);
+  const cur     = ym();
+  const pays    = currentAcademy.payments||[];
+  const mine    = pays.filter(x=>x.studentId===s.id && x.month && x.month<=cur);
+  const enrollM = (s.enrollDate||'').slice(0,7);
 
   const months = new Set(mine.map(x=>x.month));
+  getTrackedMonths().forEach(m=>{
+    if(m <= cur && (!enrollM || m >= enrollM)) months.add(m);
+  });
   months.add(cur);
 
   const out = [];
@@ -5635,7 +5657,7 @@ function getUnpaidMonths(s){
     const charge = (p && p.charge) ? p.charge : calcTotalFee(s);
     const paid   = p ? (p.amount||0) : 0;
     const unpaid = Math.max(0, charge - paid);
-    if(unpaid > 0) out.push({month:m, charge, paid, unpaid});
+    if(unpaid > 0) out.push({month:m, charge, paid, unpaid, recorded:!!p});
   });
   return out;
 }
@@ -5698,7 +5720,7 @@ function renderUnpaid(){
       <td>${subjectLabel!=='-'?`<span class="badge b-info">${subjectLabel}</span>`:'-'}</td>
       <td style="font-family:'DM Mono',monospace;min-width:120px">
         ${r.months.length>1?`<span class="badge b-danger" style="margin-bottom:3px">${r.months.length}개월 밀림</span><br>`:''}
-        ${r.months.map(m=>`<span class="badge ${m.month===curYm?'b-warning':'b-danger'}" style="margin:1px 2px 1px 0;font-size:10px">${m.month}${m.paid>0?' 부분':''}</span>`).join('')}
+        ${r.months.map(m=>`<span class="badge ${m.month===curYm?'b-warning':'b-danger'}" style="margin:1px 2px 1px 0;font-size:10px${m.recorded?'':';opacity:.72'}" data-tip="${m.recorded?(m.paid>0?'부분납부 기록 있음':'미납으로 등록됨'):'수납 기록 없음'}">${m.month}${m.paid>0?' 부분':''}</span>`).join('')}
       </td>
       <td style="font-size:12px;color:var(--text3)">매월 <strong style="color:var(--text)">${pd}일</strong></td>
       <td><strong style="color:${r.total>0?'var(--danger)':'var(--text2)'}">${r.total}만원</strong>${r.months.length>1?`<br><span style="font-size:10px;color:var(--text3)">${r.months.map(m=>m.unpaid).join(' + ')}</span>`:''}</td>
