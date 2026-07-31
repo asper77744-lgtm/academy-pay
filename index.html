@@ -1283,7 +1283,11 @@ tbody tr:hover td{background:#f8f9ff}
                 <div class="tog" id="auto-sms4" onclick="this.classList.toggle('on');saveNotifySettings()"></div>
               </div>
             </div>
-            <div style="font-size:11px;color:var(--text3);padding-bottom:4px">⏰ 시간은 해당 조건 충족 당일 발송 시각입니다. 앱이 열려있는 기기 기준으로 작동합니다.</div>
+            <div style="font-size:11px;color:var(--text3);padding-bottom:4px;line-height:1.7">
+                ⏰ 앞의 3개는 <strong>서버에서 매시 정각에 확인</strong>해 지정한 시각에 자동 발송합니다. 앱을 켜두지 않아도 됩니다.<br>
+                💳 <strong>수납 완료 확인 알림</strong>은 수납을 등록하는 즉시 발송되므로 시간 설정은 적용되지 않습니다.<br>
+                ⚠️ 템플릿을 선택하지 않으면 토글이 켜져 있어도 발송되지 않습니다.
+              </div>
           </div></div>
 
           <div class="card" style="flex:1"><div class="card-head"><h3>📋 발송 내역</h3></div>
@@ -6432,11 +6436,52 @@ function confirmQuickPay(){
 
   saveAcademy(); closeModal('m-quick-pay'); refreshAll();
 
+  // 완납된 달에 대해 수납 완료 알림 (설정이 켜져 있을 때만)
+  months.forEach(m=>notifyPaymentComplete(sid, m));
+
   let msg = `${monthLabel} 수납 완료!`;
   if(months.length>1) msg += ` (${months.length}개월 처리)`;
   if(isPrepay) msg += ' 🔖선납';
   msg += ` (${_qpSelectedMethod}${depositor?' · '+depositor:''})`;
   showToast(msg, 'success');
+}
+
+// ── 수납 완료 확인 알림 (auto-sms4) ────────────────
+//   이 규칙만 시각 기반이 아니라 "수납 등록 즉시"라서 앱에서 처리한다.
+//   나머지 3개는 서버(auto-sms Edge Function)가 담당한다.
+async function notifyPaymentComplete(sid, month){
+  try{
+    const notify = currentAcademy.notify||{};
+    if(notify['auto-sms4'] !== true) return;
+    if(!_smsCredReady) return;
+
+    const idx = parseInt(notify['auto-sms4_tpl']);
+    const tpl = (currentAcademy.smsTemplates||[])[idx];
+    if(!tpl) return;
+
+    const s = getStudent(sid);
+    if(!s) return;
+
+    const phone = (s.phone||'').replace(/[^0-9]/g,'');
+    if(!/^0\d{8,10}$/.test(phone)) return;
+
+    // 해당 월이 완납 상태일 때만
+    const paid = (currentAcademy.payments||[]).find(
+      p=>p.studentId===sid && p.month===month && p.status==='paid'
+    );
+    if(!paid) return;
+
+    const body = applyVars(tpl.body||'', s);
+    const kt   = findKakaoTplFor(tpl.id);
+    const ok   = kt ? await callKakaoApi(phone, kt, s, body)
+                    : await callCoolSmsApi(phone, body);
+    if(ok){
+      logSms(1, kt?'알림톡':'SMS', `${s.name} — 수납 완료 자동 알림`);
+      renderSmsLog();
+    }
+  }catch(e){
+    console.error('수납 완료 알림 오류:', e);
+  }
 }
 
 // 구형 quickPay 호환
