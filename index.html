@@ -5613,40 +5613,30 @@ function addMonth(m, n){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
 
-// 이 학원이 앱으로 수납을 시작한 달.
-// 그 이전 달은 "기록이 없다"는 이유만으로 미납 처리하면 안 된다.
-function getAcademyStartMonth(){
-  const ms=(currentAcademy.payments||[]).map(p=>p.month).filter(Boolean).sort();
-  return ms[0] || ym();
-}
-
 // 학생의 미납 월 목록 (오래된 순).
-// 판정: 기록이 없거나, 있어도 status가 paid가 아니면 미납.
-// 시작점은 [학원 수납 시작월 / 학생 등록월 / 12개월 전] 중 가장 늦은 달.
+//
+// 판정 기준 — 여기가 중요하다:
+//   · 과거 달: 수납 기록이 남아 있고 완납이 아닌 경우에만 미납으로 센다.
+//              기록이 아예 없는 과거 달은 "안 낸 것"이 아니라 "알 수 없는 것"이므로 세지 않는다.
+//              (앱 도입 전이거나 다른 방법으로 받은 경우가 섞여 있다)
+//   · 이번 달: 기록이 없으면 미납으로 본다. (기존 동작 유지)
 function getUnpaidMonths(s){
-  const cur     = ym();
-  const enrollM = (s.enrollDate||'').slice(0,7);
-  const pays    = currentAcademy.payments||[];
+  const cur  = ym();
+  const pays = currentAcademy.payments||[];
+  const mine = pays.filter(x=>x.studentId===s.id && x.month && x.month<=cur);
 
-  // 이 학생의 첫 수납기록 이전은 앱으로 관리하기 전이라고 본다.
-  // (학원 전체 기준으로 잡으면 늦게 등록된 학생에게 없던 미납이 생긴다)
-  const mine = pays.filter(x=>x.studentId===s.id)
-                   .map(x=>x.month).filter(m=>m && m<=cur).sort();
-
-  let start = mine[0] || getAcademyStartMonth();
-  if(enrollM && enrollM > start) start = enrollM;
-  const cap = addMonth(cur, -11);
-  if(cap > start) start = cap;
+  const months = new Set(mine.map(x=>x.month));
+  months.add(cur);
 
   const out = [];
-  for(let m=start; m<=cur; m=addMonth(m,1)){
-    const p = pays.find(x=>x.studentId===s.id && x.month===m);
-    if(p && p.status==='paid') continue;
+  [...months].sort().forEach(m=>{
+    const p = mine.find(x=>x.month===m);
+    if(p && p.status==='paid') return;
     const charge = (p && p.charge) ? p.charge : calcTotalFee(s);
     const paid   = p ? (p.amount||0) : 0;
     const unpaid = Math.max(0, charge - paid);
     if(unpaid > 0) out.push({month:m, charge, paid, unpaid});
-  }
+  });
   return out;
 }
 
