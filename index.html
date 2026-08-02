@@ -3422,6 +3422,34 @@ function calcExpectedRevenue(){
   return { thisMonth, carried, total: thisMonth + carried };
 }
 
+// 특정 달의 예상 매출(그 달에 받아야 했던 돈).
+//   이번 달  → 이번 달 청구액 + 이전 달까지 밀린 금액
+//   과거 달  → 그 달에 실제로 청구된 금액 (수납기록의 charge 합계)
+//              기록이 없는 학생은 그 달 수강료로 보정
+//   미래 달  → 계산하지 않음
+function calcMonthExpected(my){
+  const cur = ym();
+  if(my > cur)  return null;
+  if(my === cur) return calcExpectedRevenue();
+
+  const tracked = getTrackedMonths();
+  if(!tracked.has(my)) return null;   // 앱 도입 전으로 보이는 달은 알 수 없다
+
+  const pays = currentAcademy.payments||[];
+  let total = 0;
+  (currentAcademy.students||[]).forEach(s=>{
+    const enr = (s.enrollDate||'').slice(0,7);
+    if(enr && enr > my) return;
+    const wd = (s.withdrawDate||'').slice(0,7);
+    if(wd && wd < my) return;
+    if(!isActiveStudent(s) && s.status!=='withdrawn') return;
+
+    const p = pays.find(x=>x.studentId===s.id && x.month===my);
+    total += (p && p.charge) ? p.charge : calcTotalFee(s);
+  });
+  return { thisMonth: total, carried: 0, total };
+}
+
 function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
   const months = Array.from({length:12},(_,i)=>i+1);
 
@@ -3434,7 +3462,9 @@ function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
       .filter(p=>p.month===my && p.prepaid && p.date && p.date.slice(0,7)<my)
       .reduce((a,p)=>a+p.amount,0);
     const totalIn = normalThisMonth + prepayInThisMonth;
-    return { my, m, normalThisMonth, prepayInThisMonth, prepayOutThisMonth, totalIn };
+    const exp     = calcMonthExpected(my);
+    return { my, m, normalThisMonth, prepayInThisMonth, prepayOutThisMonth, totalIn,
+             expected: exp ? exp.total : 0, carried: exp ? exp.carried : 0 };
   });
 
   const hasPrepay  = data.some(d=>d.prepayInThisMonth>0||d.prepayOutThisMonth>0);
@@ -3463,7 +3493,7 @@ function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
       border-top:2px dashed #8b5cf6;pointer-events:none;z-index:2">
       <span style="position:absolute;right:0;top:-16px;font-size:9px;
         color:#8b5cf6;font-weight:700;background:var(--surface);padding:1px 4px;border-radius:3px;white-space:nowrap">
-        예상 ${expectedRevenue}만${carried>0?` (이월 ${carried}만 포함)`:''}
+        이번달 예상 ${expectedRevenue}만${carried>0?` (이월 ${carried}만 포함)`:''}
       </span>
     </div>` : '';
 
@@ -3476,7 +3506,7 @@ function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
       const prepayOH = d.prepayOutThisMonth? Math.max(Math.round(d.prepayOutThisMonth/totalRange*chartH),3): 0;
       const hasAny   = normalH>0||prepayIH>0||prepayOH>0;
       const barColor = barColors[i];
-      const rate     = expectedRevenue>0 ? Math.round(d.totalIn/expectedRevenue*100) : null;
+      const rate     = d.expected>0 ? Math.round(d.totalIn/d.expected*100) : null;
 
       const tipData = JSON.stringify({
         month: `${year}년 ${d.m}월`,
@@ -3484,7 +3514,8 @@ function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
         normal: d.normalThisMonth,
         prepayIn: d.prepayInThisMonth,
         prepayOut: d.prepayOutThisMonth,
-        expected: expectedRevenue,
+        expected: d.expected,
+        carried: d.carried,
         rate,
         color: barColor
       }).replace(/"/g,'&quot;');
@@ -3521,7 +3552,7 @@ function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
       ` : ''}
       ${expectedRevenue>0 ? `
         <div class="chart-legend-item">
-          <div style="width:12px;height:2px;border-top:2px dashed #8b5cf6;margin-right:4px"></div>예상 매출
+          <div style="width:12px;height:2px;border-top:2px dashed #8b5cf6;margin-right:4px"></div>이번달 예상 매출
         </div>` : ''}
     `;
   }
@@ -3576,6 +3607,10 @@ function showChartTip(e, dataStr){
         <span><span style="display:inline-block;width:10px;border-top:2px dashed #8b5cf6;margin-right:5px;vertical-align:middle"></span>예상 매출</span>
         <span style="color:#8b5cf6;font-weight:600">${d.expected}만원</span>
       </div>
+      ${d.carried>0 ? `<div class="chart-tooltip-row" style="font-size:11px;opacity:.8">
+        <span style="padding-left:15px">└ 이월 미납</span>
+        <span style="color:#f43f5e">${d.carried}만원</span>
+      </div>` : ''}
       ${d.rate !== null ? `<div class="chart-tooltip-row" style="font-size:11px">
         <span>수납률</span>
         <span style="color:${d.rate>=100?'#10b981':d.rate>=70?'#f59e0b':'#ef4444'};font-weight:700">${d.rate}%</span>
