@@ -2799,7 +2799,8 @@ function updateDashboard(){
   // ── 예상 매출 (할인 후)
   const baseFeeTotal    = active.reduce((s,st)=>(st.enrollments||[]).reduce((a,e)=>a+(parseFloat(e.fee)||0),0)+s, 0);
   const discountTotal   = active.reduce((s,st)=>(st.discounts||[]).reduce((a,d)=>a+(parseFloat(d.amount)||0),0)+s, 0);
-  const expectedRevenue = active.reduce((s,st)=>s+calcTotalFee(st), 0);
+  const _exp            = calcExpectedRevenue();
+  const expectedRevenue = _exp.total;
 
   // ── 이번달 수납 내역 (month === curYm)
   const mPays = payments.filter(p=>p.month===curYm && p.amount>0);
@@ -2911,7 +2912,7 @@ function updateDashboard(){
       }).join('')
     : `<tr><td colspan="5" class="empty-row"><div class="ei">💳</div><p>수납 내역이 없습니다</p></td></tr>`;
 
-  renderBarChart('dash-chart', payments, now().getFullYear(), expectedRevenue);
+  renderBarChart('dash-chart', payments, now().getFullYear(), expectedRevenue, _exp.carried);
   // 기본 탭을 재원생으로
   setTimeout(()=>switchDashChart('students'), 50);
 }
@@ -3219,8 +3220,8 @@ function switchDashChart(mode){
     if(btnM){btnM.style.background='var(--accent)';btnM.style.color='#fff';btnM.style.fontWeight='600';}
     selMonth.style.display='none';
     titleEl.textContent='월별 수납 현황';
-    const expectedRevenue=(currentAcademy.students||[]).filter(s=>isActiveStudent(s)).reduce((sum,s)=>sum+calcTotalFee(s),0);
-    renderBarChart('dash-chart',currentAcademy.payments||[],now().getFullYear(),expectedRevenue);
+    const _e=calcExpectedRevenue();
+    renderBarChart('dash-chart',currentAcademy.payments||[],now().getFullYear(),_e.total,_e.carried);
   } else {
     if(btnD){btnD.style.background='var(--accent)';btnD.style.color='#fff';btnD.style.fontWeight='600';}
     selMonth.style.display='';
@@ -3255,15 +3256,29 @@ function renderStudentChart(){
   const LEVELS=['초등','중등','고등','기타'];
 
   // 월별 재원생 집계
+  //   재원생 = 그 달에 학원에 다니고 있던 학생.
+  //   수납 여부와 무관하다 (미납 학생도 재원생이다).
+  //   판정: 등록월 <= 해당월 < 퇴원월
   const monthData=Array.from({length:12},(_,i)=>{
     const my=`${year}-${String(i+1).padStart(2,'0')}`;
+
     let stuList;
-    if(my===curYm){
+    if(my > curYm){
+      stuList=[];                                  // 미래는 집계하지 않는다
+    } else if(my===curYm){
       stuList=students.filter(s=>isActiveStudent(s));
     } else {
-      const ids=[...new Set(payments.filter(p=>p.month===my&&p.amount>0).map(p=>p.studentId))];
-      stuList=students.filter(s=>ids.includes(s.id));
+      stuList=students.filter(s=>{
+        const enr=(s.enrollDate||'').slice(0,7);
+        if(enr && enr>my) return false;            // 아직 등록 전
+        const wd=(s.withdrawDate||'').slice(0,7);
+        if(wd && wd<my) return false;              // 퇴원한 달까지는 재원으로 본다
+        // 등록일이 없는 옛 데이터는 수납기록이 있으면 재원으로 본다
+        if(!enr) return payments.some(p=>p.studentId===s.id&&p.month===my);
+        return true;
+      });
     }
+
     const counts={초등:0,중등:0,고등:0,기타:0};
     stuList.forEach(s=>{counts[getStudentLevel(s)]++;});
     return{month:i+1,total:stuList.length,counts};
@@ -3361,7 +3376,24 @@ function renderDailyChart(){
   }
 }
 
-function renderBarChart(id, payments, year, expectedRevenue=0){
+// 이번 달에 받아야 할 총액 = 이번 달 청구액 + 지난달까지 밀린 금액
+// (지난달 미납은 이번 달에 들어올 돈이므로 예상 매출에 포함한다)
+function calcExpectedRevenue(){
+  const active = (currentAcademy.students||[]).filter(isActiveStudent);
+  const cur    = ym();
+
+  const thisMonth = active.reduce((sum,s)=>sum+calcTotalFee(s), 0);
+
+  // 이번 달을 제외한 밀린 금액
+  const carried = active.reduce((sum,s)=>{
+    const past = getUnpaidMonths(s).filter(m=>m.month < cur);
+    return sum + past.reduce((a,m)=>a+m.unpaid, 0);
+  }, 0);
+
+  return { thisMonth, carried, total: thisMonth + carried };
+}
+
+function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
   const months = Array.from({length:12},(_,i)=>i+1);
 
   const data = months.map(m=>{
@@ -3402,7 +3434,7 @@ function renderBarChart(id, payments, year, expectedRevenue=0){
       border-top:2px dashed #8b5cf6;pointer-events:none;z-index:2">
       <span style="position:absolute;right:0;top:-16px;font-size:9px;
         color:#8b5cf6;font-weight:700;background:var(--surface);padding:1px 4px;border-radius:3px;white-space:nowrap">
-        예상 ${expectedRevenue}만
+        예상 ${expectedRevenue}만${carried>0?` (이월 ${carried}만 포함)`:''}
       </span>
     </div>` : '';
 
