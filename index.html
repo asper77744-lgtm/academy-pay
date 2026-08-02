@@ -2400,6 +2400,7 @@ function renderAcademySelectList(allFound){
 async function selectAcademy(idx){
   const f = _allAcademies[idx];
   if(!f) return;
+  _payMonthInit  = false;   // 학원이 바뀌면 월 필터를 이번 달로 다시 맞춘다
   currentUser    = f.user;
   currentAcademy = f.academy;
   currentUser.lastLogin = now().toISOString();
@@ -2732,6 +2733,7 @@ function refreshAll(){
   renderStudents();
   renderTeachers();
   renderClasses();
+  fillMonthFilter();      // 월 필터 기본값을 먼저 정해야 목록이 맞게 그려진다
   renderPayments();
   renderUnpaid();
   renderStats();
@@ -2739,7 +2741,6 @@ function refreshAll(){
   renderSmsLog();
   renderSmsTemplates();
   fillPaymentStudent();
-  fillMonthFilter();
   fillClassFilter();
   fillSubjectDropdowns();
   updateSbBadge();
@@ -3254,6 +3255,7 @@ function renderStudentChart(){
 
   const COLORS={초등:'#6366f1',중등:'#10b981',고등:'#f59e0b',기타:'#94a3b8'};
   const LEVELS=['초등','중등','고등','기타'];
+  const tracked=getTrackedMonths();   // 학원이 실제로 수납 관리를 한 달
 
   // 월별 재원생 집계
   //   재원생 = 그 달에 학원에 다니고 있던 학생.
@@ -3267,16 +3269,19 @@ function renderStudentChart(){
       stuList=[];                                  // 미래는 집계하지 않는다
     } else if(my===curYm){
       stuList=students.filter(s=>isActiveStudent(s));
-    } else {
+    } else if(tracked.has(my)){
+      // 학원이 실제로 수납 관리를 한 달 → 재원 기간으로 정확히 집계
       stuList=students.filter(s=>{
         const enr=(s.enrollDate||'').slice(0,7);
         if(enr && enr>my) return false;            // 아직 등록 전
         const wd=(s.withdrawDate||'').slice(0,7);
         if(wd && wd<my) return false;              // 퇴원한 달까지는 재원으로 본다
-        // 등록일이 없는 옛 데이터는 수납기록이 있으면 재원으로 본다
-        if(!enr) return payments.some(p=>p.studentId===s.id&&p.month===my);
-        return true;
+        return true;                               // 등록일이 없으면 계속 다닌 것으로 본다
       });
+    } else {
+      // 앱 도입 전으로 보이는 달 → 알 수 있는 건 수납기록뿐
+      const ids=[...new Set(payments.filter(p=>p.month===my&&p.amount>0).map(p=>p.studentId))];
+      stuList=students.filter(s=>ids.includes(s.id));
     }
 
     const counts={초등:0,중등:0,고등:0,기타:0};
@@ -3896,12 +3901,22 @@ function recalcPayDiscount(){
 
 function fillStudentClassSelect(){ fillClassSelectInto('ms-class'); }
 
+let _payMonthInit=false;
+
 function fillMonthFilter(){
   const months=[...new Set((currentAcademy.payments||[]).map(p=>p.month))].sort().reverse();
   const sel=document.getElementById('pay-f-month');
-  const cur=sel.value;
+
+  // 처음 열 때는 이번 달을 기본값으로 (없으면 전체 기간)
+  let cur=sel.value;
+  if(!_payMonthInit){
+    _payMonthInit=true;
+    if(months.includes(ym())) cur=ym();
+  }
+
   const opts='<option value="">전체 기간</option>'+months.map(m=>`<option ${cur===m?'selected':''}>${m}</option>`).join('');
   sel.innerHTML=opts;
+  sel.value=cur;
   // 모바일 기간 드롭다운에도 동기화
   const mobSel=document.getElementById('pay-f-month-mob');
   if(mobSel){ mobSel.innerHTML=opts; mobSel.value=cur; }
@@ -5494,6 +5509,21 @@ function renderPayments(){
     const s=students.find(x=>x.id===p.studentId);
     return(!q||(s&&s.name.toLowerCase().includes(q)))&&(!month||p.month===month)&&(!status||p.status===status)&&(!method||p.method===method);
   }).sort((a,b)=>b.date.localeCompare(a.date));
+
+  // '미납'으로 거를 때는 수납 기록이 아예 없는 학생도 함께 보여준다.
+  // (미납은 별도 데이터가 아니라 "기록이 없는 상태"라서, 기록만 보면 전부 누락된다)
+  if(status==='pending' && month && !method){
+    const listed=new Set(list.map(p=>p.studentId));
+    students.filter(isActiveStudent).forEach(s=>{
+      if(listed.has(s.id)) return;
+      if(q && !s.name.toLowerCase().includes(q)) return;
+      if(!getUnpaidMonths(s).some(m=>m.month===month)) return;
+      list.push({
+        studentId:s.id, month, charge:calcTotalFee(s), amount:0,
+        status:'pending', method:'', date:'', note:'', _virtual:true
+      });
+    });
+  }
   const sb={paid:'b-success',partial:'b-warning',pending:'b-danger'};
   const sl={paid:'납부완료',partial:'부분납부',pending:'미납'};
   document.getElementById('pay-tbody').innerHTML=list.length?list.map(p=>{
@@ -5501,6 +5531,22 @@ function renderPayments(){
     const enrs=getEnrollments(s);
     const subj=enrs.map(e=>e.subject).filter(Boolean).join('+');
     const remain=p.charge-p.amount;
+    if(p._virtual){
+      return `<tr onclick="document.querySelectorAll('#pay-tbody tr').forEach(r=>r.classList.remove('row-selected'));this.classList.add('row-selected')">
+        <td><strong>${s?.name||'-'}</strong></td>
+        <td>${subj?`<span class="badge b-info">${subj}</span>`:'-'}</td>
+        <td style="font-family:'DM Mono',monospace">${p.month}</td>
+        <td>${p.charge}만원</td>
+        <td><strong>0만원</strong></td>
+        <td style="color:var(--danger)">${p.charge}만원</td>
+        <td><span class="badge b-gray">-</span></td>
+        <td style="color:var(--text3);font-size:12px">기록 없음</td>
+        <td><span class="badge b-danger">미납</span></td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-success btn-sm" onclick="event.stopPropagation();openQuickPayModal('${s?.id}','${p.month}',${p.charge})">수납처리</button>
+        </td>
+      </tr>`;
+    }
     // 납부방법 표시: 지역화폐면 입금자 포함, 선납이면 뱃지 추가
     const methodLabel = p.method==='지역화폐' && p.depositor
       ? `<span class="badge b-warning" style="font-family:'DM Mono',monospace">🪙 ${p.depositor}</span>`
