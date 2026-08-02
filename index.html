@@ -2227,14 +2227,16 @@ async function sbSaveAcademy(academy){
 
 async function sbLoadAcademy(id){
   if(!_sb) return null;
-  const { data, error } = await _sb.from('academies').select('data').eq('id', id).single();
+  const { data, error } = await _sb.from('academies').select('data, updated_at').eq('id', id).single();
   if(error) return null;
-  return data?.data || null;
+  const a = data?.data || null;
+  if(a && data.updated_at) a.updated_at = data.updated_at;
+  return a;
 }
 
 async function sbFindByEmail(email){
   if(!_sb) return null;
-  const { data } = await _sb.from('academies').select('data');
+  const { data } = await _sb.from('academies').select('data, updated_at');
   if(!data) return null;
   for(const row of data){
     const a = row.data;
@@ -2247,11 +2249,13 @@ async function sbFindByEmail(email){
 // 이메일로 연결된 모든 학원 조회
 async function sbFindAllByEmail(email){
   if(!_sb) return [];
-  const { data } = await _sb.from('academies').select('data');
+  // updated_at은 data(jsonb)가 아니라 테이블 컬럼이므로 따로 가져와야 한다
+  const { data } = await _sb.from('academies').select('data, updated_at');
   if(!data) return [];
   const results=[];
   for(const row of data){
     const a=row.data;
+    if(a && row.updated_at) a.updated_at = row.updated_at;
     const u=(a?.users||[]).find(u=>u.email===email&&u.active);
     if(u) results.push({academy:a, user:u});
   }
@@ -2384,10 +2388,10 @@ function renderAcademySelectList(allFound){
   const now_ = now();
   list.innerHTML = allFound.map((f,i)=>{
     const a=f.academy;
-    // 미활동 경고: updated_at이 3개월 이상 지났으면
-    const lastUpdate = new Date(a.updated_at||0);
-    const diffDays = Math.floor((now_-lastUpdate)/86400000);
-    const warn = diffDays>90 ? `<span style="color:var(--danger);font-size:11px">⚠️ ${diffDays}일 미활동</span>` : '';
+    // 미활동 경고: 마지막 활동이 3개월 이상 지났을 때만
+    const diffDays = getInactiveDays(a);
+    const warn = (diffDays!==null && diffDays>90)
+      ? `<span style="color:var(--danger);font-size:11px">⚠️ ${diffDays}일 미활동</span>` : '';
     return `<button onclick="selectAcademy(${i})"
       style="text-align:left;padding:16px;border:1.5px solid var(--border);border-radius:10px;
         background:var(--surface2);cursor:pointer;font-family:inherit;transition:all .15s;width:100%"
@@ -2448,11 +2452,21 @@ async function submitNewAcademy(){
   showToast(`"${name}" 학원 추가 신청이 완료되었습니다. 슈퍼관리자 승인 후 사용 가능합니다.`, 'success');
 }
 
+// 마지막 활동으로부터 지난 일수. 알 수 없으면 null.
+// (updated_at이 없을 때 0으로 대체하면 1970년 기준이 되어 2만일이 넘게 나온다)
+function getInactiveDays(academy){
+  const raw = academy?.updated_at;
+  if(!raw) return null;
+  const t = new Date(raw).getTime();
+  if(!t || isNaN(t)) return null;
+  return Math.max(0, Math.floor((now()-t)/86400000));
+}
+
 // ── 3개월 미활동 경고 체크 ──────────────────────────
 function checkInactivityWarning(){
   if(!currentAcademy) return;
-  const lastUpdate = new Date(currentAcademy.updated_at||0);
-  const diffDays   = Math.floor((now()-lastUpdate)/86400000);
+  const diffDays = getInactiveDays(currentAcademy);
+  if(diffDays===null) return;
   if(diffDays>=80 && diffDays<90){
     showToast(`⚠️ ${diffDays}일간 활동이 없습니다. 90일이 지나면 계정이 삭제될 수 있습니다.`,'error');
   }
@@ -8278,11 +8292,13 @@ async function bootSuperAdmin(email){
 
 async function saLoadAll(){
   if(!_sb) return;
-  const { data: acadRows } = await _sb.from('academies').select('data');
+  const { data: acadRows } = await _sb.from('academies').select('data, updated_at');
   const { data: statusRows } = await _sb.from('academy_status').select('*');
   _saAllAcademies = (acadRows||[]).map(r=>{
     const st = (statusRows||[]).find(s=>s.academy_id===r.data?.id);
-    return { ...r.data, _status: st?.status||'pending', _memo: st?.memo||'', _approvedAt: st?.approved_at };
+    return { ...r.data,
+      updated_at: r.updated_at || r.data?.updated_at,
+      _status: st?.status||'pending', _memo: st?.memo||'', _approvedAt: st?.approved_at };
   });
   saRenderPending();
   saRenderAll();
@@ -8326,10 +8342,9 @@ function saRenderAll(){
     a.ownerName?.toLowerCase().includes(q) ||
     (a.users||[]).some(u=>u.email?.toLowerCase().includes(q))
   ).map(a=>{
-    // 미활동 일수 계산
-    const lastUpdate=new Date(a.updated_at||0);
-    const diffDays=Math.floor((now_-lastUpdate)/86400000);
-    a._inactiveDays=diffDays;
+    // 미활동 일수 계산 (알 수 없으면 -1 → 경고 표시 안 함)
+    const diffDays=getInactiveDays(a);
+    a._inactiveDays = diffDays===null ? -1 : diffDays;
     return a;
   });
   const el = document.getElementById('sa-all-list');
