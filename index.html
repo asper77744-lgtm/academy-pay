@@ -1331,7 +1331,7 @@ tbody tr:hover td{background:#f8f9ff}
               <div class="ff"><label>발신번호 *</label><input id="cfg-sms-from" placeholder="031-000-0000"/></div>
               <div class="ff"><label>기본 발송 방식</label>
                 <select id="cfg-sms-type" class="fs" style="width:100%">
-                  <option value="sms">SMS (90자 이내)</option>
+                  <option value="sms">SMS (한글 45자 / 90byte 이내)</option>
                   <option value="lms">LMS (장문)</option>
                 </select>
               </div>
@@ -7135,6 +7135,13 @@ function updateSmsTarget(){
   updateSmsPreview();
 }
 
+// CoolSMS는 글자 수가 아니라 EUC-KR 바이트로 센다 (한글 1자 = 2byte)
+function smsByteLength(t){
+  let n=0;
+  for(const ch of (t||'')) n += ch.charCodeAt(0)>127 ? 2 : 1;
+  return n;
+}
+
 function applyVars(tpl, student){
   const cls = getClass(student?.classId);
   const p   = (currentAcademy.payments||[]).find(x=>x.studentId===student?.id&&x.month===ym());
@@ -7158,7 +7165,12 @@ function updateSmsPreview(){
   const chKakao=document.getElementById('ch-kakao')?.checked;
   // char count
   const cnt=document.getElementById('sms-char-count');
-  if(cnt){const l=body.length;cnt.textContent=l+'자';const tb=document.getElementById('sms-type-badge');if(tb)tb.textContent=l<=90?'SMS':'LMS (장문)';}
+  if(cnt){
+    const l=body.length, b=smsByteLength(body);
+    cnt.textContent=`${l}자 (${b}byte)`;
+    const tb=document.getElementById('sms-type-badge');
+    if(tb)tb.textContent=b<=90?'SMS':'LMS (장문)';
+  }
   // receiver info
   const ri=document.getElementById('sms-receiver-preview');
   if(ri)ri.textContent=`수신자: ${receivers.length}명 (${receivers.slice(0,3).map(s=>s.name).join(', ')}${receivers.length>3?' 외 '+(receivers.length-3)+'명':''})`;
