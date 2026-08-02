@@ -673,7 +673,7 @@ tbody tr:hover td{background:#f8f9ff}
               <span style="font-size:11px;color:var(--text3)">만원</span>
             </div>
             <div style="padding:2px 16px 4px;font-size:10px;color:var(--text3)">
-              예상 <span id="ds-expected" style="color:var(--text2)">0</span>만원
+              예상 <span id="ds-expected" style="color:var(--text2)">0</span>만원<span id="ds-carried"></span>
             </div>
             <div style="padding:2px 16px 4px;font-size:10px;color:var(--text3)">
               정가 <span id="ds-base-fee" style="color:var(--text2)">0</span>만
@@ -2877,6 +2877,12 @@ function updateDashboard(){
 
   document.getElementById('ds-income').textContent   = fmt(income);
   document.getElementById('ds-expected').textContent = fmt(expectedRevenue);
+  const carriedEl = document.getElementById('ds-carried');
+  if(carriedEl){
+    carriedEl.innerHTML = _exp.carried > 0
+      ? ` <span style="color:var(--danger)">(이월금 ${fmt(_exp.carried)}만 포함)</span>`
+      : '';
+  }
   document.getElementById('ds-base-fee').textContent = fmt(baseFeeTotal);
   document.getElementById('ds-discount').textContent = fmt(discountTotal);
 
