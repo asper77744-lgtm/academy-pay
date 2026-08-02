@@ -691,6 +691,7 @@ tbody tr:hover td{background:#f8f9ff}
               <span style="font-size:12px;color:var(--text3)">명</span>
             </div>
             <div style="padding:2px 16px 4px;font-size:11px;color:#3b82f6;font-weight:600" id="ds-paid-amt">0만원</div>
+            <div style="padding:2px 16px 4px;font-size:10px;color:var(--text3)" id="ds-paid-split"></div>
             <div style="padding:2px 16px 4px;font-size:10px;color:var(--text3)" id="ds-paid-rate"></div>
             <div class="sc-icon">✅</div>
           </div>
@@ -2889,6 +2890,16 @@ function updateDashboard(){
   document.getElementById('ds-paid').textContent      = paidCnt;
   document.getElementById('ds-paid-amt').textContent  = `${fmt(paidAmt)}만원`;
   document.getElementById('ds-paid-rate').textContent = `${paidRate}% · 부분납부 ${partialStudents.length}명 포함`;
+
+  // 수납완료 금액의 구성 — 이번 달에 실제 들어온 돈과, 이전에 선납받아 이번 달에 적용된 돈
+  const splitEl = document.getElementById('ds-paid-split');
+  if(splitEl){
+    const thisMonthIn = Math.max(0, paidAmt - prepayOut);
+    const parts = [`이번달 입금 ${fmt(thisMonthIn)}만`];
+    if(prepayOut>0) parts.push(`<span style="color:#64748b">선납적용 ${fmt(prepayOut)}만</span>`);
+    if(prepayIn>0)  parts.push(`<span style="color:#f59e0b">선납입금 ${fmt(prepayIn)}만</span>`);
+    splitEl.innerHTML = parts.join(' · ');
+  }
 
   document.getElementById('ds-unpaid').textContent      = unpaidCnt;
   document.getElementById('ds-unpaid-amt').textContent  = `${fmt(unpaidAmt)}만원`;
