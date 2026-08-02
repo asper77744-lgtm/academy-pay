@@ -7778,15 +7778,26 @@ function saveKakaoSettings(){
   saveAcademy();updateSmsPreview();showToast('카카오 알림톡 설정이 저장되었습니다.','success');
 }
 
-function testSmsChannel(ch){
-  if(ch==='sms'){
-    const key=document.getElementById('cfg-sms-key')?.value;
-    if(!key){showToast('API Key를 먼저 입력해주세요.','error');return}
-  } else {
-    const pfid=document.getElementById('cfg-kakao-pfid')?.value;
-    if(!pfid){showToast('발신 프로필 ID(pfId)를 먼저 입력해주세요.','error');return}
+async function testSmsChannel(ch){
+  // 키/시크릿은 브라우저에 없으므로 입력칸이 아니라 등록 여부로 판단한다
+  if(!_smsCredReady){
+    showToast('API Key와 Secret을 입력하고 먼저 저장해주세요.','error');
+    return;
   }
-  showToast(`${ch==='sms'?'SMS':'카카오 알림톡'} 테스트 발송 완료 (시뮬레이션)`,'success');
+
+  const sms  = currentAcademy.sms||{};
+  const to   = (sms.testMode && sms.testTo) ? sms.testTo : (currentAcademy.phone||'');
+  const dest = (to||'').replace(/[^0-9]/g,'');
+  if(!/^0\d{8,10}$/.test(dest)){
+    showToast('테스트 수신 번호를 먼저 입력하고 저장해주세요.','error');
+    return;
+  }
+
+  const text = `[${currentAcademy.name||'학원'}] 테스트 발송입니다. 이 문자가 도착하면 설정이 정상입니다.`;
+  showToast('테스트 발송 중...','info');
+
+  const ok = await callCoolSmsApi(dest, text);
+  if(ok) showToast(`테스트 문자를 ${dest}로 발송했습니다.`,'success');
 }
 
 function testSms(){testSmsChannel('sms')}
