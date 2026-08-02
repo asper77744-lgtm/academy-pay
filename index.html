@@ -3258,9 +3258,9 @@ function renderStudentChart(){
   const tracked=getTrackedMonths();   // 학원이 실제로 수납 관리를 한 달
 
   // 월별 재원생 집계
-  //   재원생 = 그 달에 학원에 다니고 있던 학생.
+  //   재원생 = 그 달에 학원에 다니고 있던 학생 (재원/재입학).
   //   수납 여부와 무관하다 (미납 학생도 재원생이다).
-  //   판정: 등록월 <= 해당월 < 퇴원월
+  //   체험중 / 체험종료 학생은 제외한다 — 대시보드 '재원학생' 카드와 같은 기준.
   const monthData=Array.from({length:12},(_,i)=>{
     const my=`${year}-${String(i+1).padStart(2,'0')}`;
 
@@ -3270,13 +3270,20 @@ function renderStudentChart(){
     } else if(my===curYm){
       stuList=students.filter(s=>isActiveStudent(s));
     } else if(tracked.has(my)){
-      // 학원이 실제로 수납 관리를 한 달 → 재원 기간으로 정확히 집계
+      // 학원이 실제로 수납 관리를 한 달 → 재원 기간으로 집계.
+      // 이번 달과 같은 기준(재원/재입학)을 쓴다. 체험중·체험종료는 재원생이 아니다.
       stuList=students.filter(s=>{
         const enr=(s.enrollDate||'').slice(0,7);
         if(enr && enr>my) return false;            // 아직 등록 전
-        const wd=(s.withdrawDate||'').slice(0,7);
-        if(wd && wd<my) return false;              // 퇴원한 달까지는 재원으로 본다
-        return true;                               // 등록일이 없으면 계속 다닌 것으로 본다
+
+        if(isActiveStudent(s)) return true;        // 지금 재원 중 → 그때도 재원
+
+        // 퇴원생은 퇴원한 달까지만 재원으로 본다
+        if(s.status==='withdrawn'){
+          const wd=(s.withdrawDate||'').slice(0,7);
+          return wd ? wd>=my : false;
+        }
+        return false;                              // 체험중 / 체험종료 제외
       });
     } else {
       // 앱 도입 전으로 보이는 달 → 알 수 있는 건 수납기록뿐
