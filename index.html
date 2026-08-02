@@ -2064,7 +2064,8 @@ tbody tr:hover td{background:#f8f9ff}
     <!-- 미리보기 -->
     <div style="background:var(--surface2);border-radius:10px;padding:14px;margin-bottom:12px;font-size:13px;line-height:1.7;white-space:pre-wrap" id="sms-confirm-preview"></div>
     <div id="sms-confirm-body" style="font-size:13px;line-height:1.7;margin-bottom:16px"></div>
-    <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 14px;font-size:12px;color:#795548;margin-bottom:16px">
+    <div id="sms-confirm-progress" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;font-size:12px;color:#1e40af;margin-bottom:16px"></div>
+    <div id="sms-confirm-tplnote" style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 14px;font-size:12px;color:#795548;margin-bottom:16px">
       📋 템플릿은 <strong>문자 알림 → 템플릿</strong>에서 추가·수정할 수 있습니다.
     </div>
     <div class="modal-footer">
@@ -7424,16 +7425,32 @@ function sendSms(){
   const chSms=document.getElementById('ch-sms')?.checked;
   const chKakao=document.getElementById('ch-kakao')?.checked;
   if(!chSms&&!chKakao){showToast('발송 채널을 선택해주세요.','error');return}
-  const body=document.getElementById('sms-body')?.value?.trim();
-  if(!body){showToast('메시지를 입력해주세요.','error');return}
+
+  const raw=document.getElementById('sms-body')?.value?.trim();
+  if(!raw){showToast('메시지를 입력해주세요.','error');return}
+
   const receivers=getSmsReceivers();
   if(!receivers.length){showToast('수신자가 없습니다.','error');return}
-  const channels=[];
-  if(chSms)channels.push('SMS');
-  if(chKakao)channels.push('카카오');
-  logSms(receivers.length, channels.join('+'), body.slice(0,25)+(body.length>25?'...':''));
-  renderSmsLog();
-  showToast(`${receivers.length}명에게 ${channels.join('+')} 발송 완료 (시뮬레이션)`,'success');
+
+  if(!_smsCredReady){showToast('학원 설정에서 SMS API Key를 먼저 등록해주세요.','error');return}
+
+  const bytes = smsByteLength(applyVars(raw, receivers[0]));
+  const names = receivers.slice(0,5).map(s=>s.name).join(', ');
+
+  _smsPendingActionBase = ()=>sendToMany(
+    receivers, (s)=>applyVars(raw, s), '직접 작성 문자'
+  );
+
+  confirmSms(
+    `직접 작성한 문자 발송`,
+    `수신자 <strong>${receivers.length}명</strong>에게 발송합니다.<br>
+     대상: ${names}${receivers.length>5?` 외 ${receivers.length-5}명`:''}<br>
+     <span style="color:var(--text3)">${bytes}byte · ${bytes>90?'LMS(장문)':'SMS'}</span><br>
+     <span style="color:var(--text3)">아래는 첫 번째 수신자 기준 미리보기입니다</span>`,
+    null,
+    receivers[0],
+    applyVars(raw, receivers[0])
+  );
 }
 
 // ── 알림톡 발송 (실패 시 서버가 문자로 대체발송) ────
@@ -7502,7 +7519,7 @@ async function callCoolSmsApi(to, text){
 let _smsPendingAction = null;
 let _smsConfirmStudent = null; // 미리보기용 학생 객체
 
-function confirmSms(title, desc, action, student){
+function confirmSms(title, desc, action, student, fixedBody){
   const sms = currentAcademy.sms||{};
   const testBanner = sms.testMode && sms.testTo
     ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#1e40af">
@@ -7515,18 +7532,69 @@ function confirmSms(title, desc, action, student){
     `<div style="font-weight:600;margin-bottom:4px">${title}</div>
      <div style="color:var(--text2);font-size:12px">${desc}</div>`;
 
-  // 템플릿 드롭다운 채우기
+  // 진행 표시 초기화
+  const prog = document.getElementById('sms-confirm-progress');
+  if(prog){ prog.style.display='none'; prog.textContent=''; }
+  const btn = document.getElementById('sms-confirm-btn');
+  if(btn){ btn.disabled=false; btn.textContent='📤 발송하기'; }
+
   _smsConfirmStudent = student || null;
-  const templates = currentAcademy.smsTemplates || [];
-  const sel = document.getElementById('sms-confirm-template');
-  sel.innerHTML = templates.map((t,i)=>
-    `<option value="${i}">${findKakaoTplFor(t.id)?'💬 ':''}${t.name}</option>`
-  ).join('') || '<option value="0">기본 템플릿</option>';
-  sel.value = '0';
-  onSmsTemplateChange();
+  const tplWrap = document.getElementById('sms-confirm-template')?.closest('.ff');
+  const tplNote = document.getElementById('sms-confirm-tplnote');
+
+  // fixedBody가 있으면 템플릿 선택 없이 그 문구를 그대로 보여준다
+  if(fixedBody != null){
+    if(tplWrap) tplWrap.style.display='none';
+    if(tplNote) tplNote.style.display='none';
+    document.getElementById('sms-confirm-preview').textContent = fixedBody;
+  } else {
+    if(tplWrap) tplWrap.style.display='';
+    if(tplNote) tplNote.style.display='';
+    const templates = currentAcademy.smsTemplates || [];
+    const sel = document.getElementById('sms-confirm-template');
+    sel.innerHTML = templates.map((t,i)=>
+      `<option value="${i}">${findKakaoTplFor(t.id)?'💬 ':''}${t.name}</option>`
+    ).join('') || '<option value="0">기본 템플릿</option>';
+    sel.value = '0';
+    onSmsTemplateChange();
+  }
 
   _smsPendingAction = action;
   openModal('m-sms-confirm');
+}
+
+// 여러 명에게 순차 발송. 서버 부하를 줄이려고 간격을 둔다.
+async function sendToMany(list, makeBody, label){
+  const prog = document.getElementById('sms-confirm-progress');
+  const btn  = document.getElementById('sms-confirm-btn');
+  if(btn){ btn.disabled=true; btn.textContent='발송 중...'; }
+  if(prog) prog.style.display='';
+
+  let ok=0, fail=0;
+  const failed=[];
+
+  for(let i=0;i<list.length;i++){
+    const s = list[i];
+    if(prog) prog.textContent = `발송 중... ${i+1} / ${list.length}  (성공 ${ok}, 실패 ${fail})`;
+
+    const phone = (s.phone||'').replace(/[^0-9]/g,'');
+    if(!/^0\d{8,10}$/.test(phone)){ fail++; failed.push(`${s.name}(번호없음)`); continue; }
+
+    const body = makeBody(s);
+    const sent = await callCoolSmsApi(phone, body);
+    if(sent) ok++; else { fail++; failed.push(s.name); }
+
+    if(i < list.length-1) await new Promise(r=>setTimeout(r, 350));
+  }
+
+  closeModal('m-sms-confirm');
+  if(btn){ btn.disabled=false; btn.textContent='📤 발송하기'; }
+
+  if(ok>0){ logSms(ok,'SMS', `${label} — ${ok}명 발송`); renderSmsLog(); }
+
+  if(fail===0)      showToast(`${ok}명에게 발송 완료!`,'success');
+  else if(ok===0)   showToast(`발송 실패 (${fail}명)`,'error');
+  else              showToast(`${ok}명 발송 완료, ${fail}명 실패: ${failed.slice(0,3).join(', ')}${failed.length>3?' 외':''}`,'warning');
 }
 
 function onSmsTemplateChange(){
@@ -7543,11 +7611,20 @@ function onSmsTemplateChange(){
 
 let _smsPendingActionBase = null;
 
-function executeSms(){
-  closeModal('m-sms-confirm');
+async function executeSms(){
   const idx = parseInt(document.getElementById('sms-confirm-template')?.value)||0;
-  if(_smsPendingActionBase){ _smsPendingActionBase(idx); _smsPendingActionBase=null; }
-  _smsPendingAction = null;
+  const fn  = _smsPendingActionBase;
+  _smsPendingActionBase = null;
+  _smsPendingAction     = null;
+
+  // 모달은 닫지 않는다 — sendToMany가 진행 상황을 표시한 뒤 스스로 닫는다.
+  // (다중 발송이 아닌 경우를 위해 여기서도 한 번 더 닫아준다)
+  if(fn){
+    try { await fn(idx); }
+    finally { closeModal('m-sms-confirm'); }
+  } else {
+    closeModal('m-sms-confirm');
+  }
 }
 
 function sendBulkSms(){
@@ -7559,11 +7636,12 @@ function sendBulkSms(){
   if(!unpaid.length){ showToast('미납 학생이 없습니다.','info'); return; }
   const sms   = currentAcademy.sms||{};
 
+  if(!_smsCredReady){ showToast('학원 설정에서 SMS API Key를 먼저 등록해주세요.','error'); return; }
+
   _smsPendingActionBase = (tplIdx)=>{
     const tpl = (currentAcademy.smsTemplates||[])[tplIdx];
-    logSms(unpaid.length,'SMS', `전체 미납 ${unpaid.length}명 — ${tpl?.name||'기본 템플릿'}`);
-    renderSmsLog();
-    showToast(`${unpaid.length}명에게 문자 발송 완료 (시뮬레이션)`,'success');
+    if(!tpl){ showToast('템플릿을 선택해주세요.','error'); return; }
+    return sendToMany(unpaid, (s)=>applyVars(tpl.body||'', s), `전체 미납 — ${tpl.name}`);
   };
 
   confirmSms(
