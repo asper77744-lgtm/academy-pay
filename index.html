@@ -896,7 +896,7 @@ tbody tr:hover td{background:#f8f9ff}
       </div>
         <div class="tbl-wrap" style="overflow-x:auto"><table style="min-width:0;width:100%"><thead><tr>
           <th style="position:sticky;left:0;z-index:2;background:var(--surface)">학생</th>
-          <th>반/과목</th><th>납부월</th><th>청구</th><th>납부</th><th>잔액</th><th>방법</th><th>일자</th><th>상태</th><th></th>
+          <th>반/과목</th><th id="pay-th-month"></th><th>청구</th><th>납부</th><th>잔액</th><th>방법</th><th id="pay-th-date"></th><th>상태</th><th></th>
         </tr></thead><tbody id="pay-tbody"></tbody></table></div>
         <div id="pay-summary" style="padding:12px 16px;border-top:1.5px solid var(--border);background:var(--surface2);
           display:flex;gap:18px;flex-wrap:wrap;align-items:center;font-size:13px"></div>
@@ -946,7 +946,7 @@ tbody tr:hover td{background:#f8f9ff}
             <th>연락처</th>
             <th>반/과목</th>
             <th>미납 월</th>
-            <th>수납일</th>
+            <th id="unpaid-th-payday"></th>
             <th>총 미납액</th>
             <th>경과일</th>
             <th>처리</th>
@@ -5645,7 +5645,7 @@ function renderPayments(){
   let list=payments.filter(p=>{
     const s=students.find(x=>x.id===p.studentId);
     return matchQuery(p,s) && (!month||p.month===month) && matchStatus(p) && (!method||p.method===method);
-  }).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  });
 
   // '미납'으로 거를 때는 수납 기록이 아예 없는 학생도 함께 보여준다.
   // (미납은 별도 데이터가 아니라 "기록이 없는 상태"라서, 기록만 보면 전부 누락된다)
@@ -5684,8 +5684,23 @@ function renderPayments(){
         });
       });
     });
-    list.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   }
+
+  // 정렬 — 기본은 일자 오름차순(1일 → 31일)
+  paintSortTh('pay-th-month','납부월','month',_paySort,setPaySort);
+  paintSortTh('pay-th-date','일자','date',_paySort,setPaySort);
+
+  list.sort((a,b)=>{
+    const k=_paySort.key;
+    const va = k==='month' ? (a._forMonth||a.month||'') : (a.date||'');
+    const vb = k==='month' ? (b._forMonth||b.month||'') : (b.date||'');
+    const r  = cmpBy(va, vb, _paySort.dir);
+    if(r!==0) return r;
+    // 같은 값이면 학생 이름순
+    const na=(students.find(x=>x.id===a.studentId)||{}).name||'';
+    const nb=(students.find(x=>x.id===b.studentId)||{}).name||'';
+    return na.localeCompare(nb);
+  });
 
   renderPaySummary(list, month, status, basis);
   const sb={paid:'b-success',partial:'b-warning',pending:'b-danger'};
@@ -5816,6 +5831,49 @@ function showMonthDetail(my){
     </tr>`).join('') : '<tr><td colspan="5" class="empty-row"><p>이 달에 입금된 내역이 없습니다</p></td></tr>';
 
   openModal('m-month-detail');
+}
+
+// ── 표 정렬 ────────────────────────────────────────
+let _paySort    = { key:'date',  dir:'asc' };   // 수납내역: 일자 오름차순
+let _unpaidSort = { key:'payday', dir:'asc' };  // 미납관리: 수납일 오름차순
+
+// 정렬 가능한 표 헤더를 갱신한다 (요소는 그대로 두고 내용만 바꾼다)
+function paintSortTh(id, label, key, state, fn){
+  const th = document.getElementById(id);
+  if(!th) return;
+  const on = state.key===key;
+  const ar = on ? (state.dir==='asc' ? '▲' : '▼') : '<span style="opacity:.3">↕</span>';
+  th.style.cursor='pointer';
+  th.style.userSelect='none';
+  th.style.whiteSpace='nowrap';
+  th.setAttribute('data-tip','클릭하면 정렬');
+  th.innerHTML = `${label} <span style="font-size:9px;margin-left:2px">${ar}</span>`;
+  th.onclick = ()=>fn(key);
+}
+
+function setPaySort(key){
+  if(_paySort.key===key) _paySort.dir = _paySort.dir==='asc' ? 'desc' : 'asc';
+  else _paySort = { key, dir:'asc' };
+  renderPayments();
+}
+
+function setUnpaidSort(key){
+  if(_unpaidSort.key===key) _unpaidSort.dir = _unpaidSort.dir==='asc' ? 'desc' : 'asc';
+  else _unpaidSort = { key, dir:'asc' };
+  renderUnpaid();
+}
+
+// 정렬 비교 (빈 값은 항상 뒤로)
+function cmpBy(a, b, dir){
+  const ea = a===''||a===null||a===undefined;
+  const eb = b===''||b===null||b===undefined;
+  if(ea && eb) return 0;
+  if(ea) return 1;
+  if(eb) return -1;
+  const r = typeof a==='number' && typeof b==='number'
+    ? a-b
+    : String(a).localeCompare(String(b));
+  return dir==='asc' ? r : -r;
 }
 
 function renderPaySummary(list, month, status, basis){
@@ -6062,7 +6120,17 @@ function renderUnpaid(){
       oldestUnpaid: x.months[0].unpaid,
       elapsedDays: Math.floor((today - due) / 86400000)
     };
-  }).sort((a,b)=> b.months.length - a.months.length || b.total - a.total);
+  });
+
+  // 정렬 — 기본은 수납일 오름차순
+  paintSortTh('unpaid-th-payday','수납일','payday',_unpaidSort,setUnpaidSort);
+
+  unpaidRows.sort((a,b)=>{
+    const r = cmpBy(getStudentPayDay(a.s), getStudentPayDay(b.s), _unpaidSort.dir);
+    if(r!==0) return r;
+    // 같은 수납일이면 많이 밀린 순 → 금액 큰 순
+    return (b.months.length-a.months.length) || (b.total-a.total);
+  });
 
   // 완납 행 — 밀린 달이 없는 학생
   const paidRows = info.filter(x=>!x.months.length).map(x=>{
