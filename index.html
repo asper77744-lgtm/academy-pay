@@ -877,11 +877,11 @@ tbody tr:hover td{background:#f8f9ff}
           <select class="fs" id="pay-f-month" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 기간</option></select>
           <select class="fs" id="pay-f-status" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 상태</option><option value="paid">납부완료</option><option value="partial">부분납부</option><option value="pending">미납</option></select>
           <select class="fs" id="pay-f-method" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 방법</option><option>현금</option><option>계좌이체</option><option>카드</option></select>
-          <input class="si" id="pay-q" placeholder="학생 이름 검색..." oninput="renderPayments()" style="flex:1;font-size:14px"/>
+          <input class="si" id="pay-q" placeholder="이름 / 전화번호 / 입금자명 검색..." oninput="renderPayments()" style="flex:1;font-size:14px"/>
         </div>
         <!-- 모바일 툴바: 검색75% + 기간25% -->
         <div class="pay-mob-toolbar" style="display:none;gap:6px">
-          <input placeholder="이름 검색..." oninput="document.getElementById('pay-q').value=this.value;renderPayments()"
+          <input placeholder="이름/전화/입금자 검색..." oninput="document.getElementById('pay-q').value=this.value;renderPayments()"
             style="flex:3;min-width:0;font-size:16px;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)"/>
           <select id="pay-f-month-mob" onchange="document.getElementById('pay-f-month').value=this.value;renderPayments()"
             style="flex:1;min-width:0;font-size:16px;padding:8px 4px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)">
@@ -893,6 +893,8 @@ tbody tr:hover td{background:#f8f9ff}
           <th style="position:sticky;left:0;z-index:2;background:var(--surface)">학생</th>
           <th>반/과목</th><th>납부월</th><th>청구</th><th>납부</th><th>잔액</th><th>방법</th><th>일자</th><th>상태</th><th></th>
         </tr></thead><tbody id="pay-tbody"></tbody></table></div>
+        <div id="pay-summary" style="padding:12px 16px;border-top:1.5px solid var(--border);background:var(--surface2);
+          display:flex;gap:18px;flex-wrap:wrap;align-items:center;font-size:13px"></div>
       </div>
     </div>
 
@@ -5579,10 +5581,28 @@ function renderPayments(){
   const status=document.getElementById('pay-f-status').value;
   const method=document.getElementById('pay-f-method').value;
   const {payments,students}=currentAcademy;
+
+  // 통합 검색 — 학생 이름 / 전화번호 / 입금자명(계좌이체·지역화폐, 분납 이력 포함)
+  const matchQuery=(p,s)=>{
+    if(!q) return true;
+    if(s && s.name && s.name.toLowerCase().includes(q)) return true;
+    if(s && (s.phone||'').replace(/-/g,'').includes(q.replace(/-/g,''))) return true;
+    if((p.depositor||'').toLowerCase().includes(q)) return true;
+    return getPayHistory(p).some(h=>(h.depositor||'').toLowerCase().includes(q));
+  };
+
+  // 상태 필터 — '미납'을 고르면 부분납부(잔액이 남은 건)도 함께 본다.
+  // 원장님 입장에서 "아직 덜 받은 건"이 곧 미납이기 때문.
+  const matchStatus=p=>{
+    if(!status) return true;
+    if(status==='pending') return p.status==='pending' || p.status==='partial';
+    return p.status===status;
+  };
+
   let list=payments.filter(p=>{
     const s=students.find(x=>x.id===p.studentId);
-    return(!q||(s&&s.name.toLowerCase().includes(q)))&&(!month||p.month===month)&&(!status||p.status===status)&&(!method||p.method===method);
-  }).sort((a,b)=>b.date.localeCompare(a.date));
+    return matchQuery(p,s) && (!month||p.month===month) && matchStatus(p) && (!method||p.method===method);
+  }).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 
   // '미납'으로 거를 때는 수납 기록이 아예 없는 학생도 함께 보여준다.
   // (미납은 별도 데이터가 아니라 "기록이 없는 상태"라서, 기록만 보면 전부 누락된다)
@@ -5590,7 +5610,7 @@ function renderPayments(){
     const listed=new Set(list.map(p=>p.studentId));
     students.filter(isActiveStudent).forEach(s=>{
       if(listed.has(s.id)) return;
-      if(q && !s.name.toLowerCase().includes(q)) return;
+      if(q && !(s.name.toLowerCase().includes(q) || (s.phone||'').replace(/-/g,'').includes(q.replace(/-/g,'')))) return;
       if(!getUnpaidMonths(s).some(m=>m.month===month)) return;
       list.push({
         studentId:s.id, month, charge:calcTotalFee(s), amount:0,
@@ -5598,6 +5618,8 @@ function renderPayments(){
       });
     });
   }
+
+  renderPaySummary(list, month, status);
   const sb={paid:'b-success',partial:'b-warning',pending:'b-danger'};
   const sl={paid:'납부완료',partial:'부분납부',pending:'미납'};
   document.getElementById('pay-tbody').innerHTML=list.length?list.map(p=>{
@@ -5649,6 +5671,32 @@ function renderPayments(){
 }
 
 let _editPaymentId = null;
+
+// 현재 목록의 합계를 아래에 정리해서 보여준다
+function renderPaySummary(list, month, status){
+  const el=document.getElementById('pay-summary');
+  if(!el) return;
+
+  if(!list.length){ el.innerHTML=''; return; }
+
+  const charge = list.reduce((a,p)=>a+(p.charge||0), 0);
+  const paid   = list.reduce((a,p)=>a+(p.amount||0), 0);
+  const remain = list.reduce((a,p)=>a+Math.max(0,(p.charge||0)-(p.amount||0)), 0);
+  const people = new Set(list.map(p=>p.studentId)).size;
+  const rate   = charge>0 ? Math.round(paid/charge*100) : 0;
+
+  const label = month ? `${month}` : '전체 기간';
+  const item=(t,v,c)=>`<span style="color:var(--text3)">${t}</span> <strong style="color:${c||'var(--text)'};margin-left:4px">${v}</strong>`;
+
+  el.innerHTML = [
+    `<strong style="font-size:13px">${label}</strong>`,
+    item('건수', `${list.length}건 · ${people}명`),
+    item('청구', `${fmt(charge)}만원`),
+    item('납부', `${fmt(paid)}만원`, '#3b82f6'),
+    remain>0 ? item('잔액', `${fmt(remain)}만원`, 'var(--danger)') : '',
+    charge>0 ? item('수납률', `${rate}%`, rate>=90?'var(--success)':rate>=60?'#f59e0b':'var(--danger)') : ''
+  ].filter(Boolean).join('<span style="color:var(--border)">|</span>');
+}
 
 function editPayment(id){
   const p = currentAcademy.payments.find(x=>x.id===id);
