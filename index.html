@@ -1763,6 +1763,28 @@ tbody tr:hover td{background:#f8f9ff}
 </div>
 
 <!-- ══ 수납 처리 (미납관리에서 호출) ══ -->
+<div class="modal-overlay" id="m-month-detail">
+  <div class="modal" style="width:640px">
+    <h2>📋 <span id="md-title"></span> 수납 상세</h2>
+    <div id="md-summary" style="background:var(--surface2);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px"></div>
+    <div style="max-height:52vh;overflow:auto;border:1px solid var(--border);border-radius:8px">
+      <table style="width:100%;font-size:13px">
+        <thead><tr>
+          <th style="position:sticky;top:0;background:var(--surface);z-index:1">학생</th>
+          <th style="position:sticky;top:0;background:var(--surface);z-index:1">입금일</th>
+          <th style="position:sticky;top:0;background:var(--surface);z-index:1">금액</th>
+          <th style="position:sticky;top:0;background:var(--surface);z-index:1">해당월</th>
+          <th style="position:sticky;top:0;background:var(--surface);z-index:1">방법</th>
+        </tr></thead>
+        <tbody id="md-tbody"></tbody>
+      </table>
+    </div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn btn-neutral" onclick="closeModal('m-month-detail')">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="m-quick-pay">
   <div class="modal" style="width:540px">
     <h2>💳 수납 처리 — <span id="qp-student-name"></span></h2>
@@ -3543,7 +3565,8 @@ function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
       return `<div class="cb" style="justify-content:flex-end;min-height:${chartH+4}px;cursor:${hasAny?'pointer':'default'}"
           onmouseenter="showChartTip(event,'${tipData}')"
           onmousemove="moveChartTip(event)"
-          onmouseleave="hideChartTip()">
+          onmouseleave="hideChartTip()"
+          onclick="${hasAny?`hideChartTip();showMonthDetail('${d.my}')`:''}">
         <div style="display:flex;flex-direction:column;align-items:center;gap:1px;margin-bottom:1px;line-height:1.2;font-size:9px;font-family:'DM Mono',monospace">
           ${valLine1}${valLine2}
         </div>
@@ -5673,6 +5696,62 @@ function renderPayments(){
 let _editPaymentId = null;
 
 // 현재 목록의 합계를 아래에 정리해서 보여준다
+// 월별 수납 막대를 클릭하면 그 금액이 어떻게 합산됐는지 보여준다.
+// 기준은 '실제 입금일' — 그 달에 통장에 들어온 돈을 전부 모은다.
+function showMonthDetail(my){
+  const payments = currentAcademy.payments||[];
+  const rows = [];
+
+  payments.forEach(p=>{
+    const s = getStudent(p.studentId);
+    getPayHistory(p).forEach(h=>{
+      if(!h.date || !h.date.startsWith(my)) return;
+      if(!(h.amount>0)) return;
+      rows.push({
+        name: s?.name||'-', date: h.date, amount: h.amount,
+        forMonth: p.month, method: h.method||p.method||'-',
+        depositor: h.depositor||p.depositor||'',
+        isPrepay: p.month > my
+      });
+    });
+  });
+
+  rows.sort((a,b)=>a.date.localeCompare(b.date) || a.name.localeCompare(b.name));
+
+  const total   = rows.reduce((a,r)=>a+r.amount,0);
+  const prepay  = rows.filter(r=>r.isPrepay).reduce((a,r)=>a+r.amount,0);
+  const normal  = total - prepay;
+  const people  = new Set(rows.map(r=>r.name)).size;
+
+  document.getElementById('md-title').textContent = my;
+  document.getElementById('md-summary').innerHTML = `
+    <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center">
+      <span><span style="color:var(--text3)">실 수령 합계</span> <strong style="font-size:15px;color:#3b82f6;margin-left:4px">${fmt(total)}만원</strong></span>
+      <span style="color:var(--border)">|</span>
+      <span><span style="color:var(--text3)">해당월분</span> <strong style="margin-left:4px">${fmt(normal)}만원</strong></span>
+      ${prepay>0?`<span><span style="color:var(--text3)">선납 입금</span> <strong style="color:#f59e0b;margin-left:4px">${fmt(prepay)}만원</strong></span>`:''}
+      <span style="color:var(--border)">|</span>
+      <span><span style="color:var(--text3)">건수</span> <strong style="margin-left:4px">${rows.length}건 · ${people}명</strong></span>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:6px">
+      실제 입금일 기준입니다. 지난달 미납분을 이번 달에 받으면 여기에 들어옵니다.
+    </div>`;
+
+  document.getElementById('md-tbody').innerHTML = rows.length ? rows.map(r=>`
+    <tr>
+      <td><strong>${r.name}</strong></td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px">${r.date}</td>
+      <td><strong>${fmt(r.amount)}만원</strong></td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px">
+        ${r.forMonth}${r.isPrepay?'<span class="badge b-info" style="margin-left:4px">선납</span>':''}
+        ${r.forMonth<my?'<span class="badge b-warning" style="margin-left:4px">이월</span>':''}
+      </td>
+      <td style="font-size:12px">${r.method}${r.depositor?`<br><span style="color:var(--text3);font-size:11px">${r.depositor}</span>`:''}</td>
+    </tr>`).join('') : '<tr><td colspan="5" class="empty-row"><p>이 달에 입금된 내역이 없습니다</p></td></tr>';
+
+  openModal('m-month-detail');
+}
+
 function renderPaySummary(list, month, status){
   const el=document.getElementById('pay-summary');
   if(!el) return;
