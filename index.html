@@ -3261,39 +3261,27 @@ function renderStats(){
   if(tbody){
     tbody.innerHTML=months.map(m=>{
       const my=`${year}-${String(m).padStart(2,'0')}`;
-      const mp=payments.filter(p=>p.month===my && p.amount>0);
       const isCur=my===curYm;
 
-      // 학생수: 해당 월에 수납 기록이 있거나 현재 재원인 학생
-      // 이번달은 현재 재원생 기준, 과거달은 수납 기록 기준
-      let monthStudents, charge;
-      if(isCur){
-        // 이번달: 현재 재원생 기준
-        monthStudents = active;
-        charge = monthStudents.reduce((a,s)=>a+calcTotalFee(s),0);
-      } else {
-        // 과거/미래달: 수납 기록에 등장한 학생 기준
-        const stuIds = [...new Set(mp.map(p=>p.studentId))];
-        monthStudents = students.filter(s=>stuIds.includes(s.id));
-        // charge는 수납기록의 charge 합산 (중복 제거: studentId당 최대값)
-        const chargeMap = {};
-        mp.forEach(p=>{ chargeMap[p.studentId] = Math.max(chargeMap[p.studentId]||0, p.charge||0); });
-        charge = Object.values(chargeMap).reduce((a,v)=>a+v,0);
-        // charge가 없으면 수납액으로 대체
-        if(!charge) charge = mp.reduce((a,p)=>a+(p.charge||p.amount||0),0);
+      // 청구/수납/미납을 학생 단위 동일 규칙으로 계산 → 세 값이 항상 정합.
+      const t = monthBillingTotals(my);
+      if(!t || !t.charge){
+        // 미래달·앱 도입 전 달·과금 대상 없음 → 전부 '-'
+        return`<tr style="${isCur?'background:rgba(99,102,241,.06);font-weight:600':''}">
+          <td>${m}월${isCur?' <span style="font-size:10px;color:var(--accent)">(이번달)</span>':''}</td>
+          <td>-</td><td>-</td><td>-</td><td>-</td><td>${t&&t.cnt?t.cnt+'명':'-'}</td>
+        </tr>`;
       }
-
-      const paid   = mp.reduce((a,p)=>a+p.amount,0);
-      const unpaid = Math.max(0, charge - paid);
+      const charge = t.charge, paid = t.paid, unpaid = t.unpaid;
       const r      = charge ? Math.round(paid/charge*100) : 0;
-      const stdCnt = monthStudents.length;
+      const stdCnt = t.cnt;
 
       return`<tr style="${isCur?'background:rgba(99,102,241,.06);font-weight:600':''}">
         <td>${m}월${isCur?' <span style="font-size:10px;color:var(--accent)">(이번달)</span>':''}</td>
-        <td>${charge?fmt(charge)+'만원':'-'}</td>
+        <td>${fmt(charge)}만원</td>
         <td><strong style="color:${paid?'var(--success)':'var(--text3)'}">${paid?fmt(paid)+'만원':'-'}</strong></td>
         <td style="color:${unpaid?'var(--danger)':'var(--text3)'}">${unpaid?fmt(unpaid)+'만원':'-'}</td>
-        <td>${charge?`<span class="badge ${r>=80?'b-success':r>=50?'b-warning':'b-danger'}">${r}%</span>`:'-'}</td>
+        <td><span class="badge ${r>=80?'b-success':r>=50?'b-warning':'b-danger'}">${r}%</span></td>
         <td>${stdCnt?stdCnt+'명':'-'}</td>
       </tr>`;
     }).join('');
@@ -3538,6 +3526,36 @@ function calcMonthExpected(my){
     total += (p && p.charge!=null && (p.charge>0 || p.chargeAdjusted)) ? p.charge : calcTotalFee(s);
   });
   return { thisMonth: total, carried: 0, total };
+}
+
+// 월별 상세 표용 — 그 달의 청구총액/수납총액/미납총액을 학생 단위로 계산한다.
+//   과금 대상 판정은 calcMonthExpected / getUnpaidMonths 와 동일 규칙(체험·퇴원·면제·청구조정 반영).
+//   ★ 학생 단위로 (수납 = min(받은금액, 청구), 미납 = max(0, 청구-받은금액)) 을 합산하므로
+//     '청구총액 = 수납총액 + 미납총액' 이 항상 정확히 맞는다.
+//   미래달·앱 도입 전(미추적) 과거달은 null(→ 표에서 '-').
+function monthBillingTotals(my){
+  const cur = ym();
+  if(my > cur) return null;                                   // 미래
+  if(my < cur && !getTrackedMonths().has(my)) return null;    // 앱 도입 전으로 보이는 달
+  const pays = currentAcademy.payments||[];
+  let charge=0, paid=0, unpaid=0, cnt=0;
+  (currentAcademy.students||[]).forEach(s=>{
+    const start = getBillingStartMonth(s);
+    if(start && my < start) return;                            // 과금 시작 전(체험 등)
+    const wd = (s.withdrawDate||'').slice(0,7);
+    if(wd && my > wd) return;                                  // 퇴원 후
+    if(my===cur){ if(!isActiveStudent(s)) return; }            // 이번달: 재원생만
+    else if(!isActiveStudent(s) && s.status!=='withdrawn') return; // 과거달: 재원 or 퇴원생
+    const p = pays.find(x=>x.studentId===s.id && x.month===my);
+    if(p && p.waived) return;                                  // 면제
+    const c  = (p && p.charge!=null && (p.charge>0 || p.chargeAdjusted)) ? p.charge : calcTotalFee(s);
+    const pd = p ? (p.amount||0) : 0;
+    charge += c;
+    paid   += Math.min(pd, c);                                 // 청구 대비 수납(초과 선납분 제외)
+    unpaid += Math.max(0, c - pd);
+    cnt++;
+  });
+  return { charge, paid, unpaid, cnt };
 }
 
 function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
@@ -8790,7 +8808,14 @@ function exportUnpaidExcel(){
 function exportStatsExcel(){
   const year=parseInt(document.getElementById('stats-year').value)||now().getFullYear();
   const {payments}=currentAcademy;
-  const rows=Array.from({length:12},(_,i)=>{const m=`${year}-${String(i+1).padStart(2,'0')}`;const mp=payments.filter(p=>p.month===m);return{월:`${year}년 ${i+1}월`,청구총액:mp.reduce((a,p)=>a+p.charge,0)+'만원',수납총액:mp.reduce((a,p)=>a+p.amount,0)+'만원',미납총액:(mp.reduce((a,p)=>a+p.charge,0)-mp.reduce((a,p)=>a+p.amount,0))+'만원',건수:mp.length+'건'};});
+  // 화면 '월별 상세 수납 현황'과 동일한 규칙(monthBillingTotals)으로 계산 → 표와 값이 일치.
+  const rows=Array.from({length:12},(_,i)=>{
+    const m=`${year}-${String(i+1).padStart(2,'0')}`;
+    const t=monthBillingTotals(m);
+    if(!t) return{월:`${year}년 ${i+1}월`,청구총액:'-',수납총액:'-',미납총액:'-',수납률:'-',학생수:'-'};
+    const r=t.charge?Math.round(t.paid/t.charge*100):0;
+    return{월:`${year}년 ${i+1}월`,청구총액:t.charge+'만원',수납총액:t.paid+'만원',미납총액:t.unpaid+'만원',수납률:r+'%',학생수:t.cnt+'명'};
+  });
   const ws=XLSX.utils.json_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,year+'년통계');
   XLSX.writeFile(wb,`수납통계_${year}.xlsx`);showToast('엑셀 저장 완료','success');
 }
