@@ -1768,6 +1768,38 @@ tbody tr:hover td{background:#f8f9ff}
 </div>
 
 <!-- ══ 수납 처리 (미납관리에서 호출) ══ -->
+<div class="modal-overlay" id="m-charge-adjust">
+  <div class="modal" style="width:440px">
+    <h2>🧮 청구 조정 — <span id="ca-title"></span></h2>
+    <input type="hidden" id="ca-sid"/><input type="hidden" id="ca-month"/>
+
+    <div id="ca-info" style="background:var(--surface2);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px"></div>
+
+    <div class="ff">
+      <label>청구금액 (만원) *</label>
+      <input type="number" id="ca-charge" step="0.1" min="0"/>
+      <span style="font-size:11px;color:var(--text3)">그 달에 실제로 받아야 할 금액으로 바꿉니다</span>
+    </div>
+
+    <div class="ff" style="margin-top:10px">
+      <label>사유 (선택)</label>
+      <input id="ca-note" placeholder="예: 8월 2주 결석으로 조정"/>
+    </div>
+
+    <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 14px;font-size:12px;color:#795548;margin-top:12px">
+      <strong>면제</strong>를 누르면 그 달은 청구하지 않은 것으로 처리되어 미납에서 사라집니다.<br>
+      이미 받은 금액이 있으면 면제할 수 없습니다.
+    </div>
+
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn btn-neutral" onclick="closeModal('m-charge-adjust')">취소</button>
+      <button class="btn btn-warning" onclick="waiveCharge()">🚫 면제</button>
+      <button class="btn btn-danger"  onclick="resetCharge()">↩ 원래대로</button>
+      <button class="btn btn-primary" onclick="saveChargeAdjust()">저장</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="m-month-detail">
   <div class="modal" style="width:640px">
     <h2>📋 <span id="md-title"></span> 수납 상세</h2>
@@ -3502,7 +3534,8 @@ function calcMonthExpected(my){
     if(!isActiveStudent(s) && s.status!=='withdrawn') return;
 
     const p = pays.find(x=>x.studentId===s.id && x.month===my);
-    total += (p && p.charge) ? p.charge : calcTotalFee(s);
+    if(p && p.waived) return;
+    total += (p && p.charge!=null && (p.charge>0 || p.chargeAdjusted)) ? p.charge : calcTotalFee(s);
   });
   return { thisMonth: total, carried: 0, total };
 }
@@ -5782,6 +5815,120 @@ let _editPaymentId = null;
 // 현재 목록의 합계를 아래에 정리해서 보여준다
 // 월별 수납 막대를 클릭하면 그 금액이 어떻게 합산됐는지 보여준다.
 // 기준은 '실제 입금일' — 그 달에 통장에 들어온 돈을 전부 모은다.
+// ── 특정 달의 청구액 조정 / 면제 ──────────────────
+//   지난달 수강료를 고치거나, 그 달은 청구하지 않기로 할 때 쓴다.
+//   다른 달은 건드리지 않는다.
+function openChargeAdjust(sid, month){
+  const s = getStudent(sid);
+  if(!s) return;
+  const p = (currentAcademy.payments||[]).find(x=>x.studentId===sid && x.month===month);
+  const baseFee = calcTotalFee(s);
+  const cur = (p && p.charge!=null && (p.charge>0 || p.chargeAdjusted)) ? p.charge : baseFee;
+
+  document.getElementById('ca-title').textContent = `${s.name} · ${month}`;
+  document.getElementById('ca-sid').value   = sid;
+  document.getElementById('ca-month').value = month;
+  document.getElementById('ca-charge').value = cur;
+  document.getElementById('ca-note').value   = (p && p.chargeNote) || '';
+
+  document.getElementById('ca-info').innerHTML = `
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <span><span style="color:var(--text3)">기본 수강료</span> <strong style="margin-left:4px">${fmt(baseFee)}만원</strong></span>
+      <span><span style="color:var(--text3)">현재 청구</span> <strong style="margin-left:4px">${fmt(cur)}만원</strong>${p&&p.chargeAdjusted?' <span class="badge b-info">조정됨</span>':''}</span>
+      <span><span style="color:var(--text3)">받은 금액</span> <strong style="color:${p&&p.amount>0?'#3b82f6':'var(--text3)'};margin-left:4px">${fmt(p?(p.amount||0):0)}만원</strong></span>
+    </div>`;
+
+  openModal('m-charge-adjust');
+}
+
+// 조정 대상 기록을 찾거나 새로 만든다
+function _getOrCreateChargeRow(sid, month){
+  const s = getStudent(sid);
+  let p = (currentAcademy.payments||[]).find(x=>x.studentId===sid && x.month===month);
+  if(!p){
+    p = { id:uid(), studentId:sid, month, charge:calcTotalFee(s), amount:0,
+          date:'', method:'', note:'', status:'pending', history:[] };
+    currentAcademy.payments.push(p);
+  }
+  return p;
+}
+
+function saveChargeAdjust(){
+  const sid   = document.getElementById('ca-sid').value;
+  const month = document.getElementById('ca-month').value;
+  const val   = parseFloat(document.getElementById('ca-charge').value);
+  const note  = document.getElementById('ca-note').value.trim();
+  if(isNaN(val) || val<0){ showToast('청구금액을 올바르게 입력해주세요.','error'); return; }
+
+  const p = _getOrCreateChargeRow(sid, month);
+  if((p.amount||0) > val){
+    showToast(`이미 받은 금액(${fmt(p.amount)}만원)보다 적게 조정할 수 없습니다.`,'error');
+    return;
+  }
+
+  p.charge         = val;
+  p.chargeAdjusted = true;
+  p.chargeNote     = note;
+  p.waived         = false;
+  p.status = (p.amount||0) >= val ? 'paid' : (p.amount||0) > 0 ? 'partial' : 'pending';
+
+  const s = getStudent(sid);
+  if(s) addHistory(s, '청구 조정', `${month} 청구 ${fmt(val)}만원${note?' — '+note:''}`);
+  saveAcademy(); closeModal('m-charge-adjust'); refreshAll();
+  showToast(`${month} 청구금액을 ${fmt(val)}만원으로 변경했습니다.`,'success');
+}
+
+function waiveCharge(){
+  const sid   = document.getElementById('ca-sid').value;
+  const month = document.getElementById('ca-month').value;
+  const note  = document.getElementById('ca-note').value.trim();
+  const s     = getStudent(sid);
+
+  const existing = (currentAcademy.payments||[]).find(x=>x.studentId===sid && x.month===month);
+  if(existing && (existing.amount||0) > 0){
+    showToast(`이미 ${fmt(existing.amount)}만원을 받은 달은 면제할 수 없습니다. 먼저 수납 기록을 정리해주세요.`,'error');
+    return;
+  }
+  if(!confirm(`${s?.name||''} 학생의 ${month} 수강료를 면제 처리할까요?\n미납 목록에서 사라집니다.`)) return;
+
+  const p = _getOrCreateChargeRow(sid, month);
+  p.charge         = 0;
+  p.amount         = 0;
+  p.waived         = true;
+  p.chargeAdjusted = true;
+  p.chargeNote     = note || '면제';
+  p.status         = 'pending';
+
+  if(s) addHistory(s, '청구 면제', `${month} 면제${note?' — '+note:''}`);
+  saveAcademy(); closeModal('m-charge-adjust'); refreshAll();
+  showToast(`${month} 청구를 면제 처리했습니다.`,'success');
+}
+
+function resetCharge(){
+  const sid   = document.getElementById('ca-sid').value;
+  const month = document.getElementById('ca-month').value;
+  const s     = getStudent(sid);
+  const list  = currentAcademy.payments||[];
+  const p     = list.find(x=>x.studentId===sid && x.month===month);
+  if(!p){ closeModal('m-charge-adjust'); return; }
+
+  if((p.amount||0) > 0){
+    // 받은 돈이 있으면 기록은 남기고 청구액만 되돌린다
+    p.charge = calcTotalFee(s);
+    p.waived = false;
+    p.chargeAdjusted = false;
+    p.chargeNote = '';
+    p.status = p.amount >= p.charge ? 'paid' : 'partial';
+  } else {
+    // 받은 돈이 없으면 기록 자체를 지운다
+    currentAcademy.payments = list.filter(x=>x!==p);
+  }
+
+  if(s) addHistory(s, '청구 조정 취소', `${month} 원래 수강료로 되돌림`);
+  saveAcademy(); closeModal('m-charge-adjust'); refreshAll();
+  showToast(`${month} 청구를 원래대로 되돌렸습니다.`,'success');
+}
+
 function showMonthDetail(my){
   const payments = currentAcademy.payments||[];
   const rows = [];
@@ -6095,10 +6242,13 @@ function getUnpaidMonths(s){
   [...months].sort().forEach(m=>{
     const p = mine.find(x=>x.month===m);
     if(p && p.status==='paid') return;
-    const charge = (p && p.charge) ? p.charge : calcTotalFee(s);
+    if(p && p.waived) return;                       // 면제 처리된 달
+    // charge가 0이어도 "조정된 0원"이면 그대로 쓴다 (수강료로 되돌리지 않는다)
+    const charge = (p && p.charge!=null && (p.charge>0 || p.chargeAdjusted))
+                     ? p.charge : calcTotalFee(s);
     const paid   = p ? (p.amount||0) : 0;
     const unpaid = Math.max(0, charge - paid);
-    if(unpaid > 0) out.push({month:m, charge, paid, unpaid, recorded:!!p});
+    if(unpaid > 0) out.push({month:m, charge, paid, unpaid, recorded:!!p, adjusted:!!(p&&p.chargeAdjusted)});
   });
   return out;
 }
@@ -6171,7 +6321,7 @@ function renderUnpaid(){
       <td>${subjectLabel!=='-'?`<span class="badge b-info">${subjectLabel}</span>`:'-'}</td>
       <td style="font-family:'DM Mono',monospace;min-width:120px">
         ${r.months.length>1?`<span class="badge b-danger" style="margin-bottom:3px">${r.months.length}개월 밀림</span><br>`:''}
-        ${r.months.map(m=>`<span class="badge ${m.month===curYm?'b-warning':'b-danger'}" style="margin:1px 2px 1px 0;font-size:10px${m.recorded?'':';opacity:.72'}" data-tip="${m.recorded?(m.paid>0?'부분납부 기록 있음':'미납으로 등록됨'):'수납 기록 없음'}">${m.month}${m.paid>0?' 부분':''}</span>`).join('')}
+        ${r.months.map(m=>`<span class="badge ${m.month===curYm?'b-warning':'b-danger'}" style="margin:1px 2px 1px 0;font-size:10px;cursor:pointer${m.recorded?'':';opacity:.72'}" data-tip="클릭하면 청구 조정 · ${m.recorded?(m.paid>0?'부분납부 기록 있음':'미납으로 등록됨'):'수납 기록 없음'}" onclick="event.stopPropagation();openChargeAdjust('${r.s.id}','${m.month}')">${m.month}${m.paid>0?' 부분':''}${m.adjusted?' ✎':''}</span>`).join('')}
       </td>
       <td style="font-size:12px;color:var(--text3)">매월 <strong style="color:var(--text)">${pd}일</strong></td>
       <td><strong style="color:${r.total>0?'var(--danger)':'var(--text2)'}">${r.total}만원</strong>${r.months.length>1?`<br><span style="font-size:10px;color:var(--text3)">${r.months.map(m=>m.unpaid).join(' + ')}</span>`:''}</td>
