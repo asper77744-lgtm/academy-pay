@@ -6253,6 +6253,26 @@ function getUnpaidMonths(s){
   return out;
 }
 
+// 미납관리 통합검색 매칭 — 이름 / 학생·보호자 전화 / 입금자명(계좌이체·지역화폐)
+// qClean 은 하이픈 제거 + 소문자로 정규화된 검색어여야 한다.
+function matchesUnpaidSearch(s, qClean, payments){
+  if(!qClean) return true;
+  if((s.phone||'').replace(/-/g,'').includes(qClean)) return true;
+  if((s.name||'').toLowerCase().includes(qClean)) return true;
+  const parents = (s.parents && s.parents.length)
+    ? s.parents
+    : (s.parent ? [{name:'', phone:s.parent}] : []);
+  if(parents.some(p =>
+      (p.phone||'').replace(/-/g,'').includes(qClean) ||
+      (p.name ||'').toLowerCase().includes(qClean)
+  )) return true;
+  return (payments||[]).some(p =>
+    p.studentId===s.id &&
+    (p.method==='계좌이체'||p.method==='지역화폐') &&
+    (p.depositor||'').toLowerCase().includes(qClean)
+  );
+}
+
 function renderUnpaid(){
   const {students,payments}=currentAcademy;
   const curYm=ym();
@@ -6271,8 +6291,15 @@ function renderUnpaid(){
     return Math.floor((today - dueDate) / 86400000);
   };
 
+  // 통합검색어로 아래 테이블도 필터링한다 (2글자 이상일 때만).
+  //   매칭 기준은 위 검색결과 박스(searchDepositorUnpaid)와 동일: 이름/전화/보호자/입금자명
+  const _uq        = (document.getElementById('depositor-search-input')?.value || '').trim();
+  const _filtering = _uq.length >= 2;
+  const _uqClean   = _uq.replace(/-/g,'').toLowerCase();
+  const _shown     = _filtering ? active.filter(s=>matchesUnpaidSearch(s,_uqClean,payments)) : active;
+
   // 학생별 누적 미납 계산
-  const info = active.map(s=>({s, months:getUnpaidMonths(s)}));
+  const info = _shown.map(s=>({s, months:getUnpaidMonths(s)}));
 
   // 미납 행 — 밀린 달이 하나라도 있으면 여기 들어온다.
   // (이번달은 냈지만 지난달이 밀린 학생도 잡힌다)
@@ -6331,7 +6358,7 @@ function renderUnpaid(){
         <button class="btn btn-warning btn-sm" data-tip="문자 발송" onclick="event.stopPropagation();sendSmsTo('${r.s.id}')" style="margin-left:4px">📱</button>
       </td>
     </tr>`;
-  }).join('') : `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--success);font-size:13px">🎉 미납 학생이 없습니다!</td></tr>`;
+  }).join('') : `<tr><td colspan="9" style="text-align:center;padding:20px;color:${_filtering?'var(--text3)':'var(--success)'};font-size:13px">${_filtering?'🔍 검색 조건에 맞는 미납 학생이 없습니다':'🎉 미납 학생이 없습니다!'}</td></tr>`;
 
   // 납부완료 학생 행 (선납 섹션)
   const paidHtml = paidRows.length ? `
@@ -6372,6 +6399,9 @@ function searchDepositorUnpaid(){
   const resultsBox  = document.getElementById('depositor-search-results');
   const resultList  = document.getElementById('depositor-result-list');
   const noResult    = document.getElementById('depositor-no-result');
+
+  // 아래 미납 테이블도 검색어에 맞춰 다시 그린다 (renderUnpaid가 입력값을 직접 읽는다)
+  renderUnpaid();
 
   if(q.length < 2){
     resultsBox.style.display='none';
@@ -6530,6 +6560,7 @@ function clearDepositorSearch(){
   document.getElementById('depositor-search-input').value='';
   document.getElementById('depositor-search-results').style.display='none';
   document.getElementById('depositor-no-result').style.display='none';
+  renderUnpaid();   // 필터 해제 → 전체 목록 복원
 }
 
 // 검색 결과에서 수납처리 모달 열기 (마스킹 입금자 자동 입력)
