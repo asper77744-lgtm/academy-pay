@@ -6354,7 +6354,7 @@ function renderUnpaid(){
       <td><strong style="color:${r.total>0?'var(--danger)':'var(--text2)'}">${r.total}만원</strong>${r.months.length>1?`<br><span style="font-size:10px;color:var(--text3)">${r.months.map(m=>m.unpaid).join(' + ')}</span>`:''}</td>
       <td><span class="badge ${dayBadgeFor(d)}">${dayTextFor(d)}</span>${r.months.length>1?`<br><span style="font-size:10px;color:var(--text3)">${r.oldest} 기준</span>`:''}</td>
       <td style="white-space:nowrap">
-        <button class="btn btn-success btn-sm" data-tip="${r.oldest}부터 수납 처리" onclick="event.stopPropagation();openQuickPayModal('${r.s.id}','${r.oldest}',${r.oldestUnpaid})">수납처리</button>
+        <button class="btn btn-success btn-sm" data-tip="${r.oldest}부터 수납 처리" onclick="event.stopPropagation();openQuickPayModal('${r.s.id}','${r.oldest}',${r.oldestUnpaid},true)">수납처리</button>
         <button class="btn btn-warning btn-sm" data-tip="문자 발송" onclick="event.stopPropagation();sendSmsTo('${r.s.id}')" style="margin-left:4px">📱</button>
       </td>
     </tr>`;
@@ -6523,10 +6523,11 @@ function searchDepositorUnpaid(){
           : `<span style="background:#eff6ff;color:var(--accent);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;margin-left:4px">🔖 ${nextYm} 선납가능</span>`)
       : `<span style="background:#fef2f2;color:var(--danger);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600">⚠ 미납 ${r.unpaid}만원</span>`;
 
-    // 클릭 동작: 미납 → 이번달 수납처리 / 완납 → 다음달 선납 모달
+    // 클릭 동작: 미납 → 밀린 달을 오래된 순으로 선택(preferUnpaid) / 완납 → 다음달 선납 모달
     const targetMonth = r.isPaid ? nextYm : curYm;
     const targetAmt   = r.isPaid ? calcTotalFee(r.s) : r.unpaid;
-    const clickAction = `openQuickPayModalFromSearch('${r.s.id}','${targetMonth}',${targetAmt},'${firstPhone.replace(/'/g,"\\'")}','${firstMasked.replace(/'/g,"\\'")}')`;
+    const preferUnpaid = r.isPaid ? 'false' : 'true';
+    const clickAction = `openQuickPayModalFromSearch('${r.s.id}','${targetMonth}',${targetAmt},'${firstPhone.replace(/'/g,"\\'")}','${firstMasked.replace(/'/g,"\\'")}',${preferUnpaid})`;
     const actionLabel = r.isPaid
       ? (nextPaid ? `→ 추가 선납` : `🔖 → 선납처리`)
       : `→ 수납처리`;
@@ -6564,8 +6565,8 @@ function clearDepositorSearch(){
 }
 
 // 검색 결과에서 수납처리 모달 열기 (마스킹 입금자 자동 입력)
-function openQuickPayModalFromSearch(sid, month, unpaidAmt, phone, maskedLabel){
-  openQuickPayModal(sid, month, unpaidAmt);
+function openQuickPayModalFromSearch(sid, month, unpaidAmt, phone, maskedLabel, preferUnpaid){
+  openQuickPayModal(sid, month, unpaidAmt, preferUnpaid);
   setTimeout(()=>{
     // 지역화폐 방법 자동 선택
     const lcBtn = [...document.querySelectorAll('.qp-method-btn')].find(b=>b.dataset.val==='지역화폐');
@@ -6594,7 +6595,7 @@ function openQuickPayModalFromSearch(sid, month, unpaidAmt, phone, maskedLabel){
 let _qpSelectedMethod = '';
 let _qpCurrentMonth   = '';
 
-function openQuickPayModal(sid, month, unpaidAmt){
+function openQuickPayModal(sid, month, unpaidAmt, preferUnpaid){
   const s = getStudent(sid); if(!s) return;
 
   document.getElementById('qp-student-id').value        = sid;
@@ -6618,12 +6619,22 @@ function openQuickPayModal(sid, month, unpaidAmt){
     <div><span style="color:var(--text3);font-size:11px">월 수강료</span><br><strong style="color:var(--accent)">${calcTotalFee(s)}만원</strong></div>
   `;
 
+  // 미납 처리 진입(preferUnpaid)이면 밀린 달을 오래된 순으로 전부 선택 → 7월이 먼저 잡힌다.
+  let initSel = null, scrollMonth = month;
+  if(preferUnpaid){
+    const ums = getUnpaidMonths(s);          // 오래된 순 정렬돼 있음
+    if(ums.length){
+      initSel = ums.map(u=>u.month);
+      scrollMonth = initSel[0];              // 가장 오래된 미납월
+    }
+  }
+
   // 납부월 버튼 생성
-  buildMonthButtons(sid, month);
+  buildMonthButtons(sid, scrollMonth, initSel);
   openModal('m-quick-pay');
 }
 
-function buildMonthButtons(sid, defaultMonth){
+function buildMonthButtons(sid, defaultMonth, initSel){
   const today  = now();
   const curYm  = ym();
   const months = [];
@@ -6682,20 +6693,24 @@ function buildMonthButtons(sid, defaultMonth){
   btns.innerHTML = quickBtns + monthGrid + customInput;
 
   // 초기 선택
+  //   initSel(밀린 달 목록)이 주어지면 오래된 순으로 전체를 미리 선택한다.
+  //   그렇지 않으면 기존처럼 단일 달만 선택.
   const initMonth = defaultMonth||curYm;
-  _qpSelectedMonths = [initMonth];
-  _qpCurrentMonth   = initMonth;
+  _qpSelectedMonths = (initSel && initSel.length) ? initSel.slice().sort() : [initMonth];
+  _qpCurrentMonth   = _qpSelectedMonths[0] || initMonth;   // 가장 오래된 미납월
   updateMonthBtnStyles(sid);
   updateMultiMonthCharge(sid);
 
-  // 이번달 버튼이 스크롤 영역 왼쪽에 오도록 (이전 1달만 보이게)
+  // 스크롤: 선택된 가장 오래된 달(없으면 이번달)이 왼쪽에 보이도록
+  const scrollTarget = _qpSelectedMonths[0] || curYm;
   setTimeout(()=>{
     const scroll = document.getElementById('qp-month-scroll');
-    const curBtn = document.getElementById(`qp-mbtn-${curYm}`);
-    if(scroll && curBtn){
-      // 이번달 버튼 왼쪽에 딱 1달치 여유만 두고 스크롤
-      const btnWidth = curBtn.offsetWidth + 6; // 버튼 너비 + gap
-      scroll.scrollLeft = curBtn.offsetLeft - btnWidth;
+    const tgtBtn = document.getElementById(`qp-mbtn-${scrollTarget}`)
+                || document.getElementById(`qp-mbtn-${curYm}`);
+    if(scroll && tgtBtn){
+      // 대상 버튼 왼쪽에 딱 1달치 여유만 두고 스크롤
+      const btnWidth = tgtBtn.offsetWidth + 6; // 버튼 너비 + gap
+      scroll.scrollLeft = Math.max(0, tgtBtn.offsetLeft - btnWidth);
     }
   }, 100);
 }
