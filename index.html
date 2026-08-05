@@ -992,6 +992,17 @@ tbody tr:hover td{background:#f8f9ff}
         </div>
       </div>
       <div class="card"><div class="card-head"><h3>월별 상세 수납 현황</h3></div>
+        <div style="margin:0 16px 12px;padding:11px 14px;background:#f5f7ff;border:1px solid #e0e7ff;border-radius:8px;font-size:12px;line-height:1.75;color:var(--text2)">
+          <div style="font-weight:700;color:var(--accent);margin-bottom:3px">📌 계산 기준 — <span style="color:var(--text)">청구월(해당 월) 기준</span></div>
+          입금한 <em>날짜</em>가 아니라 <strong>어느 달 수강료인가</strong>로 집계합니다.
+          <div style="margin-top:5px">
+            · <strong>청구총액</strong> = 그 달 재원생에게 청구된 수강료 합계 <span style="color:var(--text3)">(청구 조정·면제 반영, 체험 기간 제외)</span><br>
+            · <strong>수납총액</strong> = 그 달 청구분 중 받은 금액 &nbsp;·&nbsp; <strong>미납총액</strong> = 청구총액 − 수납총액 &nbsp;·&nbsp; <strong>수납률</strong> = 수납 ÷ 청구
+          </div>
+          <div style="margin-top:6px;padding-top:6px;border-top:1px dashed #c7d2fe;color:var(--text3)">
+            💡 <strong style="color:var(--text2)">대시보드·월별 막대와 값이 다른 이유:</strong> 그쪽은 <strong>입금일 기준</strong>(그 달 통장에 실제 들어온 돈)이라, 지난달 미납분을 이번 달에 받은 <strong>이월수금</strong>과 다음 달 몫을 미리 받은 <strong>선납</strong>이 포함됩니다. 그래서 같은 달이라도 이 표(해당 월 청구분 기준)와 숫자가 다를 수 있습니다.
+          </div>
+        </div>
         <div style="padding:0"><table><thead><tr><th>월</th><th>청구총액</th><th>수납총액</th><th>미납총액</th><th>수납률</th><th>학생수</th></tr></thead><tbody id="stats-monthly-tbody"></tbody></table></div>
       </div>
     </div>
