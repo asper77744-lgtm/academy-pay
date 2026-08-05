@@ -1162,7 +1162,7 @@ tbody tr:hover td{background:#f8f9ff}
           </div>
 
           <div class="tab-panel active" id="sms-tab-write">
-            <div class="ff"><label>메시지 (변수: {학원명} {이름} {납부월} {금액} {전화번호} {수납일})</label>
+            <div class="ff"><label>메시지 (변수: {학원명} {이름} {납부월} {금액} {전화번호} {수납일} · 미납 알림 발송 시 {납부월}·{금액}은 밀린 달 전체/누적액으로 채워집니다)</label>
               <textarea id="sms-body" rows="6" style="resize:vertical;width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;outline:none" oninput="updateSmsPreview()">안녕하세요, {학원명}입니다.
 {이름} 학생의 {납부월} 수강료 {금액}만원이 미납되어 있습니다.
 수납일은 매월 {수납일}일입니다.
@@ -1187,7 +1187,7 @@ tbody tr:hover td{background:#f8f9ff}
                   style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;outline:none"/>
               </div>
               <div class="ff" style="margin-bottom:10px">
-                <label style="font-size:12px;font-weight:600">내용 <span style="color:var(--text3);font-weight:400">(변수: {학원명} {이름} {납부월} {금액} {수납일})</span></label>
+                <label style="font-size:12px;font-weight:600">내용 <span style="color:var(--text3);font-weight:400">(변수: {학원명} {이름} {납부월} {금액} {수납일} · 미납 알림은 {납부월}=밀린 달 목록, {금액}=누적 미납액)</span></label>
                 <textarea id="tpl-new-body" rows="4" placeholder="안녕하세요, {학원명}입니다.&#10;{이름} 학생의 {납부월} 수강료 {금액}만원이 미납되어 있습니다.&#10;수납일은 매월 {수납일}일입니다.&#10;확인 부탁드립니다."
                   style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:12px;font-family:inherit;outline:none;resize:vertical"></textarea>
               </div>
@@ -7857,15 +7857,39 @@ function smsByteLength(t){
   return n;
 }
 
-function applyVars(tpl, student){
+// 미납월 목록을 한국어 라벨로. 같은 해면 "7월, 8월", 다른 해면 "2025년 12월, 2026년 1월"
+function fmtMonthsKo(months){
+  const cy = ym().slice(0,4);
+  return months.map(m=>{ const [y,mo]=m.split('-'); return y===cy?`${Number(mo)}월`:`${y}년 ${Number(mo)}월`; }).join(', ');
+}
+
+// 학생의 누적 미납 컨텍스트 (미납 없으면 null). getUnpaidMonths는 청구 조정·면제·부분납부를 이미 반영.
+function unpaidCtx(s){
+  const ums = getUnpaidMonths(s);
+  if(!ums.length) return null;
+  return {
+    monthLabel: fmtMonthsKo(ums.map(u=>u.month)),
+    amount: ums.reduce((a,u)=>a+u.unpaid, 0),
+    count: ums.length,
+  };
+}
+
+// ctx가 있으면(미납 알림) {납부월}=미납월 목록, {금액}=누적 미납액.
+// ctx가 없으면(수납완료·미리보기 등) 기존처럼 이번 달 기준.
+function applyVars(tpl, student, ctx){
   const cls = getClass(student?.classId);
   const p   = (currentAcademy.payments||[]).find(x=>x.studentId===student?.id&&x.month===ym());
   const payDay = student?.payDay || currentAcademy.payDay || 25; // 학생 개인 수납일 → 학원 기본값
+  const monthLabel = ctx ? ctx.monthLabel : ym();
+  const amount     = ctx ? ctx.amount     : (p?p.charge:student?.fee||0);
   return tpl
     .replace(/{학원명}/g, currentAcademy.name||'학원')
     .replace(/{이름}/g,   student?.name||'홍길동')
-    .replace(/{납부월}/g, ym())
-    .replace(/{금액}/g,   p?p.charge:student?.fee||0)
+    .replace(/{납부월}/g, monthLabel)
+    .replace(/{금액}/g,   amount)
+    .replace(/{미납월}/g, monthLabel)
+    .replace(/{미납금액}/g, amount)
+    .replace(/{미납개월수}/g, ctx?ctx.count:'')
     .replace(/{전화번호}/g, currentAcademy.phone||'')
     .replace(/{과목}/g,   cls?.subject||'')
     .replace(/{수납일}/g, payDay); // ← 추가
@@ -8072,7 +8096,7 @@ function editTemplate(id){
         style="width:100%;padding:7px 10px;border:1.5px solid var(--accent);border-radius:7px;font-size:13px;font-family:inherit;outline:none"/>
     </div>
     <div class="ff" style="margin-bottom:8px">
-      <label style="font-size:12px;font-weight:600">내용 <span style="color:var(--text3);font-weight:400">(변수: {학원명} {이름} {납부월} {금액} {수납일})</span></label>
+      <label style="font-size:12px;font-weight:600">내용 <span style="color:var(--text3);font-weight:400">(변수: {학원명} {이름} {납부월} {금액} {수납일} · 미납 알림은 {납부월}=밀린 달 목록, {금액}=누적 미납액)</span></label>
       <textarea id="tpl-edit-body-${id}" rows="4"
         style="width:100%;padding:8px 10px;border:1.5px solid var(--accent);border-radius:7px;font-size:12px;font-family:inherit;outline:none;resize:vertical">${t.body}</textarea>
     </div>
@@ -8315,7 +8339,8 @@ function onSmsTemplateChange(){
   const idx = parseInt(document.getElementById('sms-confirm-template').value)||0;
   const templates = currentAcademy.smsTemplates||[];
   const tpl = templates[idx]?.body || '';
-  const body = applyVars(tpl, _smsConfirmStudent);
+  // 미리보기도 실제 발송과 동일하게 누적 미납 반영 (미납 없으면 이번 달 기준)
+  const body = applyVars(tpl, _smsConfirmStudent, _smsConfirmStudent?unpaidCtx(_smsConfirmStudent):null);
   const kt  = findKakaoTplFor(templates[idx]?.id);
   document.getElementById('sms-confirm-preview').textContent =
     (kt ? `💬 알림톡으로 발송됩니다 (실패 시 아래 문구로 문자 대체)\n\n` : '') + body;
@@ -8342,10 +8367,9 @@ async function executeSms(){
 }
 
 function sendBulkSms(){
-  const curYm = ym();
+  // 밀린 달이 하나라도 있는 학생 전체 (이번 달 완납이어도 지난달이 밀렸으면 포함)
   const unpaid = currentAcademy.students.filter(s=>
-    isActiveStudent(s) &&
-    !currentAcademy.payments.find(p=>p.studentId===s.id&&p.month===curYm&&p.status==='paid')
+    isActiveStudent(s) && getUnpaidMonths(s).length > 0
   );
   if(!unpaid.length){ showToast('미납 학생이 없습니다.','info'); return; }
   const sms   = currentAcademy.sms||{};
@@ -8355,7 +8379,7 @@ function sendBulkSms(){
   _smsPendingActionBase = (tplIdx)=>{
     const tpl = (currentAcademy.smsTemplates||[])[tplIdx];
     if(!tpl){ showToast('템플릿을 선택해주세요.','error'); return; }
-    return sendToMany(unpaid, (s)=>applyVars(tpl.body||'', s), `전체 미납 — ${tpl.name}`);
+    return sendToMany(unpaid, (s)=>applyVars(tpl.body||'', s, unpaidCtx(s)), `전체 미납 — ${tpl.name}`);
   };
 
   confirmSms(
@@ -8381,7 +8405,7 @@ function sendSmsTo(sid){
 
   _smsPendingActionBase = async (tplIdx)=>{
     const tpl  = (currentAcademy.smsTemplates||[])[tplIdx];
-    const body = applyVars(tpl?.body||'', s);
+    const body = applyVars(tpl?.body||'', s, unpaidCtx(s));
     const btn  = document.getElementById('sms-confirm-btn');
     if(btn){ btn.disabled=true; btn.textContent='발송중...'; }
 
