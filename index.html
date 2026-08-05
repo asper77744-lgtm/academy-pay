@@ -3347,8 +3347,8 @@ function renderStudentChart(){
       // 학원이 실제로 수납 관리를 한 달 → 재원 기간으로 집계.
       // 이번 달과 같은 기준(재원/재입학)을 쓴다. 체험중·체험종료는 재원생이 아니다.
       stuList=students.filter(s=>{
-        const enr=(s.enrollDate||'').slice(0,7);
-        if(enr && enr>my) return false;            // 아직 등록 전
+        const enr=getBillingStartMonth(s);
+        if(enr && enr>my) return false;            // 아직 정식 등록 전
 
         if(isActiveStudent(s)) return true;        // 지금 재원 중 → 그때도 재원
 
@@ -3495,7 +3495,7 @@ function calcMonthExpected(my){
   const pays = currentAcademy.payments||[];
   let total = 0;
   (currentAcademy.students||[]).forEach(s=>{
-    const enr = (s.enrollDate||'').slice(0,7);
+    const enr = getBillingStartMonth(s);
     if(enr && enr > my) return;
     const wd = (s.withdrawDate||'').slice(0,7);
     if(wd && wd < my) return;
@@ -4554,6 +4554,9 @@ function confirmConvert(){
   s.status      = 'active';
   s.start       = date;
   s.trialResult = 'converted';
+  // 수강료는 정식 전환일부터 발생한다.
+  // 체험 등록일이 enrollDate에 남아 있으면 체험 기간까지 미납으로 잡힌다.
+  s.enrollDate  = date;
   if(cls) s.classId = cls;
   if(fee) s.fee = fee;
   addHistory(s, '정식 전환', `체험 → 정식 재원 (${date})`);
@@ -6062,17 +6065,31 @@ function getTrackedMonths(){
 // 그 달들 중 완납이 아니면 미납으로 본다. 기록이 아예 없으면 안 낸 것으로 본다.
 //
 // recorded: 수납 기록이 남아 있는 미납인지(true), 기록 자체가 없는 미납인지(false)
+// 수강료가 발생하기 시작한 달.
+//   체험 기간은 수강료 대상이 아니므로, 정식 전환일(start)이 있으면 그 달부터 센다.
+//   'YYYY-MM' 또는 값을 알 수 없으면 '' 반환.
+function getBillingStartMonth(s){
+  const cands = [];
+  if(s.trialResult==='converted' && s.start) cands.push(s.start.slice(0,7));
+  if(s.enrollDate) cands.push(s.enrollDate.slice(0,7));
+  if(s.start)      cands.push(s.start.slice(0,7));
+  if(!cands.length) return '';
+  // 여러 값이 있으면 가장 늦은 달 (체험 등록일이 아니라 정식 시작일을 쓰기 위해)
+  return s.trialResult==='converted' ? cands[0] : cands.sort()[0];
+}
+
 function getUnpaidMonths(s){
   const cur     = ym();
   const pays    = currentAcademy.payments||[];
   const mine    = pays.filter(x=>x.studentId===s.id && x.month && x.month<=cur);
-  const enrollM = (s.enrollDate||'').slice(0,7);
+  const startM  = getBillingStartMonth(s);
 
-  const months = new Set(mine.map(x=>x.month));
+  // 과금 시작 전의 수납 기록은 미납 판정에서 제외한다
+  const months = new Set(mine.map(x=>x.month).filter(m=>!startM || m>=startM));
   getTrackedMonths().forEach(m=>{
-    if(m <= cur && (!enrollM || m >= enrollM)) months.add(m);
+    if(m <= cur && (!startM || m >= startM)) months.add(m);
   });
-  months.add(cur);
+  if(!startM || cur >= startM) months.add(cur);
 
   const out = [];
   [...months].sort().forEach(m=>{
