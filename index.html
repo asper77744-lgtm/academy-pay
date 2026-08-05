@@ -7617,29 +7617,52 @@ function printIncomeReport(){
   const {students, payments} = currentAcademy;
   const academy  = currentAcademy;
 
-  // 수입 항목 — paid(완료) + partial(부분납부) 모두 포함
-  // paidOnly 체크 시 완료 건만, 미체크 시 부분납부도 포함
-  const incomeItems = payments
-    .filter(p=>p.month===ym_ && p.amount>0 &&
-      (paidOnly ? p.status==='paid' : (p.status==='paid'||p.status==='partial')))
-    .map(p=>{
-      const s = students.find(x=>x.id===p.studentId);
-      const subj = getEnrollments(s).map(e=>e.subject||e.className).filter(Boolean).join(',')||'';
-      const statusLabel = p.status==='partial' ? '(부분)' : '';
-      return {
-        date: p.date||ym_+'-01',
+  // 수입 항목 — ★ 실제 입금일(history) 기준. 청구월과 무관하게 "이 달에 들어온 돈"만 잡는다.
+  //   (7월 청구분을 8월에 받았으면 7월엔 안 나오고 8월에 나온다. 부분납부는 회차별 날짜로 분리)
+  //   paidOnly 체크 시 완료(paid) 건만, 미체크 시 부분납부(partial)도 포함.
+  const incomeItems = [];
+  payments.forEach(p=>{
+    if(paidOnly){ if(p.status!=='paid') return; }
+    else if(p.status!=='paid' && p.status!=='partial') return;
+
+    const s = students.find(x=>x.id===p.studentId);
+    const subj = getEnrollments(s).map(e=>e.subject||e.className).filter(Boolean).join(',')||'';
+    const statusLabel = p.status==='partial' ? '(부분)' : '';
+
+    const hist = getPayHistory(p);
+    const inMonth = hist.filter(h=>h.date && String(h.date).startsWith(ym_) && (h.amount>0));
+    if(inMonth.length){
+      inMonth.forEach(h=>{
+        incomeItems.push({
+          date: h.date,
+          label: (s?.name||'-') + statusLabel,
+          note: subj,
+          amount: (h.amount||0)*10000,
+          type:'income'
+        });
+      });
+    } else if(!hist.length && p.month===ym_ && p.amount>0){
+      // 날짜 정보가 전혀 없는 옛 기록: 청구월이 이 달이면 이 달 입금으로 본다(1일자)
+      incomeItems.push({
+        date: ym_+'-01',
         label: (s?.name||'-') + statusLabel,
         note: subj,
         amount: p.amount*10000,
         type:'income'
-      };
-    });
+      });
+    }
+  });
 
-  // 지출 항목
-  const expenseItems = getExpenses(ym_).map(e=>({
-    date: e.date, label: e.label, note: e.note||'',
-    amount: e.amount, type:'expense'
-  }));
+  // 지출 항목 — ★ 실제 지출일(e.date) 기준. 어느 달 탭에 저장됐든 날짜가 이 달인 것만.
+  //   (날짜가 없는 옛 기록은 저장된 월 버킷 기준으로 폴백)
+  const expenseItems = [];
+  Object.entries(currentAcademy.expenses||{}).forEach(([bucket, list])=>{
+    (list||[]).forEach(e=>{
+      const d = e.date || (bucket+'-01');
+      if(!String(d).startsWith(ym_)) return;
+      expenseItems.push({ date:d, label:e.label, note:e.note||'', amount:e.amount, type:'expense' });
+    });
+  });
 
   // 날짜순 정렬
   const allItems = [...incomeItems, ...expenseItems]
