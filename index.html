@@ -625,6 +625,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div><div class="sb-uname" id="sb-uname">-</div><div class="sb-urole" id="sb-urole">-</div></div>
         <button class="sb-logout" onclick="logout()" title="로그아웃">⏻</button>
       </div>
+      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06a</div>
     </div>
   </nav>
 
@@ -9388,11 +9389,31 @@ setTimeout(()=>{
 })();
 </script>
 <script>
+// PWA 서비스워커 — 새 버전을 자동으로 받아 즉시 반영한다.
+//   (예전에는 캐시가 남아 새 index.html이 안 뜨는 문제가 있었다.
+//    이제 새 sw.js가 올라오면 skipWaiting→controllerchange→자동 새로고침으로 최신본이 뜬다.)
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{
-    navigator.serviceWorker.register('./sw.js')
-      .then(()=>console.log('[PWA] 서비스워커 등록 완료'))
-      .catch(e=>console.log('[PWA] 등록 실패:',e));
+  let _swReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+    if(_swReloaded) return; _swReloaded = true;
+    location.reload();
+  });
+  window.addEventListener('load', async ()=>{
+    try{
+      const reg = await navigator.serviceWorker.register('./sw.js');
+      // 이미 대기 중인 새 버전이 있으면 즉시 활성화
+      if(reg.waiting) reg.waiting.postMessage('skipWaiting');
+      reg.addEventListener('updatefound', ()=>{
+        const nw = reg.installing;
+        if(!nw) return;
+        nw.addEventListener('statechange', ()=>{
+          if(nw.state==='installed' && reg.waiting) reg.waiting.postMessage('skipWaiting');
+        });
+      });
+      // 최신 여부 강제 확인
+      reg.update();
+      console.log('[PWA] 서비스워커 등록/업데이트 확인 (v2026-08-06a)');
+    }catch(e){ console.log('[PWA] 등록 실패:',e); }
   });
 }
 </script>
