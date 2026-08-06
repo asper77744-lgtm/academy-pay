@@ -625,7 +625,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div><div class="sb-uname" id="sb-uname">-</div><div class="sb-urole" id="sb-urole">-</div></div>
         <button class="sb-logout" onclick="logout()" title="로그아웃">⏻</button>
       </div>
-      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06a</div>
+      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06b</div>
     </div>
   </nav>
 
@@ -1311,7 +1311,13 @@ tbody tr:hover td{background:#f8f9ff}
           </div></div>
 
           <div class="card" style="flex:1"><div class="card-head"><h3>📋 발송 내역</h3></div>
-            <div style="padding:0"><table><thead><tr><th>일시</th><th>채널</th><th>수신자</th><th>상태</th></tr></thead><tbody id="sms-log-tbody"></tbody></table></div>
+            <div style="padding:0;max-height:440px;overflow-y:auto"><table><thead><tr>
+              <th style="position:sticky;top:0;background:var(--surface);z-index:1">일시</th>
+              <th style="position:sticky;top:0;background:var(--surface);z-index:1">채널</th>
+              <th style="position:sticky;top:0;background:var(--surface);z-index:1">구분</th>
+              <th style="position:sticky;top:0;background:var(--surface);z-index:1">수신자</th>
+              <th style="position:sticky;top:0;background:var(--surface);z-index:1">상태</th>
+            </tr></thead><tbody id="sms-log-tbody"></tbody></table></div>
           </div>
         </div>
       </div>
@@ -7359,7 +7365,7 @@ async function notifyPaymentComplete(sid, month){
     const ok   = kt ? await callKakaoApi(phone, kt, s, body)
                     : await callCoolSmsApi(phone, body);
     if(ok){
-      logSms(1, kt?'알림톡':'SMS', `${s.name} — 수납 완료 자동 알림`);
+      logSms(1, kt?'알림톡':'SMS', `${s.name} — 수납 완료 자동 알림`, 'auto');
       renderSmsLog();
     }
   }catch(e){
@@ -8556,22 +8562,32 @@ function sendSmsTo(sid){
   );
 }
 
-function logSms(cnt, channel, preview){
+// type: 'manual'(수동, 기본) | 'auto'(자동 — 수납완료 알림 등)
+function logSms(cnt, channel, preview, type){
   if(!currentAcademy.smsLog)currentAcademy.smsLog=[];
-  currentAcademy.smsLog.unshift({id:uid(),date:now().toLocaleString('ko-KR'),cnt,channel:channel||'SMS',preview:preview||'',status:'성공'});
-  if(currentAcademy.smsLog.length>30)currentAcademy.smsLog=currentAcademy.smsLog.slice(0,30);
+  currentAcademy.smsLog.unshift({id:uid(),date:now().toLocaleString('ko-KR'),cnt,channel:channel||'SMS',preview:preview||'',status:'성공',type:type||'manual'});
+  if(currentAcademy.smsLog.length>200)currentAcademy.smsLog=currentAcademy.smsLog.slice(0,200);
   saveAcademy();
 }
 
 function renderSmsLog(){
   const log=currentAcademy.smsLog||[];
   const el=document.getElementById('sms-log-tbody');if(!el)return;
-  el.innerHTML=log.length?log.map(l=>`<tr>
-    <td style="font-size:11px;color:var(--text2);white-space:nowrap">${l.date}</td>
-    <td><span class="badge ${l.channel?.includes('카카오')?'b-warning':'b-info'}">${l.channel||'SMS'}</span></td>
-    <td>${l.cnt}명<br><span style="font-size:11px;color:var(--text3)">${l.preview}</span></td>
-    <td><span class="badge b-success">${l.status}</span></td>
-  </tr>`).join(''):`<tr><td colspan="4" class="empty-row"><div class="ei">📭</div><p>발송 내역 없음</p></td></tr>`;
+  el.innerHTML=log.length?log.map(l=>{
+    // 옛 기록엔 type이 없으니 문구로 추정 (‘자동’ 포함 시 자동)
+    const isAuto = l.type ? l.type==='auto' : /자동/.test(l.preview||'');
+    const typeBadge = isAuto
+      ? `<span style="background:#ede9fe;color:#6d28d9;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">🤖 자동</span>`
+      : `<span style="background:#eef2f7;color:#475569;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">✋ 수동</span>`;
+    const isKakao = (l.channel||'').includes('카카오')||(l.channel||'').includes('알림톡');
+    return `<tr>
+      <td style="font-size:11px;color:var(--text2);white-space:nowrap">${l.date}</td>
+      <td><span class="badge ${isKakao?'b-warning':'b-info'}">${l.channel||'SMS'}</span></td>
+      <td>${typeBadge}</td>
+      <td>${l.cnt}명<br><span style="font-size:11px;color:var(--text3)">${l.preview}</span></td>
+      <td><span class="badge b-success">${l.status}</span></td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="5" class="empty-row"><div class="ei">📭</div><p>발송 내역 없음</p></td></tr>`;
 }
 
 // ════════════════════════════════════════════════════════
@@ -9412,7 +9428,7 @@ if('serviceWorker' in navigator){
       });
       // 최신 여부 강제 확인
       reg.update();
-      console.log('[PWA] 서비스워커 등록/업데이트 확인 (v2026-08-06a)');
+      console.log('[PWA] 서비스워커 등록/업데이트 확인 (v2026-08-06b)');
     }catch(e){ console.log('[PWA] 등록 실패:',e); }
   });
 }
