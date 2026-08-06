@@ -6916,33 +6916,87 @@ function showDepositorHistory(sid){
   const histEl  = document.getElementById('qp-depositor-history');
   const listEl  = document.getElementById('qp-depositor-history-list');
   if(!histEl || !listEl) return;
+  const s = getStudent(sid);
 
-  // 해당 학생의 지역화폐 납부 이력에서 입금자명 수집 (중복 제거, 최근순)
-  const history = (currentAcademy.payments||[])
+  // 1) 과거 지역화폐 납부 이력에서 입금자명 수집 (최근순)
+  const derived = (currentAcademy.payments||[])
     .filter(p=>p.studentId===sid && p.method==='지역화폐' && p.depositor)
-    .sort((a,b)=>b.date.localeCompare(a.date));
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||''))
+    .map(p=>({ label:p.depositor, sub:p.month||'', manual:false }));
 
-  // 중복 제거 (같은 입금자명은 1개만)
+  // 2) 수동으로 미리 저장해 둔 입금자 (학생별 regionDepositors)
+  const saved = ((s&&s.regionDepositors)||[]).map(d=>({ label:d, sub:'저장', manual:true }));
+
+  // 병합 + 중복 제거 (라벨 기준). 실제 이력에 있으면 그것을 우선(삭제 버튼 없음).
   const seen = new Set();
-  const unique = history.filter(p=>{
-    if(seen.has(p.depositor)) return false;
-    seen.add(p.depositor);
-    return true;
+  const items = [];
+  [...derived, ...saved].forEach(it=>{
+    if(!it.label || seen.has(it.label)) return;
+    seen.add(it.label);
+    items.push(it);
   });
 
-  if(!unique.length){ histEl.style.display='none'; return; }
-
+  // 직접 추가 버튼을 항상 노출하기 위해 이력이 비어 있어도 영역을 보여준다
   histEl.style.display='';
-  listEl.innerHTML = unique.map(p=>`
-    <button type="button" onclick="selectDepositorHistory('${p.depositor.replace(/'/g,"\\'")}')"
-      style="padding:5px 10px;border:1.5px solid #ffe082;border-radius:20px;
-        background:#fff;font-size:12px;cursor:pointer;font-family:inherit;
-        color:#795548;transition:all .15s"
-      onmouseover="this.style.background='#ffe082'"
-      onmouseout="this.style.background='#fff'">
-      ${p.depositor}
-      <span style="font-size:10px;color:#aaa;margin-left:3px">${p.month}</span>
-    </button>`).join('');
+
+  const chips = items.map(it=>{
+    const safe = it.label.replace(/'/g,"\\'");
+    const del  = it.manual
+      ? `<span onclick="event.stopPropagation();removeRegionDepositor('${sid}','${safe}')" title="삭제"
+           style="margin-left:6px;color:#c0392b;font-weight:700;cursor:pointer">×</span>`
+      : '';
+    return `<button type="button" onclick="selectDepositorHistory('${safe}')"
+      style="padding:5px 10px;border:1.5px solid #ffe082;border-radius:20px;background:#fff;font-size:12px;cursor:pointer;font-family:inherit;color:#795548;transition:all .15s"
+      onmouseover="this.style.background='#ffe082'" onmouseout="this.style.background='#fff'">
+      ${it.label}<span style="font-size:10px;color:#aaa;margin-left:3px">${it.sub}</span>${del}
+    </button>`;
+  }).join('');
+
+  const addBtn = `<button type="button" onclick="addRegionDepositor('${sid}')"
+    style="padding:5px 12px;border:1.5px dashed #f57f17;border-radius:20px;background:#fff8e1;font-size:12px;cursor:pointer;font-family:inherit;color:#f57f17;font-weight:700">
+    ＋ 직접 추가</button>`;
+
+  listEl.innerHTML = chips + addBtn;
+}
+
+// 지역화폐 입금자를 수동으로 미리 저장 (학생별)
+function addRegionDepositor(sid){
+  const s = getStudent(sid); if(!s) return;
+  const raw = prompt(
+    '저장할 지역화폐 입금자를 입력하세요.\n' +
+    '예: 이진 8721   (이름 + 계좌/전화 뒷자리)\n' +
+    '뒷자리가 없으면 이름만 입력하세요.'
+  );
+  if(raw===null) return;
+  const t = raw.trim(); if(!t) return;
+
+  // 끝에 붙은 숫자(3자리 이상)를 계좌/전화 뒷자리로 본다
+  const m = t.match(/(\d{3,})\s*$/);
+  const digits = m ? m[1] : '';
+  const name   = (m ? t.slice(0, m.index) : t).trim();
+  const label  = makeDepositorLabel(name, digits);
+  if(!label){ showToast('이름 또는 뒷자리를 입력해주세요.','error'); return; }
+
+  if(!Array.isArray(s.regionDepositors)) s.regionDepositors = [];
+  const exists = s.regionDepositors.includes(label)
+    || (currentAcademy.payments||[]).some(p=>p.studentId===sid && p.method==='지역화폐' && p.depositor===label);
+  if(exists){
+    showToast('이미 있는 입금자입니다.','info');
+  } else {
+    s.regionDepositors.push(label);
+    saveAcademy();
+    showToast(`입금자 "${label}" 저장됨`,'success');
+  }
+  showDepositorHistory(sid);
+}
+
+// 수동 저장한 지역화폐 입금자 삭제
+function removeRegionDepositor(sid, label){
+  const s = getStudent(sid);
+  if(!s || !Array.isArray(s.regionDepositors)) return;
+  s.regionDepositors = s.regionDepositors.filter(d=>d!==label);
+  saveAcademy();
+  showDepositorHistory(sid);
 }
 
 function selectDepositorHistory(name){
