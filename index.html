@@ -6730,16 +6730,13 @@ function buildMonthButtons(sid, defaultMonth, initSel){
   updateMonthBtnStyles(sid);
   updateMultiMonthCharge(sid);
 
-  // 스크롤: 선택된 가장 오래된 달(없으면 이번달)이 왼쪽에 보이도록
-  const scrollTarget = _qpSelectedMonths[0] || curYm;
+  // 스크롤: 이번달을 화면 가운데에 두어 과거·미래가 양쪽에 고르게 보이도록
   setTimeout(()=>{
     const scroll = document.getElementById('qp-month-scroll');
-    const tgtBtn = document.getElementById(`qp-mbtn-${scrollTarget}`)
-                || document.getElementById(`qp-mbtn-${curYm}`);
-    if(scroll && tgtBtn){
-      // 대상 버튼 왼쪽에 딱 1달치 여유만 두고 스크롤
-      const btnWidth = tgtBtn.offsetWidth + 6; // 버튼 너비 + gap
-      scroll.scrollLeft = Math.max(0, tgtBtn.offsetLeft - btnWidth);
+    const curBtn = document.getElementById(`qp-mbtn-${curYm}`);
+    if(scroll && curBtn){
+      // 이번달 버튼 중심이 스크롤 영역 중앙에 오도록
+      scroll.scrollLeft = Math.max(0, curBtn.offsetLeft - (scroll.clientWidth - curBtn.offsetWidth)/2);
     }
   }, 100);
 }
