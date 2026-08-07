@@ -363,6 +363,7 @@ tbody tr:hover td{background:#f8f9ff}
   [style*="grid-template-columns:repeat(4"]{grid-template-columns:repeat(2,1fr)!important}
   [style*="grid-template-columns:repeat(3"]{grid-template-columns:repeat(2,1fr)!important}
   .grid-2col{grid-template-columns:1fr!important}
+  [style*="grid-template-columns:1.1fr 0.9fr"]{grid-template-columns:1fr!important}
   .sc{padding:10px 12px}
   .sc-val{font-size:20px}
   .sc-icon{font-size:20px}
@@ -625,7 +626,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div><div class="sb-uname" id="sb-uname">-</div><div class="sb-urole" id="sb-urole">-</div></div>
         <button class="sb-logout" onclick="logout()" title="로그아웃">⏻</button>
       </div>
-      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06d</div>
+      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06e</div>
     </div>
   </nav>
 
@@ -1147,7 +1148,7 @@ tbody tr:hover td{background:#f8f9ff}
         </div>
       </div></div>
 
-      <div style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:16px">
+      <div style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:16px;align-items:start">
         <!-- 작성 패널 -->
         <div class="card"><div class="card-head">
           <h3>✏️ 메시지 작성</h3>
@@ -1310,8 +1311,8 @@ tbody tr:hover td{background:#f8f9ff}
               </div>
           </div></div>
 
-          <div class="card" style="flex:1"><div class="card-head"><h3>📋 발송 내역</h3></div>
-            <div style="padding:0;max-height:250px;overflow-y:auto"><table><thead><tr>
+          <div class="card"><div class="card-head"><h3>📋 발송 내역</h3></div>
+            <div style="padding:0;max-height:400px;overflow-y:auto"><table><thead><tr>
               <th style="position:sticky;top:0;background:var(--surface);z-index:1">일시</th>
               <th style="position:sticky;top:0;background:var(--surface);z-index:1">채널</th>
               <th style="position:sticky;top:0;background:var(--surface);z-index:1">구분</th>
@@ -9418,7 +9419,7 @@ if('serviceWorker' in navigator){
 if(window.caches && caches.keys){
   caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});
 }
-console.log('[AcademyPay] v2026-08-06d (서비스워커 미사용)');
+console.log('[AcademyPay] v2026-08-06e (서비스워커 미사용)');
 </script>
 </body>
 </html>
