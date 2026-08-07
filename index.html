@@ -626,7 +626,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div><div class="sb-uname" id="sb-uname">-</div><div class="sb-urole" id="sb-urole">-</div></div>
         <button class="sb-logout" onclick="logout()" title="로그아웃">⏻</button>
       </div>
-      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06g</div>
+      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06h</div>
     </div>
   </nav>
 
@@ -3667,7 +3667,7 @@ function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
         <div style="width:100%;display:flex;flex-direction:column;align-items:stretch">
           ${prepayIH>0?`<div style="height:${prepayIH}px;background:#f59e0b;border-radius:4px 4px 0 0;opacity:.9;transition:height .5s ease" title="선납 입금"></div>`:''}
           ${carryH>0 ?`<div style="height:${carryH}px;background:#f43f5e;border-radius:${prepayIH===0?'4px 4px 0 0':'0'};opacity:.8;transition:height .5s ease" title="이월 수금"></div>`:''}
-          ${thisH>0  ?`<div style="height:${thisH}px;background:${barColor};border-radius:${(prepayIH===0&&carryH===0)?'4px':'0 0 4px 4px'};opacity:.85;transition:height .5s ease" title="이번달분"></div>`:''}
+          ${thisH>0  ?`<div style="height:${thisH}px;background:#4361ee;border-radius:${(prepayIH===0&&carryH===0)?'4px':'0 0 4px 4px'};opacity:.9;transition:height .5s ease" title="이번달분"></div>`:''}
           ${!hasAny   ?`<div style="height:3px;background:var(--border);border-radius:2px;opacity:.3"></div>`:''}
         </div>
         <div class="cb-label">${d.m}월</div>
@@ -3705,7 +3705,7 @@ function showChartTip(e, dataStr){
   // 이번달분 — 그 달 청구분을 그 달에 받은 금액
   if(d.thisMonth){
     html += `<div class="chart-tooltip-row">
-      <span><span class="chart-tooltip-dot" style="background:${d.color};display:inline-block"></span> 이번달분</span>
+      <span><span class="chart-tooltip-dot" style="background:#4361ee;display:inline-block"></span> 이번달분</span>
       <span style="font-weight:600;margin-left:16px">${d.thisMonth}만원</span>
     </div>`;
   }
@@ -9419,7 +9419,7 @@ if('serviceWorker' in navigator){
 if(window.caches && caches.keys){
   caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});
 }
-console.log('[AcademyPay] v2026-08-06g (서비스워커 미사용)');
+console.log('[AcademyPay] v2026-08-06h (서비스워커 미사용)');
 </script>
 </body>
 </html>
