@@ -626,7 +626,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div><div class="sb-uname" id="sb-uname">-</div><div class="sb-urole" id="sb-urole">-</div></div>
         <button class="sb-logout" onclick="logout()" title="로그아웃">⏻</button>
       </div>
-      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06e</div>
+      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06g</div>
     </div>
   </nav>
 
@@ -3582,26 +3582,30 @@ function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
 
   const data = months.map(m=>{
     const my = `${year}-${String(m).padStart(2,'0')}`;
-    // 실제 입금일 기준으로 집계한다 (부분납부 이력 반영)
-    const normalThisMonth    = payments.filter(p=>!p.prepaid).reduce((a,p)=>a+paidInPeriod(p,my),0);
-    const prepayInThisMonth  = payments.filter(p=>p.prepaid ).reduce((a,p)=>a+paidInPeriod(p,my),0);
-    const prepayOutThisMonth = payments
-      .filter(p=>p.month===my && p.prepaid)
-      .reduce((a,p)=>a+getPayHistory(p)
-        .filter(h=>h.date && h.date.slice(0,7)<my)
-        .reduce((b,h)=>b+(h.amount||0),0), 0);
-    const totalIn = normalThisMonth + prepayInThisMonth;
+    // 그 달에 실제로 입금된 돈(입금일 기준, 부분납부 이력 반영)을
+    // 청구월과 비교해 셋으로 나눈다: 이번달분 / 이월수금 / 선납받음.
+    let thisMonthIn=0, carriedIn=0, prepayIn=0;
+    payments.forEach(p=>{
+      const got = paidInPeriod(p, my);          // p의 입금 이력 중 my 달에 들어온 금액
+      if(!got) return;
+      if(p.month===my)      thisMonthIn += got;  // 이번 달 청구분
+      else if(p.month < my) carriedIn   += got;  // 지난달 청구분을 이번 달에 받음 = 이월수금
+      else                  prepayIn     += got;  // 다음달 청구분을 미리 받음 = 선납
+    });
+    const totalIn = thisMonthIn + carriedIn + prepayIn;
     const exp     = calcMonthExpected(my);
-    return { my, m, normalThisMonth, prepayInThisMonth, prepayOutThisMonth, totalIn,
+    return { my, m, thisMonthIn, carriedIn, prepayIn, totalIn,
              expected: exp ? exp.total : 0, carried: exp ? exp.carried : 0 };
   });
 
-  const hasPrepay  = data.some(d=>d.prepayInThisMonth>0||d.prepayOutThisMonth>0);
-  const maxPos     = Math.max(...data.map(d=>d.normalThisMonth+d.prepayInThisMonth), expectedRevenue, 1);
-  const maxNeg     = Math.max(...data.map(d=>d.prepayOutThisMonth), 0);
-  const totalRange = maxPos + maxNeg || 1;
+  const hasCarry   = data.some(d=>d.carriedIn>0);
+  const hasPrepay  = data.some(d=>d.prepayIn>0);
+  const maxPos     = Math.max(...data.map(d=>d.totalIn), expectedRevenue, 1);
+  // 막대는 '그 달 실제 입금액(입금일 기준)'만 표시한다.
+  const maxNeg     = 0;
+  const totalRange = maxPos || 1;
   const chartH     = 130;
-  const negH       = maxNeg > 0 ? Math.round(chartH * maxNeg / totalRange) : 0;
+  const negH       = 0;
 
   // 예상 매출 라인 높이 (막대 하단 기준)
   const expectedLineH = expectedRevenue > 0
@@ -3630,19 +3634,19 @@ function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
     ${expectedLine}
     ${maxNeg>0 ? `<div class="chart-zero-line" style="bottom:${negH+18}px"></div>` : ''}
     ${data.map((d,i)=>{
-      const normalH  = d.normalThisMonth   ? Math.max(Math.round(d.normalThisMonth  /totalRange*chartH),3) : 0;
-      const prepayIH = d.prepayInThisMonth ? Math.max(Math.round(d.prepayInThisMonth/totalRange*chartH),3) : 0;
-      const prepayOH = d.prepayOutThisMonth? Math.max(Math.round(d.prepayOutThisMonth/totalRange*chartH),3): 0;
-      const hasAny   = normalH>0||prepayIH>0||prepayOH>0;
+      const thisH    = d.thisMonthIn ? Math.max(Math.round(d.thisMonthIn/totalRange*chartH),3) : 0;
+      const carryH   = d.carriedIn   ? Math.max(Math.round(d.carriedIn  /totalRange*chartH),3) : 0;
+      const prepayIH = d.prepayIn    ? Math.max(Math.round(d.prepayIn   /totalRange*chartH),3) : 0;
+      const hasAny   = thisH>0||carryH>0||prepayIH>0;
       const barColor = barColors[i];
       const rate     = d.expected>0 ? Math.round(d.totalIn/d.expected*100) : null;
 
       const tipData = JSON.stringify({
         month: `${year}년 ${d.m}월`,
         total: d.totalIn,
-        normal: d.normalThisMonth,
-        prepayIn: d.prepayInThisMonth,
-        prepayOut: d.prepayOutThisMonth,
+        thisMonth: d.thisMonthIn,
+        carriedIn: d.carriedIn,
+        prepayIn: d.prepayIn,
         expected: d.expected,
         carried: d.carried,
         rate,
@@ -3650,7 +3654,7 @@ function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
       }).replace(/"/g,'&quot;');
 
       const valLine1 = d.totalIn ? `<span style="color:var(--text2);font-weight:600">${d.totalIn}</span>` : '';
-      const valLine2 = d.prepayOutThisMonth ? `<span style="color:#f43f5e;font-size:8px">-${d.prepayOutThisMonth}</span>` : '';
+      const valLine2 = '';
 
       return `<div class="cb" style="justify-content:flex-end;min-height:${chartH+4}px;cursor:${hasAny?'pointer':'default'}"
           onmouseenter="showChartTip(event,'${tipData}')"
@@ -3661,10 +3665,10 @@ function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
           ${valLine1}${valLine2}
         </div>
         <div style="width:100%;display:flex;flex-direction:column;align-items:stretch">
-          ${prepayIH>0?`<div style="height:${prepayIH}px;background:#f59e0b;border-radius:${normalH===0?'4px 4px':'0 0'} 0 0;opacity:.9;transition:height .5s ease"></div>`:''}
-          ${normalH>0 ?`<div style="height:${normalH}px;background:${barColor};border-radius:${prepayIH===0?'4px 4px':'0 0'} 0 0;opacity:.85;transition:height .5s ease"></div>`:''}
+          ${prepayIH>0?`<div style="height:${prepayIH}px;background:#f59e0b;border-radius:4px 4px 0 0;opacity:.9;transition:height .5s ease" title="선납 입금"></div>`:''}
+          ${carryH>0 ?`<div style="height:${carryH}px;background:#f43f5e;border-radius:${prepayIH===0?'4px 4px 0 0':'0'};opacity:.8;transition:height .5s ease" title="이월 수금"></div>`:''}
+          ${thisH>0  ?`<div style="height:${thisH}px;background:${barColor};border-radius:${(prepayIH===0&&carryH===0)?'4px':'0 0 4px 4px'};opacity:.85;transition:height .5s ease" title="이번달분"></div>`:''}
           ${!hasAny   ?`<div style="height:3px;background:var(--border);border-radius:2px;opacity:.3"></div>`:''}
-          ${prepayOH>0?`<div style="height:${prepayOH}px;background:#f43f5e;border-radius:0 0 4px 4px;opacity:.75;transition:height .5s ease"></div>`:''}
         </div>
         <div class="cb-label">${d.m}월</div>
       </div>`;
@@ -3675,10 +3679,12 @@ function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
   const legendEl = document.getElementById(id+'-legend');
   if(legendEl){
     legendEl.innerHTML = `
-      <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#4361ee"></div>실제 수납</div>
+      <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#4361ee"></div>이번달분</div>
+      ${hasCarry ? `
+        <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#f43f5e"></div>이월 수금</div>
+      ` : ''}
       ${hasPrepay ? `
         <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#f59e0b"></div>선납 입금</div>
-        <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#f43f5e"></div>선납 차감</div>
       ` : ''}
       ${expectedRevenue>0 ? `
         <div class="chart-legend-item">
@@ -3696,39 +3702,33 @@ function showChartTip(e, dataStr){
 
   let html = `<div style="font-weight:700;margin-bottom:5px;font-size:13px">${d.month}</div>`;
 
-  // 정상 수납
-  if(d.normal){
+  // 이번달분 — 그 달 청구분을 그 달에 받은 금액
+  if(d.thisMonth){
     html += `<div class="chart-tooltip-row">
-      <span><span class="chart-tooltip-dot" style="background:${d.color};display:inline-block"></span> 정상 수납</span>
-      <span style="font-weight:600;margin-left:16px">${d.normal}만원</span>
+      <span><span class="chart-tooltip-dot" style="background:${d.color};display:inline-block"></span> 이번달분</span>
+      <span style="font-weight:600;margin-left:16px">${d.thisMonth}만원</span>
     </div>`;
   }
-  // 선납 입금
+  // 이월 수금 — 지난 달(들) 밀린 분을 이번 달에 받은 금액
+  if(d.carriedIn){
+    html += `<div class="chart-tooltip-row">
+      <span><span class="chart-tooltip-dot" style="background:#f43f5e;display:inline-block"></span> 이월 수금</span>
+      <span style="font-weight:600;color:#f43f5e;margin-left:16px">+${d.carriedIn}만원</span>
+    </div>`;
+  }
+  // 선납 입금 — 다음 달(들) 몫을 이번 달에 미리 받은 금액
   if(d.prepayIn){
     html += `<div class="chart-tooltip-row">
       <span><span class="chart-tooltip-dot" style="background:#f59e0b;display:inline-block"></span> 선납 입금</span>
       <span style="font-weight:600;color:#f59e0b;margin-left:16px">+${d.prepayIn}만원</span>
     </div>`;
   }
-  // 선납 차감
-  if(d.prepayOut){
-    html += `<div class="chart-tooltip-row">
-      <span><span class="chart-tooltip-dot" style="background:#f43f5e;display:inline-block"></span> 선납 적용</span>
-      <span style="font-weight:600;color:#f43f5e;margin-left:16px">-${d.prepayOut}만원</span>
-    </div>`;
-  }
-  // 합계
-  if(d.total || d.prepayOut){
+  // 합계 — 그 달에 실제로 들어온 돈(입금일 기준)
+  if(d.total){
     html += `<div class="chart-tooltip-row chart-tooltip-total">
       <span>실 수령 합계</span>
       <span style="color:#4cc9f0">${d.total}만원</span>
     </div>`;
-    if(d.prepayOut){
-      html += `<div class="chart-tooltip-row" style="font-size:11px;opacity:.75">
-        <span>순 현금흐름</span>
-        <span>${d.total - d.prepayOut}만원</span>
-      </div>`;
-    }
   }
   // 예상 매출 vs 실제
   if(d.expected > 0){
@@ -3747,7 +3747,7 @@ function showChartTip(e, dataStr){
       </div>` : ''}
     </div>`;
   }
-  if(!d.normal && !d.prepayIn && !d.prepayOut){
+  if(!d.total){
     html += `<div style="color:rgba(255,255,255,.5);font-size:11px">수납 내역 없음</div>`;
   }
 
@@ -9419,7 +9419,7 @@ if('serviceWorker' in navigator){
 if(window.caches && caches.keys){
   caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});
 }
-console.log('[AcademyPay] v2026-08-06e (서비스워커 미사용)');
+console.log('[AcademyPay] v2026-08-06g (서비스워커 미사용)');
 </script>
 </body>
 </html>
