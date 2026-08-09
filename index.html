@@ -626,7 +626,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div><div class="sb-uname" id="sb-uname">-</div><div class="sb-urole" id="sb-urole">-</div></div>
         <button class="sb-logout" onclick="logout()" title="로그아웃">⏻</button>
       </div>
-      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06h</div>
+      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06i</div>
     </div>
   </nav>
 
@@ -2295,14 +2295,25 @@ function stripSecrets(academy){
   return clone;
 }
 
+let _lastSavedTs = '';   // 내가 방금 저장한 시각(실시간 에코 무시용)
+
 async function sbSaveAcademy(academy){
-  if(!_sb) return; // Supabase 없으면 저장 불가
+  if(!_sb) return true; // Supabase 없으면 로컬 모드 (성공 취급)
+  // 저장 시각을 data(jsonb)와 테이블 컬럼에 동일하게 넣는다 → 실시간 에코를 정확히 걸러낸다.
+  const stamp = new Date().toISOString();
+  academy.updated_at = stamp;
+  _lastSavedTs = stamp;
   const { error } = await _sb.from('academies').upsert({
     id: academy.id,
     data: stripSecrets(academy),
-    updated_at: new Date().toISOString()
+    updated_at: stamp
   }, { onConflict: 'id' });
-  if(error) console.error('Supabase 저장 오류:', error.message);
+  if(error){
+    console.error('Supabase 저장 오류:', error.message);
+    showToast('저장 실패 — 네트워크 상태를 확인하고 다시 시도해주세요.', 'error');
+    return false;
+  }
+  return true;
 }
 
 async function sbLoadAcademy(id){
@@ -2753,6 +2764,13 @@ function bootApp(){
 
   if(!currentAcademy.subjects) currentAcademy.subjects = [];
 
+  // 로드 직후 수납 중복 정리 (모바일 재저장 등으로 생긴 완전 동일 중복 제거)
+  const _dup = dedupePayments(currentAcademy);
+  if(_dup > 0){
+    saveAcademy();   // 정리된 결과를 서버에 반영
+    showToast(`중복 수납 ${_dup}건을 정리했습니다.`, 'success');
+  }
+
   initStatsYear();
   loadSettings();
   refreshAll();
@@ -2810,10 +2828,12 @@ function startRealtimeSync(){
       const incomingTime = incoming.updated_at || '';
       const localTime    = currentAcademy.updated_at || '';
 
-      // 내가 방금 저장한 것 무시 (1초 이내 동일 시간이면 skip)
+      // 내가 방금 저장한 것의 에코는 무시한다 (내 화면은 이미 최신)
+      if(incomingTime && incomingTime === _lastSavedTs) return;
       if(incomingTime && localTime && incomingTime <= localTime) return;
 
-      // 다른 기기에서 온 변경만 반영
+      // 다른 기기에서 온 변경만 반영 (중복이 있으면 정리해서 표시)
+      dedupePayments(incoming);
       currentAcademy = incoming;
       refreshAll();
       showToast('🔄 다른 기기에서 변경된 내용이 반영되었습니다.', 'success');
@@ -2843,8 +2863,37 @@ function refreshAll(){
   updateSmsPreview();
 }
 
-function saveAcademy(){
-  sbSaveAcademy(currentAcademy); // Supabase에만 저장
+// ── 수납 중복 정리 ─────────────────────────────────────
+// 같은 (학생·월)에 대해 '완전히 동일한' 수납 기록이 2개 이상이면 하나만 남긴다.
+//   (모바일에서 저장이 안 된 줄 알고 다시 저장하면 똑같은 기록이 2개 생기던 문제)
+//   ★ 완전 동일(학생·월·청구·수납·날짜·상태·이력)일 때만 제거하므로,
+//     정상적인 추가 선납 등 서로 다른 기록은 절대 지우지 않는다.
+function paymentSignature(p){
+  const hist = getPayHistory(p)
+    .map(h=>`${h.date||''}:${h.amount||0}:${h.method||''}:${h.depositor||''}`)
+    .join(',');
+  return [p.studentId, p.month, p.charge||0, p.amount||0, p.date||'', p.status||'', !!p.waived, !!p.prepaid]
+    .join('|') + '#' + hist;
+}
+function dedupePayments(academy){
+  const pays = academy && academy.payments;
+  if(!Array.isArray(pays) || pays.length < 2) return 0;
+  const seen = new Set();
+  const keep = [];
+  let removed = 0;
+  pays.forEach(p=>{
+    const sig = paymentSignature(p);
+    if(seen.has(sig)){ removed++; return; }   // 완전 동일한 중복 → 버림(하나만 유지)
+    seen.add(sig);
+    keep.push(p);
+  });
+  if(removed>0) academy.payments = keep;
+  return removed;
+}
+
+async function saveAcademy(){
+  dedupePayments(currentAcademy);            // 저장 전에 중복 정리
+  return await sbSaveAcademy(currentAcademy);// Supabase에 저장(실패 시 내부에서 알림), 성공 여부 반환
 }
 
 // ════════════════════════════════════════════════════════
@@ -7180,7 +7229,7 @@ function selectDepositor(depositorLabel, displayText){
   document.getElementById('qp-depositor-search').value=displayText||depositorLabel;
 }
 
-function confirmQuickPay(){
+async function confirmQuickPay(){
   // ── 편집 모드 처리 ──────────────────────────────
   if(_editPaymentId){
     const sid    = document.getElementById('qp-student-id').value;
@@ -7210,11 +7259,14 @@ function confirmQuickPay(){
         status: getPayStatus(charge, amount)
       };
     }
+    const okEdit = await saveAcademy();          // 저장(실패 시 내부에서 알림)
+    if(!okEdit) return;                          // 실패 → 모달 유지, 다시 시도 가능(중복 안 생김)
     _editPaymentId = null;
     // 제목·버튼 원복
     document.querySelector('#m-quick-pay h2').innerHTML = '💳 수납 처리 — <span id="qp-student-name"></span>';
     document.getElementById('qp-confirm-btn').textContent = '✅ 수납 처리 완료';
-    saveAcademy(); closeModal('m-quick-pay'); refreshAll();
+    closeModal('m-quick-pay');
+    refreshAll();                                // 저장된 최신 상태로 화면 갱신
     showToast('수납 내역이 수정되었습니다.','success');
     return;
   }
@@ -7324,7 +7376,11 @@ function confirmQuickPay(){
   const prepayNotice = document.getElementById('qp-prepay-notice');
   if(prepayNotice) prepayNotice.style.display='none';
 
-  saveAcademy(); closeModal('m-quick-pay'); refreshAll();
+  const okPay = await saveAcademy();      // 저장 완료까지 기다린다(실패 시 내부에서 알림)
+  if(!okPay) return;                      // 실패 → 모달 유지, 재시도해도 중복 안 생김
+
+  closeModal('m-quick-pay');
+  refreshAll();                           // 저장된 최신 상태로 화면 갱신
 
   // 완납된 달에 대해 수납 완료 알림 (설정이 켜져 있을 때만)
   months.forEach(m=>notifyPaymentComplete(sid, m));
@@ -9419,7 +9475,7 @@ if('serviceWorker' in navigator){
 if(window.caches && caches.keys){
   caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});
 }
-console.log('[AcademyPay] v2026-08-06h (서비스워커 미사용)');
+console.log('[AcademyPay] v2026-08-06i (서비스워커 미사용)');
 </script>
 </body>
 </html>
