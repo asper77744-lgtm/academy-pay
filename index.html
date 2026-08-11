@@ -626,7 +626,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div><div class="sb-uname" id="sb-uname">-</div><div class="sb-urole" id="sb-urole">-</div></div>
         <button class="sb-logout" onclick="logout()" title="로그아웃">⏻</button>
       </div>
-      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06i</div>
+      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06j</div>
     </div>
   </nav>
 
@@ -4294,7 +4294,6 @@ function renderStudents(){
         <strong>${s.name}</strong>
         ${s.grade?`<span class="badge b-purple" style="margin-left:4px;font-size:10px">${s.grade}</span>`:''}
         ${schoolInfo?`<br><span style="font-size:11px;color:var(--text3)">${schoolInfo}</span>`:''}
-        ${s.memo?`<br><span style="font-size:11px;color:var(--text3)">${s.memo}</span>`:''}
       </td>
       <td style="color:var(--text2);font-size:12px">
         ${s.phone ? `<a href="tel:${s.phone}" style="color:var(--accent);text-decoration:none;font-weight:500" onclick="event.stopPropagation()">📞 ${s.phone}</a>` : '-'}
@@ -9475,7 +9474,7 @@ if('serviceWorker' in navigator){
 if(window.caches && caches.keys){
   caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});
 }
-console.log('[AcademyPay] v2026-08-06i (서비스워커 미사용)');
+console.log('[AcademyPay] v2026-08-06j (서비스워커 미사용)');
 </script>
 </body>
 </html>
