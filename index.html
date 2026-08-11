@@ -626,7 +626,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div><div class="sb-uname" id="sb-uname">-</div><div class="sb-urole" id="sb-urole">-</div></div>
         <button class="sb-logout" onclick="logout()" title="로그아웃">⏻</button>
       </div>
-      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06j</div>
+      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06k</div>
     </div>
   </nav>
 
@@ -1585,7 +1585,15 @@ tbody tr:hover td{background:#f8f9ff}
           </optgroup>
         </select>
       </div>
-      <div class="ff"><label>일반 메모</label><input id="ms-memo" placeholder="특이사항, 성격, 참고사항..."/></div>
+      <div class="ff" style="grid-column:1 / -1">
+        <label>일반 메모 <span style="font-weight:400;color:var(--text3);font-size:11px">— 상담·진도·특이사항을 계속 기록하세요 (내용이 길어지면 칸이 자동으로 늘어납니다)</span></label>
+        <div style="margin-bottom:6px">
+          <button type="button" class="btn btn-neutral btn-sm" onclick="insertMemoDate()">＋ 오늘 날짜 줄 추가</button>
+        </div>
+        <textarea id="ms-memo" rows="5" placeholder="특이사항·성격·상담·진도 등을 자유롭게 기록하세요.&#10;예)&#10;2026-08-11: 8월부터 영어 추가&#10;2026-07-10: 학부모 상담 — ..."
+          oninput="autoGrowMemo(this)"
+          style="width:100%;min-height:120px;max-height:360px;resize:vertical;line-height:1.7;font-family:inherit;font-size:14px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;outline:none;overflow-y:auto;box-sizing:border-box"></textarea>
+      </div>
     </div>
 
     <!-- 수강 과목/반 (다중) -->
@@ -4326,6 +4334,7 @@ function openAddStudent(defaultStatus='active'){
   document.getElementById('m-stu-id').value='';
   document.getElementById('m-stu-title').textContent = defaultStatus==='trial' ? '🟡 체험 학생 등록' : '👤 학생 등록';
   ['ms-name','ms-phone','ms-school','ms-memo','ms-trial-memo','ms-readmit-memo'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  autoGrowMemo(document.getElementById('ms-memo'));   // 메모 칸 높이 초기화
   document.getElementById('ms-grade').value='';
   document.getElementById('ms-start').value = now().toISOString().slice(0,10);
   document.getElementById('ms-pay-day').value = '';
@@ -4353,6 +4362,25 @@ function openAddStudent(defaultStatus='active'){
   openModal('m-student'); setTimeout(()=>initPhoneInput('ms-phone'),50);
 }
 
+// 일반 메모 textarea — 내용 길이에 맞춰 높이 자동 확장 (최대 360px, 이후 스크롤)
+function autoGrowMemo(el){
+  if(!el) return;
+  el.style.height='auto';
+  el.style.height=Math.min(el.scrollHeight, 360)+'px';
+}
+
+// 메모 맨 위에 '오늘 날짜:' 줄을 추가하고 커서를 그 자리에 둔다 (계속 기록용)
+function insertMemoDate(){
+  const el=document.getElementById('ms-memo');
+  if(!el) return;
+  const d=now().toISOString().slice(0,10);
+  const line=`${d}: `;
+  el.value = el.value.trim() ? `${line}\n${el.value}` : line;
+  autoGrowMemo(el);
+  el.focus();
+  el.setSelectionRange(line.length, line.length);   // 날짜 뒤에 바로 입력
+}
+
 function editStudent(id){
   const s=getStudent(id); if(!s) return;
   document.getElementById('m-stu-id').value=id;
@@ -4362,6 +4390,7 @@ function editStudent(id){
   document.getElementById('ms-school').value =s.school||'';
   document.getElementById('ms-grade').value  =s.grade||'';
   document.getElementById('ms-memo').value   =s.memo||'';
+  autoGrowMemo(document.getElementById('ms-memo'));   // 저장된 메모 길이에 맞춰 칸 높이 조정
   document.getElementById('ms-start').value  =s.start;
   document.getElementById('ms-pay-day').value = s.payDay||'';
   const defEl = document.getElementById('ms-pay-day-default');
@@ -9474,7 +9503,7 @@ if('serviceWorker' in navigator){
 if(window.caches && caches.keys){
   caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});
 }
-console.log('[AcademyPay] v2026-08-06j (서비스워커 미사용)');
+console.log('[AcademyPay] v2026-08-06k (서비스워커 미사용)');
 </script>
 </body>
 </html>
