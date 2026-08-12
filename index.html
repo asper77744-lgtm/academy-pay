@@ -626,7 +626,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div><div class="sb-uname" id="sb-uname">-</div><div class="sb-urole" id="sb-urole">-</div></div>
         <button class="sb-logout" onclick="logout()" title="로그아웃">⏻</button>
       </div>
-      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06k</div>
+      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06l</div>
     </div>
   </nav>
 
@@ -2782,6 +2782,7 @@ function bootApp(){
   initStatsYear();
   loadSettings();
   refreshAll();
+  loadAutoSmsLog();   // 서버 자동발송 내역 미리 로드
   checkBackToSuperAdmin();
   checkInactivityWarning();
 
@@ -2925,6 +2926,7 @@ function nav(name,el){
   closeMobMenu();
   // 페이지별 초기화
   if(name==='office') initOfficePage();
+  if(name==='sms')    loadAutoSmsLog();   // 서버 자동발송 내역을 불러와 합쳐 보여준다
   // 모바일 topbar 제목 업데이트
   const titles={dashboard:'대시보드',students:'학생 관리',payments:'수납 내역',
     classes:'과목/반 관리',teachers:'선생님 관리',unpaid:'미납 관리',
@@ -8650,14 +8652,45 @@ function sendSmsTo(sid){
 // type: 'manual'(수동, 기본) | 'auto'(자동 — 수납완료 알림 등)
 function logSms(cnt, channel, preview, type){
   if(!currentAcademy.smsLog)currentAcademy.smsLog=[];
-  currentAcademy.smsLog.unshift({id:uid(),date:now().toLocaleString('ko-KR'),cnt,channel:channel||'SMS',preview:preview||'',status:'성공',type:type||'manual'});
+  currentAcademy.smsLog.unshift({id:uid(),date:now().toLocaleString('ko-KR'),sentAt:new Date().toISOString(),cnt,channel:channel||'SMS',preview:preview||'',status:'성공',type:type||'manual'});
   if(currentAcademy.smsLog.length>200)currentAcademy.smsLog=currentAcademy.smsLog.slice(0,200);
   saveAcademy();
 }
 
+// 서버 자동발송(미납 알림 등) 로그 — auto_sms_log 테이블을 RPC로 읽어온다.
+//   (이 표는 서버 전용이라 앱에서 직접 못 읽으므로 SECURITY DEFINER RPC로 조회)
+const AUTO_RULE_LABEL = {
+  'auto-sms1':'수납일 전날 알림',
+  'auto-sms2':'미납 3일 후 알림',
+  'auto-sms3':'미납 7일 후 재알림',
+  'auto-sms4':'수납 완료 알림',
+};
+let _autoSmsLog = [];
+async function loadAutoSmsLog(){
+  try{
+    if(!_sb || !currentAcademy?.id){ _autoSmsLog=[]; renderSmsLog(); return; }
+    const { data, error } = await _sb.rpc('recent_auto_sms', { p_academy_id: currentAcademy.id, p_limit: 100 });
+    if(error){ console.error('자동발송 내역 조회 오류:', error.message); return; }
+    const nameOf = (sid)=>{ const s=(currentAcademy.students||[]).find(x=>String(x.id)===String(sid)); return s?s.name:'학생'; };
+    _autoSmsLog = (data||[]).map(r=>({
+      date: new Date(r.sent_at).toLocaleString('ko-KR', { timeZone:'Asia/Seoul' }),
+      sentAt: r.sent_at,
+      cnt: 1,
+      channel: r.channel==='ATA' ? '알림톡' : (r.channel||'SMS'),
+      preview: `${nameOf(r.student_id)} — ${AUTO_RULE_LABEL[r.rule]||r.rule}`,
+      status: r.ok===false ? '실패' : '성공',
+      type: 'auto',
+    }));
+    renderSmsLog();
+  }catch(e){ console.error('자동발송 내역 조회 실패:', e); }
+}
+
 function renderSmsLog(){
-  const log=currentAcademy.smsLog||[];
   const el=document.getElementById('sms-log-tbody');if(!el)return;
+  // 앱 발송(수동·수납완료)과 서버 자동발송(미납 알림 등)을 합쳐 시간순으로 보여준다
+  const tsOf = (x)=>{ const t = Date.parse(x.sentAt || ''); return isNaN(t) ? 0 : t; };
+  const log = [ ...(currentAcademy.smsLog||[]), ...(_autoSmsLog||[]) ]
+    .sort((a,b)=> tsOf(b) - tsOf(a));
   el.innerHTML=log.length?log.map(l=>{
     // 옛 기록엔 type이 없으니 문구로 추정 (‘자동’ 포함 시 자동)
     const isAuto = l.type ? l.type==='auto' : /자동/.test(l.preview||'');
@@ -9503,7 +9536,7 @@ if('serviceWorker' in navigator){
 if(window.caches && caches.keys){
   caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});
 }
-console.log('[AcademyPay] v2026-08-06k (서비스워커 미사용)');
+console.log('[AcademyPay] v2026-08-06l (서비스워커 미사용)');
 </script>
 </body>
 </html>
