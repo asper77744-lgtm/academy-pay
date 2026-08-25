@@ -626,7 +626,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div><div class="sb-uname" id="sb-uname">-</div><div class="sb-urole" id="sb-urole">-</div></div>
         <button class="sb-logout" onclick="logout()" title="로그아웃">⏻</button>
       </div>
-      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06m</div>
+      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06n</div>
     </div>
   </nav>
 
@@ -707,7 +707,6 @@ tbody tr:hover td{background:#f8f9ff}
               <span style="font-size:12px;color:var(--text3)">명</span>
             </div>
             <div style="padding:2px 16px 4px;font-size:11px;color:var(--danger);font-weight:600" id="ds-unpaid-amt">0만원</div>
-            <div style="padding:2px 16px 4px;font-size:10px;color:var(--text3)" id="ds-unpaid-split"></div>
             <div style="padding:2px 16px 4px;font-size:10px;color:var(--text3)" id="ds-unpaid-rate"></div>
             <div class="sc-icon">⚠️</div>
           </div>
@@ -1268,7 +1267,12 @@ tbody tr:hover td{background:#f8f9ff}
 
         <!-- 우측: 발송내역 + 자동발송 -->
         <div style="display:flex;flex-direction:column;gap:16px">
-          <div class="card"><div class="card-head"><h3>⚡ 자동 발송 규칙</h3><span style="font-size:11px;color:var(--text2)">토글 클릭 시 자동 저장</span></div><div class="card-body" style="padding:0 16px 8px">
+          <div class="card"><div class="card-head" style="flex-wrap:wrap;gap:6px"><h3>⚡ 자동 발송 규칙</h3>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <button type="button" id="run-autosms-btn" class="btn btn-neutral btn-sm" onclick="runAutoSmsNow()" data-tip="지금 서버에서 규칙을 즉시 실행해 테스트">🧪 지금 실행</button>
+              <span style="font-size:11px;color:var(--text2)">토글 클릭 시 자동 저장</span>
+            </div>
+          </div><div class="card-body" style="padding:0 16px 8px">
             <!-- 수납일 전날 -->
             <div class="setting-row" style="flex-wrap:wrap;gap:6px;padding:10px 0">
               <div style="flex:1;min-width:120px"><div class="setting-label">수납일 전날 알림</div><div class="setting-desc">수납 예정일 하루 전 자동 발송</div></div>
@@ -2979,22 +2983,16 @@ function updateDashboard(){
   }, 0);
   const paidRate = expectedRevenue > 0 ? Math.round(paidAmt/expectedRevenue*100) : 0;
 
-  // ── 5번: 미납 (누적 기준 — 미납관리 페이지와 동일한 getUnpaidMonths 로직)
-  //   인원: 밀린 달이 하나라도 있는 학생 전체 (이번 달을 냈어도 지난달이 밀렸으면 포함)
-  //   금액: 이번 달분 미납(unpaidThisMonth)과 전달까지 누적 미납(unpaidPrev)을 나눠서 집계
-  let unpaidThisMonth = 0;   // 이번 달(curYm) 미납액
-  let unpaidPrev      = 0;   // 전달까지(curYm 이전) 누적 미납액
-  let unpaidCnt       = 0;   // 밀린 달이 하나라도 있는 학생 수
-  active.forEach(s=>{
-    const ms = getUnpaidMonths(s);
-    if(!ms.length) return;
-    unpaidCnt++;
-    ms.forEach(m=>{
-      if(m.month===curYm) unpaidThisMonth += m.unpaid;
-      else                unpaidPrev      += m.unpaid;
-    });
-  });
-  const unpaidAmt  = unpaidThisMonth + unpaidPrev;   // 총 미납
+  // ── 5번: 미납
+  // 인원: paid 없는 학생 (부분납부 포함)
+  // 금액: 완전미납 청구액 + 부분납부 잔액
+  const unpaidStudents = active.filter(s=>!payments.find(p=>p.studentId===s.id&&p.month===curYm&&p.status==='paid'));
+  const unpaidCnt = unpaidStudents.length;
+  const unpaidAmt = unpaidStudents.reduce((sum,s)=>{
+    const charge  = calcTotalFee(s);
+    const already = mPays.filter(p=>p.studentId===s.id).reduce((a,p)=>a+p.amount, 0);
+    return sum + Math.max(0, charge - already);
+  }, 0);
   const unpaidRate = expectedRevenue > 0 ? Math.round(unpaidAmt/expectedRevenue*100) : 0;
 
   // ── DOM 업데이트
@@ -3066,12 +3064,6 @@ function updateDashboard(){
   document.getElementById('ds-unpaid').textContent      = unpaidCnt;
   document.getElementById('ds-unpaid-amt').textContent  = `${fmt(unpaidAmt)}만원`;
   document.getElementById('ds-unpaid-rate').textContent = `예상대비 ${unpaidRate}%`;
-
-  // 미납 세부내역 — 이번 달분과 전달까지(누적) 미납을 나눠 보여준다
-  const uSplitEl = document.getElementById('ds-unpaid-split');
-  if(uSplitEl){
-    uSplitEl.innerHTML = `이번달 <span style="color:#f43f5e;font-weight:600">${fmt(unpaidThisMonth)}만</span> · 전달까지 <span style="color:var(--danger);font-weight:600">${fmt(unpaidPrev)}만</span>`;
-  }
 
   const cfEl = document.getElementById('ds-cashflow');
   if(cfEl){
@@ -8854,6 +8846,34 @@ function updateOverdueRule(i, field, value){
   saveAcademy();
 }
 
+// 서버 자동발송을 지금 즉시 실행(테스트) — 스케줄 시각을 기다리지 않고 확인용.
+//   서버가 오늘 조건(수납일+경과일)이 맞는 미납 학생에게만 발송한다(날짜·미납 조건은 그대로).
+async function runAutoSmsNow(){
+  if(!_sb || !currentAcademy?.id){ showToast('로그인 상태를 확인해주세요.','error'); return; }
+  if(!_smsCredReady){ showToast('학원 설정에서 SMS API Key를 먼저 등록해주세요.','error'); return; }
+  if(!confirm('지금 자동 발송 규칙을 서버에서 즉시 실행할까요?\n\n· 오늘 "수납일 + 경과일"이 맞는 미납 학생에게 발송됩니다.\n· 테스트 모드가 켜져 있으면 테스트 번호로만 나갑니다.\n· 이번 달에 이미 보낸 건은 중복 방지로 제외됩니다.')) return;
+  const btn=document.getElementById('run-autosms-btn');
+  if(btn){ btn.disabled=true; btn.textContent='실행 중...'; }
+  try{
+    const { data:{ session } } = await _sb.auth.getSession();
+    const token = session?.access_token;
+    if(!token){ showToast('세션이 없습니다. 다시 로그인해주세요.','error'); return; }
+    const { data, error } = await _sb.functions.invoke('auto-sms', {
+      headers:{ Authorization:`Bearer ${token}` },
+      body:{ manual:true, academyId: currentAcademy.id, force:true }
+    });
+    if(error){ showToast('실행 실패: '+(error.message||error),'error'); return; }
+    const sent=data?.sent||0, skipped=data?.skipped||0, failed=data?.failed||0;
+    showToast(`실행 완료 — 발송 ${sent} · 건너뜀 ${skipped} · 실패 ${failed}`, sent>0?'success':'info');
+    if(Array.isArray(data?.details) && data.details.length) console.log('auto-sms 상세:', data.details);
+    loadAutoSmsLog();   // 발송 내역 갱신
+  }catch(e){
+    showToast('실행 오류: '+(e.message||e),'error');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='🧪 지금 실행'; }
+  }
+}
+
 function saveNotifySettings(){
   if(!currentAcademy.notify) currentAcademy.notify = {};
   ['auto-sms1','auto-sms4'].forEach(id=>{
@@ -9621,7 +9641,7 @@ if('serviceWorker' in navigator){
 if(window.caches && caches.keys){
   caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});
 }
-console.log('[AcademyPay] v2026-08-06m (서비스워커 미사용)');
+console.log('[AcademyPay] v2026-08-06n (서비스워커 미사용)');
 </script>
 </body>
 </html>
