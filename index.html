@@ -629,7 +629,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div><div class="sb-uname" id="sb-uname">-</div><div class="sb-urole" id="sb-urole">-</div></div>
         <button class="sb-logout" onclick="logout()" title="로그아웃">⏻</button>
       </div>
-      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06o</div>
+      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06p</div>
     </div>
   </nav>
 
@@ -8868,7 +8868,14 @@ async function runAutoSmsNow(){
     if(error){ showToast('실행 실패: '+(error.message||error),'error'); return; }
     const sent=data?.sent||0, skipped=data?.skipped||0, failed=data?.failed||0;
     showToast(`실행 완료 — 발송 ${sent} · 건너뜀 ${skipped} · 실패 ${failed}`, sent>0?'success':'info');
-    if(Array.isArray(data?.details) && data.details.length) console.log('auto-sms 상세:', data.details);
+    const details = Array.isArray(data?.details) ? data.details : [];
+    if(details.length){
+      console.log('auto-sms 상세:', details);
+      // 발송이 0인데 이유가 궁금할 수 있으므로 진단 내용을 안내창으로 보여준다
+      if(sent===0){
+        alert(`실행 완료 — 발송 ${sent}건\n\n[진단]\n${details.join('\n')}`);
+      }
+    }
     loadAutoSmsLog();   // 발송 내역 갱신
   }catch(e){
     showToast('실행 오류: '+(e.message||e),'error');
@@ -9644,7 +9651,7 @@ if('serviceWorker' in navigator){
 if(window.caches && caches.keys){
   caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});
 }
-console.log('[AcademyPay] v2026-08-06o (서비스워커 미사용)');
+console.log('[AcademyPay] v2026-08-06p (서비스워커 미사용)');
 </script>
 </body>
 </html>
