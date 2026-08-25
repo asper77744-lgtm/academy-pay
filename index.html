@@ -335,6 +335,9 @@ tbody tr:hover td{background:#f8f9ff}
   opacity:0;transition:opacity .15s;pointer-events:none;z-index:9999;
 }
 [data-tip]:hover::after,[data-tip]:hover::before{opacity:1}
+/* 위쪽이 잘리는 경우: 툴팁을 아래로 표시 */
+[data-tip].tip-below::after{bottom:auto;top:calc(100% + 6px)}
+[data-tip].tip-below::before{bottom:auto;top:calc(100% + 2px);border-top-color:transparent;border-bottom-color:#1e293b}
 
 
 .mob-topbar{
@@ -626,7 +629,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div><div class="sb-uname" id="sb-uname">-</div><div class="sb-urole" id="sb-urole">-</div></div>
         <button class="sb-logout" onclick="logout()" title="로그아웃">⏻</button>
       </div>
-      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06n</div>
+      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06o</div>
     </div>
   </nav>
 
@@ -1269,7 +1272,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div style="display:flex;flex-direction:column;gap:16px">
           <div class="card"><div class="card-head" style="flex-wrap:wrap;gap:6px"><h3>⚡ 자동 발송 규칙</h3>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <button type="button" id="run-autosms-btn" class="btn btn-neutral btn-sm" onclick="runAutoSmsNow()" data-tip="지금 서버에서 규칙을 즉시 실행해 테스트">🧪 지금 실행</button>
+              <button type="button" id="run-autosms-btn" class="btn btn-neutral btn-sm tip-below" onclick="runAutoSmsNow()" data-tip="지금 서버에서 규칙을 즉시 실행해 테스트">🧪 지금 실행</button>
               <span style="font-size:11px;color:var(--text2)">토글 클릭 시 자동 저장</span>
             </div>
           </div><div class="card-body" style="padding:0 16px 8px">
@@ -9641,7 +9644,7 @@ if('serviceWorker' in navigator){
 if(window.caches && caches.keys){
   caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});
 }
-console.log('[AcademyPay] v2026-08-06n (서비스워커 미사용)');
+console.log('[AcademyPay] v2026-08-06o (서비스워커 미사용)');
 </script>
 </body>
 </html>
