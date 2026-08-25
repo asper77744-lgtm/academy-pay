@@ -629,7 +629,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div><div class="sb-uname" id="sb-uname">-</div><div class="sb-urole" id="sb-urole">-</div></div>
         <button class="sb-logout" onclick="logout()" title="로그아웃">⏻</button>
       </div>
-      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06p</div>
+      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06q</div>
     </div>
   </nav>
 
@@ -8789,7 +8789,7 @@ function renderOverdueRules(){
   box.innerHTML = rules.map((r,i)=>{
     const tplSel = `<select class="fs" style="padding:5px 8px;font-size:12px;max-width:130px" onchange="updateOverdueRule(${i},'tpl',this.value)">
       <option value="">템플릿 선택</option>
-      ${templates.map((t,ti)=>`<option value="${ti}" ${Number(r.tpl)===ti?'selected':''}>${t.name}</option>`).join('')}
+      ${templates.map((t,ti)=>`<option value="${ti}" ${(r.tpl!=null && Number(r.tpl)===ti)?'selected':''}>${t.name}</option>`).join('')}
     </select>`;
     const timeSel = `<select class="fs" style="padding:5px 8px;font-size:12px;width:80px" onchange="updateOverdueRule(${i},'time',this.value)">
       ${Array.from({length:24},(_,h)=>`<option value="${h}" ${Number(r.time??10)===h?'selected':''}>${String(h).padStart(2,'0')}:00</option>`).join('')}
@@ -9651,7 +9651,7 @@ if('serviceWorker' in navigator){
 if(window.caches && caches.keys){
   caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});
 }
-console.log('[AcademyPay] v2026-08-06p (서비스워커 미사용)');
+console.log('[AcademyPay] v2026-08-06q (서비스워커 미사용)');
 </script>
 </body>
 </html>
