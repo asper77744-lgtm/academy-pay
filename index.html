@@ -6289,11 +6289,55 @@ function savePayment(){
   }
 }
 
+// 한 번의 수납처리(txId)로 여러 달에 저장된 이번 입금분만 골라 원복한다.
+//   · 각 달 레코드의 입금이력에서 이 txId 건만 제거하고 금액·상태를 재계산
+//   · 이전에 정상 납부된 금액(다른 txId·구 이력)은 그대로 보존
+//   · 이 거래로만 생겼던 달(이력이 전부 사라진 레코드)은 레코드째 제거
+function revertPaymentTx(sid, txId){
+  const pays = currentAcademy.payments||[];
+  pays.forEach(p=>{
+    if(p.studentId!==sid) return;
+    if(!(p.history||[]).some(h=>h.txId===txId)) return;
+    const kept = (p.history||[]).filter(h=>h.txId!==txId);
+    p.history = kept;
+    const newAmt = kept.reduce((a,h)=>a+(h.amount||0), 0);
+    p.amount = newAmt;
+    p.status = getPayStatus(p.charge||0, newAmt);
+    if(kept.length) p.date = kept[kept.length-1].date;
+    // 이 거래로 생긴 선납 표식 정리(남은 이력이 없으면 아래에서 레코드째 제거됨)
+  });
+  // 이력도 금액도 남지 않은 레코드는 제거(이 거래로만 만들어졌던 달)
+  currentAcademy.payments = pays.filter(p=>{
+    if(p.studentId!==sid) return true;
+    if((p.history||[]).length>0) return true;
+    return (p.amount||0)>0;
+  });
+}
+
 function deletePayment(id){
-  if(!confirm('삭제하시겠습니까?'))return;
   if(currentUser.role!=='admin'&&!currentUser.permissions?.delete){showToast('삭제 권한이 없습니다.','error');return}
-  currentAcademy.payments=currentAcademy.payments.filter(p=>p.id!==id);
-  saveAcademy();refreshAll();showToast('삭제되었습니다.','success');
+  const pays = currentAcademy.payments||[];
+  const p = pays.find(x=>x.id===id);
+  if(!p) return;
+
+  // 이 레코드의 입금이력 중 가장 최근 거래 ID (이번에 되돌릴 수납 건)
+  const lastTx = [...(p.history||[])].reverse().map(h=>h.txId).find(Boolean) || null;
+
+  if(lastTx){
+    const spanned = pays.filter(x=>x.studentId===p.studentId && (x.history||[]).some(h=>h.txId===lastTx));
+    const months  = spanned.map(x=>x.month).sort();
+    const msg = months.length>1
+      ? `이 수납은 ${months.length}개 달(${months.join(', ')})에 함께 처리된 건입니다.\n\n해당 수납 건 전체를 되돌릴까요?\n(이전에 정상 납부된 금액은 그대로 유지됩니다)`
+      : `이 수납 건을 되돌릴까요?\n(이전에 정상 납부된 금액은 그대로 유지됩니다)`;
+    if(!confirm(msg)) return;
+    revertPaymentTx(p.studentId, lastTx);
+    saveAcademy(); refreshAll(); showToast('수납 건을 되돌렸습니다.','success');
+  } else {
+    // 거래 ID가 없는 옛 기록 — 묶음 정보가 없어 이 달 레코드만 삭제(기존 동작)
+    if(!confirm('이 기록은 거래 묶음 정보가 없어 이 달 기록만 삭제됩니다.\n삭제하시겠습니까?')) return;
+    currentAcademy.payments = pays.filter(x=>x.id!==id);
+    saveAcademy(); refreshAll(); showToast('삭제되었습니다.','success');
+  }
 }
 
 // ════════════════════════════════════════════════════════
@@ -7336,6 +7380,10 @@ async function confirmQuickPay(){
   const totalUnpaid = monthInfos.reduce((a,x)=>a+x.unpaid, 0)||1;
   let remaining = totalInputAmt;
 
+  // 이 한 번의 수납처리를 묶는 거래 ID. 여러 달에 걸쳐 저장돼도
+  // 삭제 시 이 ID로 이번 입금분만 골라 원복할 수 있게 한다.
+  const txId = uid();
+
   monthInfos.forEach(({month, existing, charge, prevAmt, unpaid}, idx)=>{
     const isPrepay = month > curYm;
     const isLast   = idx === monthInfos.length-1;
@@ -7361,7 +7409,7 @@ async function confirmQuickPay(){
     };
 
     // 이번 입금 건 (수정 모드에서는 이력을 새로 쓴다)
-    const entry = { date, amount: Math.max(0, actualPay - (existing && existing.status!=='paid' ? prevAmt : 0)),
+    const entry = { txId, date, amount: Math.max(0, actualPay - (existing && existing.status!=='paid' ? prevAmt : 0)),
                     method:_qpSelectedMethod, depositor: depositor||'' };
 
     if(existing && existing.status !== 'paid'){
@@ -7383,7 +7431,7 @@ async function confirmQuickPay(){
     if(overPay > 0){
       const nextMonth = (()=>{ const [y,mo]=month.split('-').map(Number); const d=new Date(y,mo,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })();
       const nextEx = currentAcademy.payments.find(p=>p.studentId===sid&&p.month===nextMonth);
-      const overEntry = {date, amount:overPay, method:_qpSelectedMethod, depositor:depositor||''};
+      const overEntry = {txId, date, amount:overPay, method:_qpSelectedMethod, depositor:depositor||''};
       if(nextEx && nextEx.status!=='paid'){
         nextEx.history = [...getPayHistory(nextEx), overEntry];
         nextEx.amount = (nextEx.amount||0) + overPay;
