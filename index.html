@@ -604,6 +604,7 @@ tbody tr:hover td{background:#f8f9ff}
       <div class="sb-item" onclick="nav('unpaid',this)"><span class="ico">⚠️</span>미납 관리 <span class="sb-badge" id="sb-unpaid-cnt">0</span></div>
       <div class="sb-section-label">분석</div>
       <div class="sb-item" onclick="nav('stats',this)"><span class="ico">📈</span>통계/리포트</div>
+      <div class="sb-item" onclick="nav('gradepay',this)"><span class="ico">🖨️</span>학년별 수납표</div>
       <div class="sb-item" onclick="nav('sms',this)"><span class="ico">📱</span>문자 알림</div>
       <div class="sb-section-label">교육청 서류</div>
       <div class="sb-item" onclick="nav('office',this)"><span class="ico">🏛️</span>교육청 출력</div>
@@ -1124,6 +1125,28 @@ tbody tr:hover td{background:#f8f9ff}
         </div>
 
       </div>
+    </div>
+
+    <!-- ── 학년별 수납표 (종이 출력) ── -->
+    <div class="page" id="page-gradepay">
+      <div class="ph">
+        <div class="ph-left"><h1>학년별 수납표</h1><p>학년별·월별 수강료 청구 현황을 종이로 출력합니다. (납부일·비고는 손으로 기입하는 확인용 서식)</p></div>
+      </div>
+      <div class="card">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;padding:4px 2px">
+          <div class="ff" style="margin:0">
+            <label style="font-size:12px;font-weight:600">월</label><br>
+            <input id="gp-month" type="month" onchange="renderGradePayPreview()" style="font-size:14px;padding:8px 10px"/>
+          </div>
+          <div class="ff" style="margin:0">
+            <label style="font-size:12px;font-weight:600">학년</label><br>
+            <select id="gp-grade" onchange="renderGradePayPreview()" style="font-size:14px;padding:8px 10px"><option value="">전체 학년</option></select>
+          </div>
+          <button class="btn btn-primary" onclick="printGradePay()" style="margin-left:auto">🖨️ 인쇄 / PDF 저장</button>
+        </div>
+        <div style="font-size:12px;color:var(--text3);padding:6px 2px 0">금액 단위는 원(₩)으로 표시됩니다. 그 학년 재원생 전체가 표에 포함됩니다.</div>
+      </div>
+      <div class="card" style="overflow-x:auto"><div id="gp-preview" style="padding:4px"></div></div>
     </div>
 
     <!-- ── SMS ── -->
@@ -2915,13 +2938,166 @@ function nav(name,el){
   closeMobMenu();
   // 페이지별 초기화
   if(name==='office') initOfficePage();
+  if(name==='gradepay') initGradePayPage();
   if(name==='sms')    loadAutoSmsLog();   // 서버 자동발송 내역을 불러와 합쳐 보여준다
   // 모바일 topbar 제목 업데이트
   const titles={dashboard:'대시보드',students:'학생 관리',payments:'수납 내역',
     classes:'과목/반 관리',teachers:'선생님 관리',unpaid:'미납 관리',
-    stats:'통계/리포트',sms:'문자 알림',office:'교육청 서류',settings:'설정'};
+    stats:'통계/리포트',gradepay:'학년별 수납표',sms:'문자 알림',office:'교육청 서류',settings:'설정'};
   const t=document.getElementById('mob-topbar-title');
   if(t) t.textContent=titles[name]||'AcademyPay';
+}
+
+// ════════════════════════════════════════════════════════
+// 학년별 수납표 (종이 출력) — 과목 자동 열 / 청구만(빈 확인 서식)
+// ════════════════════════════════════════════════════════
+function _gpGradeSortKey(g){
+  const order={'유':0,'초':1,'중':2,'고':3};
+  const m=String(g||'').match(/(유|초|중|고)\s*(\d+)?/);
+  if(m) return (order[m[1]]*100)+(parseInt(m[2])||0);
+  return 9000; // 알 수 없는 형식은 뒤로
+}
+function _gpWon(v){ return v ? fmt(Math.round(v*10000)) : ''; }  // 저장값(만원) → 원 표시
+
+function _gpAllGrades(){
+  const active=(currentAcademy.students||[]).filter(isActiveStudent);
+  return [...new Set(active.map(s=>(s.grade||'').trim()).filter(Boolean))]
+           .sort((a,b)=>_gpGradeSortKey(a)-_gpGradeSortKey(b));
+}
+
+function initGradePayPage(){
+  const mEl=document.getElementById('gp-month');
+  if(mEl && !mEl.value) mEl.value=ym();
+  const gEl=document.getElementById('gp-grade');
+  if(gEl){
+    const cur=gEl.value;
+    gEl.innerHTML='<option value="">전체 학년</option>'+_gpAllGrades().map(g=>`<option value="${g}">${g}</option>`).join('');
+    if(cur) gEl.value=cur;
+  }
+  renderGradePayPreview();
+}
+
+function _gpTargetGrades(){
+  const sel=document.getElementById('gp-grade')?.value||'';
+  const grades=_gpAllGrades();
+  return sel ? grades.filter(g=>g===sel) : grades;
+}
+
+function _gpTableCss(){
+  return `
+  .gp-sheet{margin-bottom:22px}
+  .gp-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px}
+  .gp-title{font-size:15px}
+  .gp-month{font-size:14px;font-weight:700}
+  .gp-table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+  .gp-table th,.gp-table td{border:1px solid #999;padding:4px 5px;text-align:center;word-break:keep-all;overflow:hidden}
+  .gp-table th{background:#eee;font-weight:700}
+  .gp-table td.nm{text-align:left;padding-left:7px}
+  .gp-table td.num{text-align:right;padding-right:7px;font-variant-numeric:tabular-nums}
+  .gp-table td.tot{font-weight:700}
+  .gp-table tr.sum td{background:#f5f5f5;font-weight:700}
+  .gp-table tr.empty td{height:22px}`;
+}
+
+// 한 학년 표 HTML — 재원생 전체 / 과목 자동 열 / 청구만(납부일·비고 빈칸)
+function _gpBuildGradeTable(grade, monthYm){
+  const rows=(currentAcademy.students||[]).filter(isActiveStudent)
+              .filter(s=>((s.grade||'').trim())===grade)
+              .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ko'));
+  // 과목 열: 이 학년 학생들의 수강 과목을 등장 순서대로 수집
+  const subjects=[];
+  rows.forEach(s=>getEnrollments(s).forEach(e=>{
+    const sub=(e.subject||'').trim();
+    if(sub && !subjects.includes(sub)) subjects.push(sub);
+  }));
+  const [yy,mm]=String(monthYm||ym()).split('-');
+  const monthLabel=`${Number(mm)}월`;
+
+  const colSum={}; subjects.forEach(su=>colSum[su]=0);
+  let discSum=0, totSum=0;
+
+  const bodyRows=rows.map((s,i)=>{
+    const feeBy={};
+    getEnrollments(s).forEach(e=>{ const su=(e.subject||'').trim(); if(su) feeBy[su]=(feeBy[su]||0)+(parseFloat(e.fee)||0); });
+    const disc=(s.discounts||[]).reduce((a,d)=>a+(parseFloat(d.amount)||0),0);
+    const tot=calcTotalFee(s);
+    subjects.forEach(su=>{ if(feeBy[su]) colSum[su]+=feeBy[su]; });
+    discSum+=disc; totSum+=tot;
+    const subjTds=subjects.map(su=>`<td class="num">${_gpWon(feeBy[su])}</td>`).join('');
+    return `<tr>
+      <td>${i+1}</td><td class="nm">${s.name||''}</td>
+      ${subjTds}
+      <td class="num">${disc?('-'+_gpWon(disc)):''}</td>
+      <td class="num tot">${_gpWon(tot)}</td>
+      <td></td><td>${monthLabel}</td><td></td>
+    </tr>`;
+  }).join('');
+
+  const subjTh=subjects.map(su=>`<th>${su}</th>`).join('');
+  const subjTot=subjects.map(su=>`<td class="num">${_gpWon(colSum[su])}</td>`).join('');
+  // 신규/수기 기입용 여유 빈 행 3줄
+  let emptyRows='';
+  for(let k=0;k<3;k++){
+    emptyRows+=`<tr class="empty"><td>${rows.length+k+1}</td><td></td>${subjects.map(()=>'<td></td>').join('')}<td></td><td></td><td></td><td></td><td></td></tr>`;
+  }
+
+  return `
+  <div class="gp-sheet">
+    <div class="gp-head">
+      <div class="gp-title">${currentAcademy.name||''} · <b>${grade}</b></div>
+      <div class="gp-month">${yy}년 ${monthLabel} 수납표</div>
+    </div>
+    <table class="gp-table">
+      <thead><tr>
+        <th style="width:7%">번호</th><th style="width:14%">이름</th>
+        ${subjTh}
+        <th>할인</th><th>합계</th><th style="width:11%">납부일</th><th style="width:6%">월</th><th style="width:16%">비고</th>
+      </tr></thead>
+      <tbody>
+        ${bodyRows||`<tr><td colspan="${subjects.length+7}" style="padding:14px;color:#888">재원생이 없습니다</td></tr>`}
+        ${emptyRows}
+        <tr class="sum">
+          <td colspan="2">합계 (${rows.length}명)</td>
+          ${subjTot}
+          <td class="num">${discSum?('-'+_gpWon(discSum)):''}</td>
+          <td class="num tot">${_gpWon(totSum)}</td>
+          <td></td><td></td><td></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function renderGradePayPreview(){
+  const host=document.getElementById('gp-preview');
+  if(!host) return;
+  const monthYm=document.getElementById('gp-month')?.value||ym();
+  const grades=_gpTargetGrades();
+  if(!grades.length){ host.innerHTML='<div style="padding:14px;color:var(--text3)">재원생이 있는 학년이 없습니다.</div>'; return; }
+  host.innerHTML='<style>'+_gpTableCss()+'</style>'+grades.map(g=>_gpBuildGradeTable(g,monthYm)).join('');
+}
+
+function printGradePay(){
+  const monthYm=document.getElementById('gp-month')?.value||ym();
+  const grades=_gpTargetGrades();
+  if(!grades.length){ showToast('출력할 학년이 없습니다.','error'); return; }
+  const [yy,mm]=monthYm.split('-');
+  const pages=grades.map(g=>`<div class="gp-page">${_gpBuildGradeTable(g,monthYm)}</div>`).join('');
+  const win=window.open('','_blank');
+  if(!win){ showToast('팝업이 차단되었습니다. 팝업 허용 후 다시 시도해주세요.','error'); return; }
+  win.document.write('<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">'
+    +`<title>${currentAcademy.name||'학원'} 학년별 수납표 ${yy}-${mm}</title>`
+    +'<style>*{box-sizing:border-box}'
+    +"body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;margin:0;color:#111}"
+    +_gpTableCss()
+    +'.gp-page{padding:12mm 10mm;page-break-after:always}.gp-page:last-child{page-break-after:auto}'
+    +'@page{size:A4 portrait;margin:0}'
+    +'@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}'
+    +'</style></head><body>'
+    +pages
+    +'<script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script>'
+    +'</body></html>');
+  win.document.close();
 }
 
 // ════════════════════════════════════════════════════════
