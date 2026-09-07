@@ -3099,9 +3099,11 @@ function _gpBuildGradeTable(grade, monthYm, includeSum){
   // ── 미납 · 선불 내역 (있을 때만, 표 아래에 조금 떨어뜨려 항목별로 표기) ──
   const pays=currentAcademy.payments||[];
   const extras=[];
+  const _curYm=ym();  // 이번 달은 아직 수납일이 지나지 않았을 수 있어 이 표에선 미납 제외
   rows.forEach(s=>{
     // 미납: 밀린 달마다 한 줄 (getUnpaidMonths가 면제·부분납부·청구조정 반영)
-    getUnpaidMonths(s).forEach(u=>{
+    //   단, 이번 달(_curYm) 건은 제외하고 '이번 달 이전' 미납만 잡는다.
+    getUnpaidMonths(s).filter(u=>u.month < _curYm).forEach(u=>{
       extras.push({name:s.name||'', kind:'미납', month:u.month, amt:u.unpaid});
     });
     // 선불(선납): 미리 받은 결제 기록마다 한 줄
