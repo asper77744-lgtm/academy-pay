@@ -1934,10 +1934,18 @@ tbody tr:hover td{background:#f8f9ff}
       </div>
     </div>
 
-    <!-- 납부일, 메모 -->
+    <!-- 납부일 -->
     <div class="frow">
       <div class="ff"><label>납부일 *</label><input id="qp-date" type="date"/></div>
-      <div class="ff"><label>메모</label><input id="qp-note" placeholder="특이사항..."/></div>
+      <div class="ff"></div>
+    </div>
+
+    <!-- 메모 (여러 줄 · 자동 확장) -->
+    <div class="ff">
+      <label>메모 <button type="button" class="btn btn-neutral btn-sm" onclick="qpInsertToday()" style="margin-left:6px;padding:2px 9px;font-size:11px;vertical-align:middle">📅 오늘 날짜</button></label>
+      <textarea id="qp-note" rows="3" oninput="autoGrow(this)"
+        placeholder="특이사항을 자유롭게 기록하세요. (내용이 길어지면 칸이 자동으로 늘어납니다)"
+        style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:13px;outline:none;resize:vertical;overflow:hidden;min-height:66px;line-height:1.55"></textarea>
     </div>
 
     <div class="modal-footer">
@@ -2946,6 +2954,23 @@ function nav(name,el){
     stats:'통계/리포트',gradepay:'학년별 수납표',sms:'문자 알림',office:'교육청 서류',settings:'설정'};
   const t=document.getElementById('mob-topbar-title');
   if(t) t.textContent=titles[name]||'AcademyPay';
+}
+
+// ── textarea 자동 높이 조절 (내용이 길어지면 칸이 늘어남) ──
+function autoGrow(el){
+  if(!el) return;
+  el.style.height='auto';
+  el.style.height=(el.scrollHeight)+'px';
+}
+// 수납 메모에 오늘 날짜를 끼워넣는다 (여러 건 기록용, 줄바꿈으로 누적)
+function qpInsertToday(){
+  const el=document.getElementById('qp-note'); if(!el) return;
+  const d=now().toISOString().slice(0,10);   // YYYY-MM-DD (오늘)
+  const cur=el.value||'';
+  el.value = cur.trim() ? (cur.replace(/\s*$/,'') + '\n' + d + ' ') : (d + ' ');
+  autoGrow(el);
+  el.focus();
+  try{ el.selectionStart = el.selectionEnd = el.value.length; }catch(_){}
 }
 
 // ════════════════════════════════════════════════════════
@@ -6420,6 +6445,7 @@ function editPayment(id){
         // 날짜·메모
         document.getElementById('qp-date').value = p.date||now().toISOString().slice(0,10);
         document.getElementById('qp-note').value = p.note||'';
+        autoGrow(document.getElementById('qp-note'));
 
         // 버튼 강제 활성화
         const btn = document.getElementById('qp-confirm-btn');
@@ -6941,6 +6967,7 @@ function openQuickPayModal(sid, month, unpaidAmt, preferUnpaid){
   document.getElementById('qp-student-name').textContent = s.name;
   document.getElementById('qp-date').value               = now().toISOString().slice(0,10);
   document.getElementById('qp-note').value               = '';
+  autoGrow(document.getElementById('qp-note'));
   document.getElementById('qp-depositor').value          = '';
   document.getElementById('qp-depositor-search').value   = '';
   document.getElementById('qp-depositor-results').style.display = 'none';
