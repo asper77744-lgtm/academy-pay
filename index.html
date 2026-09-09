@@ -6200,6 +6200,8 @@ function renderPayments(){
         <td><span class="badge ${sb[p.status]}">${sl[p.status]}</span></td>
         <td style="white-space:nowrap">
           <button class="btn btn-neutral btn-sm" onclick="event.stopPropagation();editPayment('${p.id}')">편집</button>
+          <button class="btn btn-neutral btn-sm" data-tip="분납 이력 보정" onclick="event.stopPropagation();openPaySplitFix('${p.id}')" style="margin-left:4px">🧾</button>
+          <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deletePayment('${p.id}')" style="margin-left:4px">삭제</button>
         </td>
       </tr>`;
     }
