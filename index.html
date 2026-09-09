@@ -1096,7 +1096,7 @@ tbody tr:hover td{background:#f8f9ff}
             </p>
             <div style="margin-bottom:10px">
               <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-                <input type="checkbox" id="office-receipt-paid-only" checked/>
+                <input type="checkbox" id="office-receipt-paid-only" checked onchange="updateOfficeCounts()"/>
                 납부 완료 학생만 출력
               </label>
             </div>
@@ -2331,6 +2331,31 @@ let _lastSavedTs = '';   // 내가 방금 저장한 시각(실시간 에코 무�
 
 async function sbSaveAcademy(academy){
   if(!_sb) return true; // Supabase 없으면 로컬 모드 (성공 취급)
+
+  // ── 안전장치 1: 빈/비정상 데이터로 덮어쓰기 차단 ──
+  //   currentAcademy가 비어있거나 덜 로드된 상태에서 저장이 호출되면
+  //   서버의 정상 데이터가 통째로 지워질 수 있으므로 미리 막는다.
+  if(!academy || !academy.id){
+    console.error('저장 중단: 학원 데이터가 비어 있음', academy);
+    showToast('저장을 중단했습니다 — 데이터가 비어 있습니다. 새로고침(F5) 후 다시 시도해주세요.', 'error');
+    return false;
+  }
+
+  // ── 안전장치 2: 저장 직전 서버가 더 최신이면 덮어쓰기 금지 ──
+  //   오래된 탭/다른 기기의 옛 스냅샷이 최신 데이터를 되돌리는(초기화처럼 보이는) 사고 방지.
+  //   서버 updated_at이 내가 들고 있는 것보다 최신이면 저장을 막고 새로고침을 안내한다.
+  //   (신규 학원은 서버 행이 없어 remoteTime='' → 통과. 네트워크 확인 실패 시엔 저장을 막지 않음)
+  try{
+    const { data: cur } = await _sb.from('academies').select('updated_at').eq('id', academy.id).single();
+    const remoteTime = cur?.updated_at || '';
+    const localTime  = academy.updated_at || '';
+    if(remoteTime && localTime && remoteTime > localTime){
+      console.warn('저장 중단: 서버가 더 최신', {remoteTime, localTime});
+      showToast('⚠️ 다른 기기(또는 다른 창)에서 더 최신 변경이 있어 저장을 막았습니다. 새로고침(F5)해 최신 내용을 불러온 뒤 다시 시도해주세요.', 'error');
+      return false;
+    }
+  }catch(e){ /* 최신 확인 실패(일시 네트워크 등) — 정상 저장은 계속 진행 */ }
+
   // 저장 시각을 data(jsonb)와 테이블 컬럼에 동일하게 넣는다 → 실시간 에코를 정확히 걸러낸다.
   const stamp = new Date().toISOString();
   academy.updated_at = stamp;
@@ -5595,8 +5620,14 @@ function updateReceiptPreview(){
 function getReceiptTargets(month, paidOnly){
   const payments = currentAcademy.payments||[];
   const students = currentAcademy.students||[];
+  // 영수증 원부는 '그 달에 실제로 받은' 건이 기준이어야 한다(월말 보관용).
+  //   → 청구월(p.month)이 아니라 입금일 기준(paidInPeriod)으로 그 달에 돈이 들어온 건을 잡는다.
+  //   이렇게 하면 8월에 6·7월 미납을 낸 학생도 8월 원부에 포함된다.
   return payments
-    .filter(p => p.month === month && (paidOnly ? p.status==='paid' : p.amount>0))
+    .filter(p => {
+      if(paidInPeriod(p, month) <= 0) return false;   // 이 달에 입금 없음 → 제외
+      return paidOnly ? p.status==='paid' : true;      // '완납만' 옵션이면 완납 건만
+    })
     .map(p => ({
       payment: p,
       student: students.find(s=>s.id===p.studentId)
@@ -7874,7 +7905,11 @@ function updateOfficeCounts(){
   if(el('office-student-cnt')) el('office-student-cnt').textContent=active.length+'명';
   if(el('office-income-sum'))  el('office-income-sum').textContent='수입 '+(income*10000).toLocaleString()+'원';
   if(el('office-expense-sum')) el('office-expense-sum').textContent='지출 '+expTotal.toLocaleString()+'원';
-  if(el('office-receipt-cnt')) el('office-receipt-cnt').textContent=mPays.length+'건';
+  if(el('office-receipt-cnt')){
+    // 원부 건수도 실제 출력과 동일하게 '그 달 입금 기준'으로 센다
+    const rcPaidOnly = el('office-receipt-paid-only')?.checked;
+    el('office-receipt-cnt').textContent = getReceiptTargets(ym_, !!rcPaidOnly).length+'건';
+  }
   if(el('office-teacher-cnt')) el('office-teacher-cnt').textContent=tActive.length+'명';
   renderExpenseList();
 }
