@@ -3371,7 +3371,13 @@ function updateDashboard(){
     if(prepayOut>0) html += `<span style="color:#64748b">-선납차감 ${fmt(prepayOut)}만↓</span>`;
     cfEl.innerHTML = html;
   }
-  const recent = [...payments].filter(p=>p.date).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6);
+  // 최근 수납: 입금일이 같으면 '처리한 시각' 순으로 — txId/id는 uid()로 만들어져
+  //   'id' 뒤 13자리가 Date.now()이므로 여기서 처리 시각을 복원한다.
+  const uidTs = id => { const m = /^id(\d{13})/.exec(id||''); return m ? +m[1] : 0; };
+  const payTs = p => Math.max(uidTs(p.id), ...getPayHistory(p).map(h=>uidTs(h.txId)));
+  const recent = [...payments].filter(p=>p.date)
+    .sort((a,b)=> b.date.localeCompare(a.date) || payTs(b)-payTs(a))
+    .slice(0,6);
   const sb={paid:'b-success',partial:'b-warning',pending:'b-danger'};
   const sl={paid:'완료',partial:'부분',pending:'미납'};
   document.getElementById('dash-recent').innerHTML = recent.length
