@@ -454,8 +454,14 @@ tbody tr:hover td{background:#f8f9ff}
 .att-chip{flex:0 0 auto;padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:13px;cursor:pointer;white-space:nowrap}
 .att-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .att-chip .cnt{opacity:.6;font-size:11px;margin-left:4px}
-.att-chip.today::before{content:'●';color:var(--success);font-size:8px;margin-right:5px;vertical-align:middle}
-.att-chip.active.today::before{color:#fff}
+/* 학교급 색 — 초:초록 / 중:주황 / 고:파랑 */
+.lv-e{--lv:#10b981;--lvbg:#e6f7f1}.lv-m{--lv:#f59e0b;--lvbg:#fdf1dc}.lv-h{--lv:#3b82f6;--lvbg:#e5efff}.lv-x{--lv:#94a3b8;--lvbg:#f1f5f9}
+.att-chip[class*=lv-]{border-color:var(--lv);color:var(--lv);background:var(--lvbg);font-weight:600}
+.att-chip[class*=lv-].active{background:var(--lv);color:#fff}
+.att-chip.today::after{content:'오늘';font-size:9px;margin-left:5px;padding:1px 4px;border-radius:6px;background:rgba(0,0,0,.08)}
+.att-chip.active.today::after{background:rgba(255,255,255,.3)}
+.att-cls-card[class*=lv-]{border-left:5px solid var(--lv)}
+.lv-badge{display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;color:#fff;background:var(--lv);margin-right:6px;vertical-align:middle}
 .att-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13px;color:var(--text2);flex-wrap:wrap;gap:6px}
 .att-head b{color:var(--text);font-size:15px}
 .att-row{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px}
@@ -10234,6 +10240,18 @@ function attRecord(date, classId){ return getAtt().records?.[date]?.[classId] ||
 function attClassStudents(c){
   return (c.studentIds||[]).map(getStudent).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
 }
+// 학교급 판정: 반 이름의 초/중/고 → 없으면 소속 학생 학년의 다수결
+function attLevel(c){
+  const n=c.name||'';
+  const m=/(초|중|고)/.exec(n);
+  if(m) return {초:'e',중:'m',고:'h'}[m[1]];
+  const cnt={e:0,m:0,h:0};
+  (c.studentIds||[]).forEach(id=>{ const g=getStudent(id)?.grade||''; const k=/^초/.test(g)?'e':/^중/.test(g)?'m':/^고/.test(g)?'h':null; if(k) cnt[k]++; });
+  const best=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
+  return best&&best[1]>0 ? best[0] : 'x';
+}
+function attLevelLabel(c){ return {e:'초',m:'중',h:'고',x:'-'}[attLevel(c)]; }
+function attLevelBadge(c){ const l=attLevel(c); return l==='x' ? '' : `<span class="lv-badge lv-${l}">${attLevelLabel(c)}</span>`; }
 function attDaysLabel(c){ return (c.days||[]).length ? (c.days||[]).slice().sort().map(d=>ATT_DAYS[d]).join('') : '요일 미정'; }
 function attIsToday(c, date){ return (c.days||[]).includes(new Date(date+'T00:00:00').getDay()); }
 function attParentPhone(s){
@@ -10296,7 +10314,7 @@ function attEditorHtml(opts){
   const smsNote = sms.on ? `<div style="font-size:12px;color:var(--text2);margin:4px 0 8px">📱 결석 처리된 학생은 수업 시작(${c.start||'--:--'}) ${sms.delayMin||60}분 후 보호자에게 자동 문자가 갑니다.</div>` : '';
   const adminBtn = opts?.admin ? `<button class="btn btn-neutral" onclick="attSendAbsentNow()">📱 결석 문자 지금 보내기</button>` : '';
   return `
-    <div class="att-head"><div><b>${c.name}</b> · ${dateLabel} · ${stus.length}명</div><div>${saved}</div></div>
+    <div class="att-head"><div><b>${attLevelBadge(c)}${c.name}</b> · ${dateLabel} · ${stus.length}명</div><div>${saved}</div></div>
     <div class="att-head" style="margin-top:-4px"><div id="att-counts"></div>
       <div><button class="btn btn-neutral btn-sm" onclick="attMarkAll('P')">전원 출석</button></div></div>
     <div class="att-rows">${rows}</div>
@@ -10483,18 +10501,18 @@ function renderTeacherApp(){
   const tid = myTeacherId();
   const classes = attClassesFor(tid);
   const date = _attEdit.date;
-  const sorted = [...classes].sort((a,b)=>(attIsToday(b,date)-attIsToday(a,date)) || (a.start||'').localeCompare(b.start||''));
+  const sorted = classes;   // '내 반' 순서 그대로 (드래그로 바꾼 순서 반영)
   if(sorted.length && !sorted.find(c=>c.id===_attEdit.classId)) attLoadEdit(date, sorted[0].id);
   document.getElementById('ta-chips').innerHTML = sorted.length
-    ? sorted.map(c=>`<div class="att-chip${c.id===_attEdit.classId?' active':''}${attIsToday(c,date)?' today':''}" onclick="attPickClass('${c.id}')">${c.name}<span class="cnt">${(c.studentIds||[]).length}</span></div>`).join('')
+    ? sorted.map(c=>`<div class="att-chip lv-${attLevel(c)}${c.id===_attEdit.classId?' active':''}${attIsToday(c,date)?' today':''}" onclick="attPickClass('${c.id}')">${c.name}<span class="cnt">${(c.studentIds||[]).length}</span></div>`).join('')
     : '';
   document.getElementById('ta-editor').innerHTML = sorted.length ? attEditorHtml() : `<div class="att-empty">아직 반이 없습니다.<br>아래 <b>내 반</b> 탭에서 반을 만들어주세요.</div>`;
   attUpdateCounts();
   // 내 반 탭
   document.getElementById('ta-classes').innerHTML = classes.length
-    ? classes.map(c=>`<div class="att-cls-card" data-cid="${c.id}">
+    ? classes.map(c=>`<div class="att-cls-card lv-${attLevel(c)}" data-cid="${c.id}">
         <div class="drag" onpointerdown="attDragStart(event,'${c.id}')">≡</div>
-        <div class="info"><b>${c.name}</b><small>${attDaysLabel(c)} ${c.start||''} · ${(c.studentIds||[]).length}명</small></div>
+        <div class="info"><b>${attLevelBadge(c)}${c.name}</b><small>${attDaysLabel(c)} ${c.start||''} · ${(c.studentIds||[]).length}명</small></div>
         <button class="btn btn-neutral btn-sm" onclick="openAttClassModal('${c.id}')">편집</button></div>`).join('')
     : `<div class="att-empty">반이 없습니다. 반을 만들고 학생을 넣어주세요.</div>`;
   // 프로필 탭
@@ -10589,7 +10607,7 @@ function attAdminFillClasses(){
   const cs=document.getElementById('att-a-class');
   const cur=cs.value;
   const list=attClassesFor(tid||null);
-  cs.innerHTML = list.length ? `<option value="__all">전체 반</option>` + list.map(c=>`<option value="${c.id}">${c.name} (${getTeacher(c.teacherId)?.name||'-'})</option>`).join('') : '<option value="">출석반 없음</option>';
+  cs.innerHTML = list.length ? `<option value="__all">전체 반</option>` + list.map(c=>`<option value="${c.id}">[${attLevelLabel(c)}] ${c.name} (${getTeacher(c.teacherId)?.name||'-'})</option>`).join('') : '<option value="">출석반 없음</option>';
   cs.value = (cur==='__all' || list.find(c=>c.id===cur)) ? cur : (list[0]?.id||'');
 }
 function attAdminRender(){
@@ -10608,7 +10626,7 @@ function attAdminRender(){
   attUpdateCounts();
   // 반 목록
   document.getElementById('att-a-classes').innerHTML = getAtt().classes.length
-    ? getAtt().classes.map(c=>`<tr><td><strong>${c.name}</strong></td><td>${getTeacher(c.teacherId)?.name||'<span style="color:var(--danger)">미배정</span>'}</td><td>${attDaysLabel(c)}</td><td>${c.start||'-'}</td><td>${(c.studentIds||[]).length}명</td>
+    ? getAtt().classes.map(c=>`<tr><td><strong>${attLevelBadge(c)}${c.name}</strong></td><td>${getTeacher(c.teacherId)?.name||'<span style="color:var(--danger)">미배정</span>'}</td><td>${attDaysLabel(c)}</td><td>${c.start||'-'}</td><td>${(c.studentIds||[]).length}명</td>
         <td><button class="btn btn-neutral btn-sm" onclick="openAttClassModal('${c.id}')">편집</button></td></tr>`).join('')
     : `<tr><td colspan="6" class="empty-row"><p>출석반이 없습니다</p></td></tr>`;
   attAdminMonth();
@@ -10621,7 +10639,7 @@ function attAllDaySummaryHtml(date){
   const rows=classes.map(c=>{
     const r=recs[c.id]; const cnt=r?attCounts(r.marks):null;
     const absent=r?attClassStudents(c).filter(s=>r.marks[s.id]==='A').map(s=>s.name).join(', '):'';
-    return `<tr><td><strong>${c.name}</strong> <span style="color:var(--text3);font-size:11px">${getTeacher(c.teacherId)?.name||''}</span></td>
+    return `<tr><td><strong>${attLevelBadge(c)}${c.name}</strong> <span style="color:var(--text3);font-size:11px">${getTeacher(c.teacherId)?.name||''}</span></td>
       <td>${attIsToday(c,date)?'<span class="badge b-info">수업일</span>':'<span style="color:var(--text3)">-</span>'}</td>
       <td>${r?`<span style="color:#10b981">출 ${cnt.P}</span> · <span style="color:#f59e0b">지 ${cnt.L}</span> · <span style="color:#8b5cf6">조 ${cnt.E}</span> · <b style="color:#ef4444">결 ${cnt.A}</b>`:'<span style="color:var(--text3)">미저장</span>'}</td>
       <td style="color:#ef4444;font-size:12px">${absent}</td></tr>`;
@@ -10658,7 +10676,7 @@ function attAdminMonth(){
         const x=new Date(days[i]+'T00:00:00'); const wk=x.getDay()===0||x.getDay()===6;
         return `<td class="m-${mk}" style="${dim?'opacity:.25;':''}${wk?'background:#fafafa;':''}">${mk?ATT_STATUS[mk][0]:''}</td>`;
       }).join('');
-      rows.push(`<tr><td class="nm">${s.name}${all?`<br><span style="font-weight:400;font-size:11px;color:var(--text3)">${c.name}</span>`:''}</td>${cells}<td style="font-size:11px;color:var(--text2);white-space:nowrap">출${tot.P} 지${tot.L} 조${tot.E} <b style="color:#ef4444">결${tot.A}</b></td></tr>`);
+      rows.push(`<tr><td class="nm">${s.name}${all?`<br><span style="font-weight:400;font-size:11px;color:var(--text3)">${attLevelBadge(c)}${c.name}</span>`:''}</td>${cells}<td style="font-size:11px;color:var(--text2);white-space:nowrap">출${tot.P} 지${tot.L} 조${tot.E} <b style="color:#ef4444">결${tot.A}</b></td></tr>`);
     });
   });
   if(!any){ box.innerHTML=`<div class="att-empty">${ym} 에 저장된 출석이 없습니다.</div>`; return; }
