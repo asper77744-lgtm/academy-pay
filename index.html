@@ -480,6 +480,19 @@ tbody tr:hover td{background:#f8f9ff}
 .att-stu-pick label{display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid #f0f1f7;font-size:14px;cursor:pointer}
 .att-stu-pick label:last-child{border-bottom:none}
 .att-stu-pick input{width:18px;height:18px}
+.att-stu-pick label.sel{background:#eef1fd;font-weight:700;color:var(--accent)}
+.att-stu-pick label.sel small{color:var(--accent)!important;opacity:.7}
+.mac-grades{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.mac-grades .att-chip{padding:5px 11px;font-size:12px}
+.att-rows{display:grid;grid-template-columns:1fr;gap:8px}
+.att-rows .att-row{margin-bottom:0}
+@media(min-width:900px){
+  #page-attendance .att-rows{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+  #page-attendance .att-save{position:static;justify-content:flex-end}
+  #page-attendance .att-save .btn{flex:0 0 auto;padding:10px 22px;font-size:14px}
+  #page-attendance .att-row{padding:8px 12px}
+  #page-attendance .att-b{width:40px;height:34px}
+}
 .att-month-table{font-size:12px;white-space:nowrap}
 .att-month-table th,.att-month-table td{text-align:center;padding:5px 6px!important}
 .att-month-table td.m-P{color:#10b981}.att-month-table td.m-L{color:#f59e0b}.att-month-table td.m-E{color:#8b5cf6}.att-month-table td.m-A{color:#ef4444;font-weight:700}
@@ -1640,6 +1653,7 @@ tbody tr:hover td{background:#f8f9ff}
     <div class="ff" style="max-width:200px"><label>수업 시작 시각 <span style="color:var(--text3);font-weight:400">(결석 문자 기준)</span></label><input type="time" id="mac-start" value="19:00"/></div>
     <div class="ff"><label>학생 <span id="mac-stu-cnt" style="color:var(--accent)"></span></label>
       <input id="mac-stu-q" placeholder="이름 검색" oninput="macFilterStudents()" style="margin-bottom:6px"/>
+      <div class="mac-grades" id="mac-grades"></div>
       <div class="att-stu-pick" id="mac-students"></div>
     </div>
     <div class="modal-footer" style="display:flex;gap:8px;flex-wrap:wrap">
@@ -10273,7 +10287,7 @@ function attEditorHtml(opts){
     <div class="att-head"><div><b>${c.name}</b> · ${dateLabel} · ${stus.length}명</div><div>${saved}</div></div>
     <div class="att-head" style="margin-top:-4px"><div id="att-counts"></div>
       <div><button class="btn btn-neutral btn-sm" onclick="attMarkAll('P')">전원 출석</button></div></div>
-    ${rows}
+    <div class="att-rows">${rows}</div>
     ${smsNote}
     <div class="att-save">${adminBtn}<button class="btn btn-primary" onclick="attSave()">💾 출석 저장</button></div>`;
 }
@@ -10352,10 +10366,24 @@ function openAttClassModal(id){
   _macStudentsCache = (currentAcademy.students||[])
     .filter(s=>isActiveStudent(s) || s.status==='trial' || picked.has(s.id))
     .sort((a,b)=>a.name.localeCompare(b.name,'ko'))
-    .map(s=>({id:s.id, name:s.name, sub:[s.school,s.grade].filter(Boolean).join(' '), on:picked.has(s.id)}));
+    .map(s=>({id:s.id, name:s.name, grade:s.grade||'', sub:[s.school,s.grade].filter(Boolean).join(' '), on:picked.has(s.id)}));
   document.getElementById('mac-stu-q').value='';
+  _macGrade='';
+  // 학년 칩 — 학생 데이터에 있는 학년만, 초→중→고 순
+  const order=g=>{ const m=/^(초|중|고)(\d)/.exec(g); return m ? ({초:0,중:10,고:20})[m[1]]+ +m[2] : 99; };
+  const grades=[...new Set(_macStudentsCache.map(x=>x.grade).filter(Boolean))].sort((a,b)=>order(a)-order(b)||a.localeCompare(b,'ko'));
+  document.getElementById('mac-grades').innerHTML =
+    `<div class="att-chip active" data-g="" onclick="macPickGrade('')">전체</div>`+
+    `<div class="att-chip" data-g="__sel" onclick="macPickGrade('__sel')">선택됨</div>`+
+    grades.map(g=>`<div class="att-chip" data-g="${g}" onclick="macPickGrade('${g}')">${g}</div>`).join('');
   macFilterStudents();
   openModal('m-att-class');
+}
+let _macGrade='';
+function macPickGrade(g){
+  _macGrade=g;
+  document.querySelectorAll('#mac-grades .att-chip').forEach(c=>c.classList.toggle('active', c.dataset.g===g));
+  macFilterStudents();
 }
 function macFilterStudents(){
   const q = (document.getElementById('mac-stu-q').value||'').trim();
@@ -10363,9 +10391,9 @@ function macFilterStudents(){
   document.querySelectorAll('#mac-students input[type=checkbox]').forEach(cb=>{
     const it=_macStudentsCache.find(x=>x.id===cb.value); if(it) it.on=cb.checked;
   });
-  const list = _macStudentsCache.filter(x=>!q || x.name.includes(q));
+  const list = _macStudentsCache.filter(x=>(!q || x.name.includes(q)) && (!_macGrade || (_macGrade==='__sel' ? x.on : x.grade===_macGrade)));
   document.getElementById('mac-students').innerHTML = list.length
-    ? list.map(x=>`<label><input type="checkbox" value="${x.id}" ${x.on?'checked':''} onchange="macCount()"/><span style="flex:1">${x.name}</span><small style="color:var(--text3)">${x.sub}</small></label>`).join('')
+    ? list.map(x=>`<label class="${x.on?'sel':''}"><input type="checkbox" value="${x.id}" ${x.on?'checked':''} onchange="this.parentElement.classList.toggle('sel',this.checked);macCount()"/><span style="flex:1">${x.name}</span><small style="color:var(--text3)">${x.sub}</small></label>`).join('')
     : `<div style="padding:12px;color:var(--text3);text-align:center">검색 결과 없음</div>`;
   macCount();
 }
