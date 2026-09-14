@@ -10422,7 +10422,8 @@ function macClearAll(){ _macStudentsCache.forEach(x=>x.on=false); macFilterStude
 // 지금 목록에 보이는 학생(검색·학년 칩 적용 후)만 전원 선택/해제
 function macSelectVisible(on){
   macCount();
-  document.querySelectorAll('#mac-students input[type=checkbox]').forEach(cb=>{ const it=_macStudentsCache.find(x=>x.id===cb.value); if(it) it.on=on; });
+  // 캐시와 화면 체크박스를 둘 다 바꿔야 한다 — macFilterStudents()의 동기화 루프가 화면 상태를 다시 읽기 때문
+  document.querySelectorAll('#mac-students input[type=checkbox]').forEach(cb=>{ cb.checked=on; const it=_macStudentsCache.find(x=>x.id===cb.value); if(it) it.on=on; });
   macFilterStudents();
 }
 async function saveAttClass(){
