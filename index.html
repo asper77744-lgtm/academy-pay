@@ -472,6 +472,10 @@ tbody tr:hover td{background:#f8f9ff}
 .att-empty{text-align:center;color:var(--text3);padding:40px 10px;font-size:13px}
 .att-cls-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px}
 .att-cls-card .info{flex:1;min-width:0}
+.att-cls-card .drag{width:28px;text-align:center;color:var(--text3);font-size:18px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.att-cls-card.dragging{opacity:.4}
+.att-cls-card.drop-before{box-shadow:0 -3px 0 var(--accent)}
+.att-cls-card.drop-after{box-shadow:0 3px 0 var(--accent)}
 .att-cls-card .info b{font-size:15px}
 .att-cls-card .info small{display:block;color:var(--text3);font-size:12px;margin-top:2px}
 .att-daybtn{display:inline-block;width:36px;height:36px;line-height:34px;text-align:center;border-radius:50%;border:1px solid var(--border);background:#fff;margin:2px;cursor:pointer;font-size:13px;user-select:none}
@@ -1655,6 +1659,10 @@ tbody tr:hover td{background:#f8f9ff}
       <input id="mac-stu-q" placeholder="이름 검색" oninput="macFilterStudents()" style="margin-bottom:6px"/>
       <div class="mac-grades" id="mac-grades"></div>
       <div class="att-stu-pick" id="mac-students"></div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn btn-neutral btn-sm" onclick="macSelectVisible(true)">✓ 전원 선택 <span id="mac-vis-cnt" style="opacity:.6"></span></button>
+        <button class="btn btn-neutral btn-sm" onclick="macSelectVisible(false)">전원 해제</button>
+      </div>
       <div id="mac-sel-list" style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.6"></div>
     </div>
     <div class="modal-footer" style="display:flex;gap:8px;flex-wrap:wrap">
@@ -10369,6 +10377,7 @@ function openAttClassModal(id){
     .sort((a,b)=>a.name.localeCompare(b.name,'ko'))
     .map(s=>({id:s.id, name:s.name, grade:s.grade||'', sub:[s.school,s.grade].filter(Boolean).join(' '), on:picked.has(s.id)}));
   document.getElementById('mac-stu-q').value='';
+  document.getElementById('mac-students').innerHTML='';   // ★ 이전 모달의 체크박스가 남아 있으면 동기화 루프가 이전 선택을 끌어온다
   _macGrade='';
   // 학년 칩 — 학생 데이터에 있는 학년만, 초→중→고 순
   const order=g=>{ const m=/^(초|중|고)(\d)/.exec(g); return m ? ({초:0,중:10,고:20})[m[1]]+ +m[2] : 99; };
@@ -10393,6 +10402,7 @@ function macFilterStudents(){
     const it=_macStudentsCache.find(x=>x.id===cb.value); if(it) it.on=cb.checked;
   });
   const list = _macStudentsCache.filter(x=>(!q || x.name.includes(q)) && (!_macGrade || (_macGrade==='__sel' ? x.on : x.grade===_macGrade)));
+  const vc=document.getElementById('mac-vis-cnt'); if(vc) vc.textContent = `(${list.length}명)`;
   document.getElementById('mac-students').innerHTML = list.length
     ? list.map(x=>`<label class="${x.on?'sel':''}"><input type="checkbox" value="${x.id}" ${x.on?'checked':''} onchange="this.parentElement.classList.toggle('sel',this.checked);macCount()"/><span style="flex:1">${x.name}</span><small style="color:var(--text3)">${x.sub}</small></label>`).join('')
     : `<div style="padding:12px;color:var(--text3);text-align:center">검색 결과 없음</div>`;
@@ -10409,6 +10419,12 @@ function macCount(){
     : '<span style="color:var(--text3)">선택된 학생이 없습니다</span>';
 }
 function macClearAll(){ _macStudentsCache.forEach(x=>x.on=false); macFilterStudents(); }
+// 지금 목록에 보이는 학생(검색·학년 칩 적용 후)만 전원 선택/해제
+function macSelectVisible(on){
+  macCount();
+  document.querySelectorAll('#mac-students input[type=checkbox]').forEach(cb=>{ const it=_macStudentsCache.find(x=>x.id===cb.value); if(it) it.on=on; });
+  macFilterStudents();
+}
 async function saveAttClass(){
   macCount();
   const id = document.getElementById('mac-id').value;
@@ -10472,7 +10488,8 @@ function renderTeacherApp(){
   attUpdateCounts();
   // 내 반 탭
   document.getElementById('ta-classes').innerHTML = classes.length
-    ? classes.map(c=>`<div class="att-cls-card">
+    ? classes.map(c=>`<div class="att-cls-card" data-cid="${c.id}">
+        <div class="drag" onpointerdown="attDragStart(event,'${c.id}')">≡</div>
         <div class="info"><b>${c.name}</b><small>${attDaysLabel(c)} ${c.start||''} · ${(c.studentIds||[]).length}명</small></div>
         <button class="btn btn-neutral btn-sm" onclick="openAttClassModal('${c.id}')">편집</button></div>`).join('')
     : `<div class="att-empty">반이 없습니다. 반을 만들고 학생을 넣어주세요.</div>`;
@@ -10481,6 +10498,43 @@ function renderTeacherApp(){
   document.getElementById('ta-me-name').textContent = t?.name||currentUser.name;
   document.getElementById('ta-me-email').textContent = currentUser.email;
   const ph=document.getElementById('ta-me-phone'); if(document.activeElement!==ph) ph.value = t?.phone||'';
+}
+// ── 내 반 순서 드래그 (pointer 이벤트 — 터치/마우스 공통) ──
+let _attDrag=null;
+function attDragStart(e, cid){
+  e.preventDefault();
+  const card=e.target.closest('.att-cls-card'); if(!card) return;
+  _attDrag={cid, card, over:null, pos:null};
+  card.classList.add('dragging');
+  try{ e.target.setPointerCapture(e.pointerId); }catch(_){}
+  e.target.onpointermove=attDragMove;
+  e.target.onpointerup=e.target.onpointercancel=attDragEnd;
+}
+function attDragMove(e){
+  if(!_attDrag) return;
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  const over=el && el.closest('#ta-classes .att-cls-card');
+  document.querySelectorAll('#ta-classes .att-cls-card').forEach(c=>c.classList.remove('drop-before','drop-after'));
+  if(!over || over===_attDrag.card){ _attDrag.over=null; return; }
+  const r=over.getBoundingClientRect();
+  _attDrag.pos = e.clientY < r.top + r.height/2 ? 'before' : 'after';
+  _attDrag.over=over;
+  over.classList.add('drop-'+_attDrag.pos);
+}
+async function attDragEnd(e){
+  if(!_attDrag) return;
+  const d=_attDrag; _attDrag=null;
+  e.target.onpointermove=e.target.onpointerup=e.target.onpointercancel=null;
+  d.card.classList.remove('dragging');
+  document.querySelectorAll('#ta-classes .att-cls-card').forEach(c=>c.classList.remove('drop-before','drop-after'));
+  if(!d.over) return;
+  // DOM 순서를 바꾼 뒤 그 순서로 attendance.classes를 재배열 (다른 선생님 반은 상대 위치 유지)
+  d.over.insertAdjacentElement(d.pos==='before'?'beforebegin':'afterend', d.card);
+  const newOrder=[...document.querySelectorAll('#ta-classes .att-cls-card')].map(c=>c.dataset.cid);
+  const att=getAtt(); const mine=new Set(newOrder); let i=0;
+  att.classes = att.classes.map(c=> mine.has(c.id) ? getAttClass(newOrder[i++]) : c);
+  const ok=await saveAcademy();
+  if(ok!==false) renderTeacherApp();
 }
 function attPickClass(id){
   if(_attEdit.dirty && !confirm('저장하지 않은 출석이 있습니다. 이동할까요?')) return;
