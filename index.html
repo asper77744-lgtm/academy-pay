@@ -1655,6 +1655,7 @@ tbody tr:hover td{background:#f8f9ff}
       <input id="mac-stu-q" placeholder="이름 검색" oninput="macFilterStudents()" style="margin-bottom:6px"/>
       <div class="mac-grades" id="mac-grades"></div>
       <div class="att-stu-pick" id="mac-students"></div>
+      <div id="mac-sel-list" style="font-size:12px;color:var(--text2);margin-top:6px;line-height:1.6"></div>
     </div>
     <div class="modal-footer" style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-danger" id="mac-del" onclick="deleteAttClass()" style="margin-right:auto;display:none">삭제</button>
@@ -10401,8 +10402,13 @@ function macCount(){
   document.querySelectorAll('#mac-students input[type=checkbox]').forEach(cb=>{
     const it=_macStudentsCache.find(x=>x.id===cb.value); if(it) it.on=cb.checked;
   });
-  document.getElementById('mac-stu-cnt').textContent = `${_macStudentsCache.filter(x=>x.on).length}명 선택`;
+  const sel=_macStudentsCache.filter(x=>x.on);
+  document.getElementById('mac-stu-cnt').textContent = `${sel.length}명 선택`;
+  document.getElementById('mac-sel-list').innerHTML = sel.length
+    ? '<b>선택된 학생:</b> ' + sel.map(x=>`<span style="display:inline-block;background:#eef1fd;color:var(--accent);border-radius:12px;padding:1px 8px;margin:1px 2px">${x.name}</span>`).join('') + ` <a onclick="macClearAll()" style="color:var(--danger);cursor:pointer;margin-left:6px">전체 해제</a>`
+    : '<span style="color:var(--text3)">선택된 학생이 없습니다</span>';
 }
+function macClearAll(){ _macStudentsCache.forEach(x=>x.on=false); macFilterStudents(); }
 async function saveAttClass(){
   macCount();
   const id = document.getElementById('mac-id').value;
