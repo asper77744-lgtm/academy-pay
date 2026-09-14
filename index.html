@@ -1568,8 +1568,11 @@ tbody tr:hover td{background:#f8f9ff}
       </div>
 
       <div class="card" style="margin-bottom:16px">
-        <div class="card-head"><h3>📊 월별 출석 현황</h3>
-          <div style="display:flex;gap:8px"><input type="month" id="att-m-month" onchange="attAdminMonth()" style="padding:6px;border:1px solid var(--border);border-radius:8px"/></div>
+        <div class="card-head" style="flex-wrap:wrap;gap:8px"><h3>📊 월별 출석 현황</h3>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <div class="att-chips" id="att-m-filter" style="margin:0;padding:0"></div>
+            <input type="month" id="att-m-month" onchange="attAdminMonth()" style="padding:6px;border:1px solid var(--border);border-radius:8px"/>
+          </div>
         </div>
         <div style="padding:0;overflow:auto" id="att-a-month"></div>
       </div>
@@ -10586,15 +10589,22 @@ function attAdminFillClasses(){
   const cs=document.getElementById('att-a-class');
   const cur=cs.value;
   const list=attClassesFor(tid||null);
-  cs.innerHTML = list.length ? list.map(c=>`<option value="${c.id}">${c.name} (${getTeacher(c.teacherId)?.name||'-'})</option>`).join('') : '<option value="">출석반 없음</option>';
-  cs.value = list.find(c=>c.id===cur) ? cur : (list[0]?.id||'');
+  cs.innerHTML = list.length ? `<option value="__all">전체 반</option>` + list.map(c=>`<option value="${c.id}">${c.name} (${getTeacher(c.teacherId)?.name||'-'})</option>`).join('') : '<option value="">출석반 없음</option>';
+  cs.value = (cur==='__all' || list.find(c=>c.id===cur)) ? cur : (list[0]?.id||'');
 }
 function attAdminRender(){
   if(!document.getElementById('page-attendance').classList.contains('active')) return;
-  const cid=document.getElementById('att-a-class').value||null;
+  const cidRaw=document.getElementById('att-a-class').value||null;
+  const cid = cidRaw==='__all' ? null : cidRaw;
   const date=document.getElementById('att-a-date').value||todayYmd();
-  if(_attEdit.classId!==cid || _attEdit.date!==date || !_attEdit.dirty) attLoadEdit(date, cid);
-  document.getElementById('att-a-editor').innerHTML = cid ? attEditorHtml({admin:true}) : `<div class="att-empty">출석반이 없습니다. 오른쪽 위 "+ 출석반 만들기"로 시작하세요.</div>`;
+  if(cid){
+    if(_attEdit.classId!==cid || _attEdit.date!==date || !_attEdit.dirty) attLoadEdit(date, cid);
+    document.getElementById('att-a-editor').innerHTML = attEditorHtml({admin:true});
+  } else if(cidRaw==='__all'){
+    document.getElementById('att-a-editor').innerHTML = attAllDaySummaryHtml(date);
+  } else {
+    document.getElementById('att-a-editor').innerHTML = `<div class="att-empty">출석반이 없습니다. 오른쪽 위 "+ 출석반 만들기"로 시작하세요.</div>`;
+  }
   attUpdateCounts();
   // 반 목록
   document.getElementById('att-a-classes').innerHTML = getAtt().classes.length
@@ -10603,22 +10613,58 @@ function attAdminRender(){
     : `<tr><td colspan="6" class="empty-row"><p>출석반이 없습니다</p></td></tr>`;
   attAdminMonth();
 }
+// 전체 반 선택 시 날짜별 요약 (편집은 반을 골라야 가능)
+function attAllDaySummaryHtml(date){
+  const d=new Date(date+'T00:00:00');
+  const recs=getAtt().records[date]||{};
+  const classes=attClassesFor(document.getElementById('att-a-teacher').value||null);
+  const rows=classes.map(c=>{
+    const r=recs[c.id]; const cnt=r?attCounts(r.marks):null;
+    const absent=r?attClassStudents(c).filter(s=>r.marks[s.id]==='A').map(s=>s.name).join(', '):'';
+    return `<tr><td><strong>${c.name}</strong> <span style="color:var(--text3);font-size:11px">${getTeacher(c.teacherId)?.name||''}</span></td>
+      <td>${attIsToday(c,date)?'<span class="badge b-info">수업일</span>':'<span style="color:var(--text3)">-</span>'}</td>
+      <td>${r?`<span style="color:#10b981">출 ${cnt.P}</span> · <span style="color:#f59e0b">지 ${cnt.L}</span> · <span style="color:#8b5cf6">조 ${cnt.E}</span> · <b style="color:#ef4444">결 ${cnt.A}</b>`:'<span style="color:var(--text3)">미저장</span>'}</td>
+      <td style="color:#ef4444;font-size:12px">${absent}</td></tr>`;
+  }).join('');
+  return `<div class="att-head"><div><b>전체 반</b> · ${d.getMonth()+1}/${d.getDate()} (${ATT_DAYS[d.getDay()]})</div><div style="color:var(--text3)">출석을 수정하려면 반을 선택하세요</div></div>
+    <table><thead><tr><th>반</th><th>수업</th><th>출석 현황</th><th>결석 학생</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty-row"><p>출석반이 없습니다</p></td></tr>'}</tbody></table>`;
+}
+
+let _attMonthFilter='';
+function attMonthFilter(f){ _attMonthFilter=f; attAdminMonth(); }
 function attAdminMonth(){
-  const cid=document.getElementById('att-a-class').value; const c=getAttClass(cid);
+  const cidRaw=document.getElementById('att-a-class').value;
+  const all = cidRaw==='__all';
+  const classes = all ? attClassesFor(document.getElementById('att-a-teacher').value||null) : [getAttClass(cidRaw)].filter(Boolean);
   const ym=document.getElementById('att-m-month').value||todayYmd().slice(0,7);
   const box=document.getElementById('att-a-month');
-  if(!c){ box.innerHTML=''; return; }
+  // 필터 칩
+  document.getElementById('att-m-filter').innerHTML = [['','전체'],['P','출석'],['L','지각'],['E','조퇴'],['A','결석']]
+    .map(([k,l])=>`<div class="att-chip${_attMonthFilter===k?' active':''}" style="padding:5px 11px;font-size:12px" onclick="attMonthFilter('${k}')">${l}</div>`).join('');
+  if(!classes.length){ box.innerHTML=''; return; }
   const recs=getAtt().records;
-  const dates=Object.keys(recs).filter(d=>d.startsWith(ym) && recs[d][c.id]).sort();
-  if(!dates.length){ box.innerHTML=`<div class="att-empty">${ym} 에 저장된 출석이 없습니다.</div>`; return; }
-  const stus=attClassStudents(c);
-  const tot={}; stus.forEach(s=>tot[s.id]={P:0,L:0,E:0,A:0});
-  const rows=stus.map(s=>{
-    const cells=dates.map(d=>{ const m=recs[d][c.id].marks[s.id]; if(m&&tot[s.id][m]!=null) tot[s.id][m]++; return `<td class="m-${m||''}">${m?ATT_STATUS[m][0]:'-'}</td>`; }).join('');
-    const t=tot[s.id];
-    return `<tr><td class="nm">${s.name}</td>${cells}<td style="font-size:11px;color:var(--text2)">출${t.P} 지${t.L} 조${t.E} <b style="color:#ef4444">결${t.A}</b></td></tr>`;
-  }).join('');
-  box.innerHTML=`<table class="att-month-table"><thead><tr><th style="text-align:left">학생</th>${dates.map(d=>{const x=new Date(d+'T00:00:00');return `<th>${x.getDate()}<br><span style="font-weight:400;color:var(--text3)">${ATT_DAYS[x.getDay()]}</span></th>`;}).join('')}<th>합계</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const [y,m]=ym.split('-').map(Number);
+  const nDays=new Date(y,m,0).getDate();
+  const days=[...Array(nDays)].map((_,i)=>`${ym}-${String(i+1).padStart(2,'0')}`);
+  // 행 = (학생, 반) 조합. 전체 반이면 반 이름 열 추가
+  const rows=[]; let any=false;
+  classes.forEach(c=>{
+    attClassStudents(c).forEach(s=>{
+      const tot={P:0,L:0,E:0,A:0};
+      const marks=days.map(d=>{ const mk=recs[d]?.[c.id]?.marks?.[s.id]||''; if(mk&&tot[mk]!=null){tot[mk]++;any=true;} return mk; });
+      if(_attMonthFilter && !tot[_attMonthFilter]) return;
+      const cells=marks.map((mk,i)=>{
+        const dim = _attMonthFilter && mk && mk!==_attMonthFilter;
+        const x=new Date(days[i]+'T00:00:00'); const wk=x.getDay()===0||x.getDay()===6;
+        return `<td class="m-${mk}" style="${dim?'opacity:.25;':''}${wk?'background:#fafafa;':''}">${mk?ATT_STATUS[mk][0]:''}</td>`;
+      }).join('');
+      rows.push(`<tr><td class="nm">${s.name}${all?`<br><span style="font-weight:400;font-size:11px;color:var(--text3)">${c.name}</span>`:''}</td>${cells}<td style="font-size:11px;color:var(--text2);white-space:nowrap">출${tot.P} 지${tot.L} 조${tot.E} <b style="color:#ef4444">결${tot.A}</b></td></tr>`);
+    });
+  });
+  if(!any){ box.innerHTML=`<div class="att-empty">${ym} 에 저장된 출석이 없습니다.</div>`; return; }
+  if(!rows.length){ box.innerHTML=`<div class="att-empty">${ym} 에 '${ATT_STATUS[_attMonthFilter]}' 기록이 있는 학생이 없습니다.</div>`; return; }
+  const head=days.map((d,i)=>{const x=new Date(d+'T00:00:00');const wk=x.getDay()===0||x.getDay()===6;return `<th style="${wk?'color:#ef4444;':''}">${i+1}<br><span style="font-weight:400;color:var(--text3)">${ATT_DAYS[x.getDay()]}</span></th>`;}).join('');
+  box.innerHTML=`<table class="att-month-table"><thead><tr><th style="text-align:left;position:sticky;left:0;background:#fff">학생</th>${head}<th>합계</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 async function saveAttSmsSettings(){
   const sms=getAtt().autoSms;
