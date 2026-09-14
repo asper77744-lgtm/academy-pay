@@ -435,6 +435,59 @@ tbody tr:hover td{background:#f8f9ff}
   table{font-size:10px}
   th,td{padding:5px 6px}
 }
+
+/* ══ 출석 관리 (선생님 모바일 앱 + 관리자 페이지) ══ */
+#teacher-app{display:none;min-height:100vh;background:var(--bg);padding-bottom:70px}
+.ta-top{position:sticky;top:0;z-index:50;background:#1a1d2e;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:10px}
+.ta-top .ta-title{font-size:16px;font-weight:700;flex:1}
+.ta-top .ta-sub{font-size:11px;opacity:.6}
+.ta-body{padding:14px 12px 20px;max-width:640px;margin:0 auto}
+.ta-tabs{position:fixed;bottom:0;left:0;right:0;z-index:60;background:#fff;border-top:1px solid var(--border);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+.ta-tab{flex:1;text-align:center;padding:9px 0 7px;font-size:11px;color:var(--text3);cursor:pointer;user-select:none}
+.ta-tab .ico{display:block;font-size:20px;margin-bottom:2px}
+.ta-tab.active{color:var(--accent);font-weight:700}
+.ta-view{display:none}.ta-view.active{display:block}
+.att-datebar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.att-datebar input[type=date]{flex:1;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:15px;font-family:inherit;background:#fff}
+.att-datebar .nb{width:40px;height:40px;border-radius:10px;border:1px solid var(--border);background:#fff;font-size:16px;cursor:pointer}
+.att-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;-webkit-overflow-scrolling:touch}
+.att-chip{flex:0 0 auto;padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:13px;cursor:pointer;white-space:nowrap}
+.att-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.att-chip .cnt{opacity:.6;font-size:11px;margin-left:4px}
+.att-chip.today::before{content:'●';color:var(--success);font-size:8px;margin-right:5px;vertical-align:middle}
+.att-chip.active.today::before{color:#fff}
+.att-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13px;color:var(--text2);flex-wrap:wrap;gap:6px}
+.att-head b{color:var(--text);font-size:15px}
+.att-row{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.att-row .nm{flex:1;font-weight:600;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.att-row .nm small{display:block;font-weight:400;font-size:11px;color:var(--text3)}
+.att-btns{display:flex;gap:4px}
+.att-b{width:44px;height:38px;border-radius:9px;border:1px solid var(--border);background:#f7f8fb;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;font-family:inherit}
+.att-b.on-P{background:#10b981;color:#fff;border-color:#10b981}
+.att-b.on-L{background:#f59e0b;color:#fff;border-color:#f59e0b}
+.att-b.on-E{background:#8b5cf6;color:#fff;border-color:#8b5cf6}
+.att-b.on-A{background:#ef4444;color:#fff;border-color:#ef4444}
+.att-save{position:sticky;bottom:64px;margin-top:12px;display:flex;gap:8px}
+.att-save .btn{flex:1;padding:14px;font-size:15px;border-radius:12px}
+.att-empty{text-align:center;color:var(--text3);padding:40px 10px;font-size:13px}
+.att-cls-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.att-cls-card .info{flex:1;min-width:0}
+.att-cls-card .info b{font-size:15px}
+.att-cls-card .info small{display:block;color:var(--text3);font-size:12px;margin-top:2px}
+.att-daybtn{display:inline-block;width:36px;height:36px;line-height:34px;text-align:center;border-radius:50%;border:1px solid var(--border);background:#fff;margin:2px;cursor:pointer;font-size:13px;user-select:none}
+.att-daybtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.att-stu-pick{max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:6px}
+.att-stu-pick label{display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid #f0f1f7;font-size:14px;cursor:pointer}
+.att-stu-pick label:last-child{border-bottom:none}
+.att-stu-pick input{width:18px;height:18px}
+.att-month-table{font-size:12px;white-space:nowrap}
+.att-month-table th,.att-month-table td{text-align:center;padding:5px 6px!important}
+.att-month-table td.m-P{color:#10b981}.att-month-table td.m-L{color:#f59e0b}.att-month-table td.m-E{color:#8b5cf6}.att-month-table td.m-A{color:#ef4444;font-weight:700}
+.att-month-table td.nm{text-align:left;font-weight:600;position:sticky;left:0;background:#fff}
+.ta-profile .pf{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);font-size:14px}
+.ta-profile .pf span:first-child{color:var(--text3)}
+@media(min-width:769px){ #teacher-app .ta-body{max-width:560px} }
+
 </style>
 </head>
 <body>
@@ -477,7 +530,19 @@ tbody tr:hover td{background:#f8f9ff}
         <button class="btn-auth btn-main" onclick="doLogin()">로그인</button>
         <p class="auth-hint" style="text-align:center;margin-top:12px">
           <a onclick="showForgotPassword()" style="cursor:pointer;color:var(--accent)">비밀번호를 잊으셨나요?</a>
+          &nbsp;·&nbsp;
+          <a onclick="showInvitePanel()" style="cursor:pointer;color:var(--accent)">초대받은 선생님/직원 첫 로그인</a>
         </p>
+        <!-- 초대 계정 첫 로그인 (관리자가 사용자 관리에 등록한 이메일로 비밀번호를 만든다) -->
+        <div id="invite-panel" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+          <p style="font-size:12px;color:var(--text2);margin-bottom:10px">관리자가 <b>사용자 관리</b>에 등록한 이메일로 비밀번호를 설정합니다. 처음 한 번만 하면 됩니다.</p>
+          <div class="field"><label>등록된 이메일</label><input type="email" id="inv-email" placeholder="teacher@example.com"/></div>
+          <div class="field"><label>비밀번호 (8자 이상)</label><input type="password" id="inv-pw" placeholder="비밀번호 설정"/></div>
+          <div class="field"><label>비밀번호 확인</label><input type="password" id="inv-pw2" placeholder="비밀번호 다시 입력" onkeydown="if(event.key==='Enter')doInviteFirstLogin()"/></div>
+          <div class="err-msg" id="inv-err"></div>
+          <button class="btn-auth btn-main" onclick="doInviteFirstLogin()">비밀번호 설정 후 로그인</button>
+          <button class="btn-auth btn-ghost-sm" onclick="hideInvitePanel()">← 로그인으로</button>
+        </div>
         <!-- 비밀번호 찾기 -->
         <div id="forgot-panel" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
           <div class="field"><label>가입한 이메일</label><input type="email" id="forgot-email" placeholder="admin@myacademy.com"/></div>
@@ -600,6 +665,7 @@ tbody tr:hover td{background:#f8f9ff}
       <div class="sb-item" onclick="nav('students',this)"><span class="ico">👥</span>학생 관리</div>
       <div class="sb-item" onclick="nav('teachers',this)"><span class="ico">👨‍🏫</span>선생님 관리</div>
       <div class="sb-item" onclick="nav('classes',this)"><span class="ico">📚</span>과목/반 관리</div>
+      <div class="sb-item" onclick="nav('attendance',this)"><span class="ico">📋</span>출석 관리</div>
       <div class="sb-item" onclick="nav('payments',this)"><span class="ico">💳</span>수납 내역</div>
       <div class="sb-item" onclick="nav('unpaid',this)"><span class="ico">⚠️</span>미납 관리 <span class="sb-badge" id="sb-unpaid-cnt">0</span></div>
       <div class="sb-section-label">분석</div>
@@ -1455,7 +1521,7 @@ tbody tr:hover td{background:#f8f9ff}
     <!-- ── USERS ── -->
     <div class="page" id="page-users">
       <div class="ph"><div class="ph-left"><h1>사용자 관리</h1><p>운영자 및 부운영자 계정을 관리합니다.</p></div>
-        <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="openModal('m-add-user')">+ 계정 추가</button></div>
+        <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="fillMuTeachers();openModal('m-add-user')">+ 계정 추가</button></div>
       </div>
       <div class="card" style="margin-bottom:16px"><div class="card-head"><h3>계정 목록</h3></div>
         <div style="padding:0"><table><thead><tr><th>이름</th><th>이메일</th><th>역할</th><th>마지막 로그인</th><th>상태</th><th></th></tr></thead><tbody id="users-tbody"></tbody></table></div>
@@ -1466,8 +1532,122 @@ tbody tr:hover td{background:#f8f9ff}
       </div>
     </div>
 
+    <!-- ── ATTENDANCE (관리자) ── -->
+    <div class="page" id="page-attendance">
+      <div class="ph"><div class="ph-left"><h1>출석 관리</h1><p>선생님들이 기록한 출석을 확인하고 수정합니다.</p></div>
+        <div class="ph-actions"><button class="btn btn-primary btn-sm" onclick="openAttClassModal()">+ 출석반 만들기</button></div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-head"><h3>📅 날짜별 출석</h3></div>
+        <div class="card-body">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <select id="att-a-teacher" onchange="attAdminFillClasses();attAdminRender()" style="padding:8px;border:1px solid var(--border);border-radius:8px"><option value="">전체 선생님</option></select>
+            <select id="att-a-class" onchange="attAdminRender()" style="padding:8px;border:1px solid var(--border);border-radius:8px;min-width:160px"></select>
+            <input type="date" id="att-a-date" onchange="attAdminRender()" style="padding:8px;border:1px solid var(--border);border-radius:8px"/>
+          </div>
+          <div id="att-a-editor"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-head"><h3>📊 월별 출석 현황</h3>
+          <div style="display:flex;gap:8px"><input type="month" id="att-m-month" onchange="attAdminMonth()" style="padding:6px;border:1px solid var(--border);border-radius:8px"/></div>
+        </div>
+        <div style="padding:0;overflow:auto" id="att-a-month"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-head"><h3>📚 출석반 목록</h3></div>
+        <div style="padding:0"><table><thead><tr><th>반 이름</th><th>선생님</th><th>수업 요일</th><th>시작</th><th>인원</th><th></th></tr></thead><tbody id="att-a-classes"></tbody></table></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h3>📱 결석 자동 문자</h3></div>
+        <div class="card-body">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+            <div class="tog" id="att-sms-on" onclick="this.classList.toggle('on')"></div>
+            <span>결석 처리된 학생의 <b>보호자</b>에게 자동으로 문자를 보냅니다</span>
+          </div>
+          <div class="ff" style="max-width:260px"><label>발송 시점 — 수업 시작 후 (분)</label><input type="number" id="att-sms-delay" min="0" max="600" step="10" value="60"/></div>
+          <div class="ff"><label>문자 내용 <span style="color:var(--text3);font-weight:400">변수: {학원명} {이름} {반} {날짜} {선생님}</span></label>
+            <textarea id="att-sms-tpl" rows="4" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:inherit"></textarea>
+            <div id="att-sms-bytes" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
+          </div>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:10px">서버가 정해진 시각에 발송하며, 발송 전에 출석으로 고치면 보내지 않습니다. 이미 지난 수업의 결석은 저장 직후 다음 점검 때 발송됩니다.</p>
+          <button class="btn btn-primary" onclick="saveAttSmsSettings()">설정 저장</button>
+        </div>
+      </div>
+    </div>
+
   </main>
  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     TEACHER APP (선생님 전용 — 출석/내 반/프로필만)
+══════════════════════════════════════════ -->
+<div id="teacher-app">
+  <div class="ta-top">
+    <div class="sb-logo-mark">🎓</div>
+    <div style="flex:1;min-width:0"><div class="ta-title" id="ta-title">출석</div><div class="ta-sub" id="ta-sub"></div></div>
+    <button class="sb-logout" onclick="logout()" title="로그아웃" style="background:rgba(255,255,255,.1);border:none;color:#fff;width:34px;height:34px;border-radius:8px;cursor:pointer">⏻</button>
+  </div>
+  <div class="ta-body">
+    <!-- 출석 -->
+    <div class="ta-view active" id="ta-view-att">
+      <div class="att-datebar">
+        <button class="nb" onclick="attShiftDate(-1)">◀</button>
+        <input type="date" id="ta-date" onchange="attSetDate(this.value)"/>
+        <button class="nb" onclick="attShiftDate(1)">▶</button>
+        <button class="nb" onclick="attSetDate(todayYmd())" style="width:auto;padding:0 10px;font-size:12px">오늘</button>
+      </div>
+      <div class="att-chips" id="ta-chips"></div>
+      <div id="ta-editor"></div>
+    </div>
+    <!-- 내 반 -->
+    <div class="ta-view" id="ta-view-cls">
+      <div id="ta-classes"></div>
+      <button class="btn btn-primary" style="width:100%;padding:14px;border-radius:12px;font-size:15px" onclick="openAttClassModal()">+ 반 만들기</button>
+    </div>
+    <!-- 프로필 -->
+    <div class="ta-view ta-profile" id="ta-view-me">
+      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:6px 16px 16px;margin-bottom:12px">
+        <div class="pf"><span>학원</span><b id="ta-me-academy"></b></div>
+        <div class="pf"><span>이름</span><b id="ta-me-name"></b></div>
+        <div class="pf"><span>이메일</span><span id="ta-me-email"></span></div>
+        <div class="ff" style="margin-top:14px"><label>연락처</label><input id="ta-me-phone" placeholder="010-0000-0000" oninput="this.value=formatPhone(this.value)"/></div>
+        <button class="btn btn-primary" style="width:100%;padding:12px" onclick="saveTeacherProfile()">저장</button>
+      </div>
+      <button class="btn btn-neutral" style="width:100%;padding:12px" onclick="logout()">로그아웃</button>
+    </div>
+  </div>
+  <div class="ta-tabs">
+    <div class="ta-tab active" id="ta-tab-att" onclick="taTab('att')"><span class="ico">📋</span>출석</div>
+    <div class="ta-tab" id="ta-tab-cls" onclick="taTab('cls')"><span class="ico">📚</span>내 반</div>
+    <div class="ta-tab" id="ta-tab-me" onclick="taTab('me')"><span class="ico">👤</span>프로필</div>
+  </div>
+</div>
+
+<!-- ══ 출석반 만들기/편집 (선생님·관리자 공용) ══ -->
+<div class="modal-overlay" id="m-att-class">
+  <div class="modal" style="max-width:520px">
+    <h2 id="mac-title">📚 출석반 만들기</h2>
+    <input type="hidden" id="mac-id"/>
+    <div class="ff"><label>반 이름 *</label><input id="mac-name" placeholder="예) 월수금 중2 영어"/></div>
+    <div class="ff" id="mac-teacher-wrap"><label>담당 선생님 *</label><select id="mac-teacher"></select></div>
+    <div class="ff"><label>수업 요일</label><div id="mac-days"></div></div>
+    <div class="ff" style="max-width:200px"><label>수업 시작 시각 <span style="color:var(--text3);font-weight:400">(결석 문자 기준)</span></label><input type="time" id="mac-start" value="19:00"/></div>
+    <div class="ff"><label>학생 <span id="mac-stu-cnt" style="color:var(--accent)"></span></label>
+      <input id="mac-stu-q" placeholder="이름 검색" oninput="macFilterStudents()" style="margin-bottom:6px"/>
+      <div class="att-stu-pick" id="mac-students"></div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-danger" id="mac-del" onclick="deleteAttClass()" style="margin-right:auto;display:none">삭제</button>
+      <button class="btn btn-neutral" onclick="closeModal('m-att-class')">취소</button>
+      <button class="btn btn-primary" onclick="saveAttClass()">저장</button>
+    </div>
+  </div>
 </div>
 
 <!-- ══════════════════════════════════════════
@@ -2255,7 +2435,9 @@ tbody tr:hover td{background:#f8f9ff}
     <h2>🔑 계정 추가</h2>
     <div class="ff"><label>이름 *</label><input id="mu-name" placeholder="이름"/></div>
     <div class="ff"><label>이메일 *</label><input id="mu-email" type="email" placeholder="email@example.com"/></div>
-    <div class="ff"><label>역할 *</label><select id="mu-role"><option value="sub">부운영자</option><option value="admin">운영자</option></select></div>
+    <div class="ff"><label>역할 *</label><select id="mu-role" onchange="document.getElementById('mu-teacher-wrap').style.display=this.value==='teacher'?'':'none'"><option value="sub">부운영자</option><option value="admin">운영자</option><option value="teacher">선생님 (출석 관리만)</option></select></div>
+    <div class="ff" id="mu-teacher-wrap" style="display:none"><label>연결할 선생님 *</label><select id="mu-teacher"></select>
+      <p style="font-size:11px;color:var(--text3);margin-top:4px">선생님 관리에 등록된 선생님과 연결합니다. 이 계정으로 로그인하면 출석 페이지만 보입니다.</p></div>
     <div class="modal-footer">
       <button class="btn btn-neutral" onclick="closeModal('m-add-user')">취소</button>
       <button class="btn btn-primary" onclick="saveUser()">추가</button>
@@ -2789,6 +2971,7 @@ function logout(){
   S.del('session');
   currentUser=null; currentAcademy=null; _isSuperAdmin=false;
   document.getElementById('app').style.display='none';
+  document.getElementById('teacher-app').style.display='none';
   document.getElementById('superadmin-screen').style.display='none';
   document.getElementById('auth-screen').style.display='flex';
   const em=document.getElementById('l-email'); if(em) em.value='';
@@ -2803,6 +2986,9 @@ function logout(){
 function bootApp(){
   hideLoading();
   document.getElementById('auth-screen').style.display='none';
+  // 선생님 계정은 전용 화면(출석/내 반/프로필)만 — 기존 관리 화면은 아예 띄우지 않는다
+  if(currentUser?.role==='teacher'){ bootTeacherApp(); return; }
+  document.getElementById('teacher-app').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('sb-academy-name-text').textContent=currentAcademy.name; const _arrow=document.getElementById('sb-academy-switch-arrow'); if(_arrow) _arrow.style.display=_allAcademies.length>1?'':'none';
   document.getElementById('sb-avatar').textContent=currentUser.name[0];
@@ -2900,6 +3086,7 @@ function startRealtimeSync(){
 }
 
 function refreshAll(){
+  if(currentUser?.role==='teacher'){ renderTeacherApp(); return; }
   refreshSmsCredState();
   const a=currentAcademy;
   updateDashboard();
@@ -2977,10 +3164,11 @@ function nav(name,el){
   if(name==='office') initOfficePage();
   if(name==='gradepay') initGradePayPage();
   if(name==='sms')    loadAutoSmsLog();   // 서버 자동발송 내역을 불러와 합쳐 보여준다
+  if(name==='attendance') initAttendancePage();
   // 모바일 topbar 제목 업데이트
   const titles={dashboard:'대시보드',students:'학생 관리',payments:'수납 내역',
     classes:'과목/반 관리',teachers:'선생님 관리',unpaid:'미납 관리',
-    stats:'통계/리포트',gradepay:'학년별 수납표',sms:'문자 알림',office:'교육청 서류',settings:'설정'};
+    stats:'통계/리포트',gradepay:'학년별 수납표',sms:'문자 알림',office:'교육청 서류',settings:'설정',attendance:'출석 관리'};
   const t=document.getElementById('mob-topbar-title');
   if(t) t.textContent=titles[name]||'AcademyPay';
 }
@@ -9371,7 +9559,7 @@ function renderUsers(){
     <tr>
       <td><strong>${u.name}</strong></td>
       <td style="color:var(--text2)">${u.email}</td>
-      <td><span class="badge ${u.role==='admin'?'b-info':'b-warning'}">${u.role==='admin'?'운영자':'부운영자'}</span></td>
+      <td><span class="badge ${u.role==='admin'?'b-info':u.role==='teacher'?'b-success':'b-warning'}">${u.role==='admin'?'운영자':u.role==='teacher'?'선생님':'부운영자'}</span>${u.role==='teacher'&&getTeacher(u.teacherId)?`<span style="font-size:11px;color:var(--text3);margin-left:4px">${getTeacher(u.teacherId).name}</span>`:''}</td>
       <td style="color:var(--text2);font-size:12px">${u.lastLogin?new Date(u.lastLogin).toLocaleDateString('ko-KR'):'-'}</td>
       <td><span class="badge ${u.active?'b-success':'b-gray'}">${u.active?'활성':'비활성'}</span></td>
       <td>
@@ -9410,7 +9598,14 @@ function saveUser(){
   const role=document.getElementById('mu-role').value;
   if(!name||!email){showToast('이름과 이메일을 입력해주세요.','error');return}
   if((currentAcademy.users||[]).find(u=>u.email===email)){showToast('이미 등록된 이메일입니다.','error');return}
-  currentAcademy.users.push({id:uid(),name,email,role,lastLogin:null,active:true,permissions:{students:true,payments:true,unpaid:true,stats:false,sms:false,delete:false,users:false}});
+  let teacherId = null;
+  if(role==='teacher'){
+    teacherId = document.getElementById('mu-teacher').value;
+    if(!teacherId){ showToast('연결할 선생님을 선택해주세요.','error'); return; }
+    if((currentAcademy.users||[]).find(u=>u.teacherId===teacherId)){ showToast('이미 계정이 연결된 선생님입니다.','error'); return; }
+  }
+  currentAcademy.users.push({id:uid(),name,email,role,teacherId,lastLogin:null,active:true,
+    permissions: role==='teacher' ? {attendance:true} : {students:true,payments:true,unpaid:true,stats:false,sms:false,delete:false,users:false}});
   saveAcademy();closeModal('m-add-user');renderUsers();showToast('계정이 추가되었습니다.','success');
 }
 
@@ -9981,6 +10176,405 @@ setTimeout(()=>{
   // ── 3) 로그인 화면 ────────────────────────────────
   showAuthScreen();
 })();
+
+// ════════════════════════════════════════════════════════
+// 출석 관리
+//   데이터: currentAcademy.attendance = {
+//     classes:[{id, teacherId, name, studentIds:[], days:[0..6], start:'19:00'}],
+//     records:{ 'YYYY-MM-DD': { classId: { marks:{sid:'P'|'L'|'E'|'A'}, savedAt, savedBy } } },
+//     autoSms:{ on, delayMin, template }
+//   }
+//   기존 과목/반(classes)과는 별개 — 선생님이 자유롭게 만드는 출석용 반.
+//   결석 자동 문자는 서버(auto-sms)가 start + delayMin 이후에 보호자에게 발송한다.
+// ════════════════════════════════════════════════════════
+const ATT_STATUS = { P:'출석', L:'지각', E:'조퇴', A:'결석' };
+const ATT_DAYS   = ['일','월','화','수','목','금','토'];
+const ATT_SMS_DEFAULT = '{학원명}입니다.\n{이름} 학생이 {날짜} {반} 수업에 결석하였습니다.\n확인 부탁드립니다.';
+
+function todayYmd(){ return now().toISOString().slice(0,10); }
+function getAtt(){
+  const a = currentAcademy;
+  if(!a.attendance) a.attendance = {};
+  const t = a.attendance;
+  if(!t.classes) t.classes = [];
+  if(!t.records) t.records = {};
+  if(!t.autoSms) t.autoSms = { on:false, delayMin:60, template:ATT_SMS_DEFAULT };
+  return t;
+}
+function myTeacherId(){ return currentUser?.role==='teacher' ? (currentUser.teacherId||null) : null; }
+function getAttClass(id){ return getAtt().classes.find(c=>c.id===id); }
+function attClassesFor(teacherId){ return getAtt().classes.filter(c=>!teacherId || c.teacherId===teacherId); }
+function attRecord(date, classId){ return getAtt().records?.[date]?.[classId] || null; }
+function attClassStudents(c){
+  return (c.studentIds||[]).map(getStudent).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+}
+function attDaysLabel(c){ return (c.days||[]).length ? (c.days||[]).slice().sort().map(d=>ATT_DAYS[d]).join('') : '요일 미정'; }
+function attIsToday(c, date){ return (c.days||[]).includes(new Date(date+'T00:00:00').getDay()); }
+function attParentPhone(s){
+  const ps = (s.parents&&s.parents.length) ? s.parents : (s.parent?[{phone:s.parent}]:[]);
+  return (ps[0]?.phone || '').replace(/[^0-9]/g,'');
+}
+
+// ── 편집 버퍼 (선생님 화면과 관리자 화면이 공유; 한 번에 하나만 보인다) ──
+let _attEdit = { date:todayYmd(), classId:null, marks:{}, dirty:false };
+
+function attLoadEdit(date, classId){
+  _attEdit.date = date; _attEdit.classId = classId; _attEdit.dirty=false;
+  const c = getAttClass(classId);
+  const rec = attRecord(date, classId);
+  _attEdit.marks = {};
+  if(c) attClassStudents(c).forEach(s=>{ _attEdit.marks[s.id] = rec?.marks?.[s.id] || 'P'; });
+}
+function attMark(sid, st){
+  _attEdit.marks[sid] = st; _attEdit.dirty=true;
+  document.querySelectorAll(`[data-att-sid="${sid}"] .att-b`).forEach(b=>{
+    b.className = 'att-b' + (b.dataset.st===st ? ' on-'+st : '');
+  });
+  attUpdateCounts();
+}
+function attMarkAll(st){
+  Object.keys(_attEdit.marks).forEach(sid=>_attEdit.marks[sid]=st);
+  _attEdit.dirty=true;
+  document.querySelectorAll('[data-att-sid] .att-b').forEach(b=>{ b.className='att-b'+(b.dataset.st===st?' on-'+st:''); });
+  attUpdateCounts();
+}
+function attCounts(marks){
+  const c={P:0,L:0,E:0,A:0}; Object.values(marks).forEach(v=>{ if(c[v]!=null) c[v]++; }); return c;
+}
+function attUpdateCounts(){
+  const el=document.getElementById('att-counts'); if(!el) return;
+  const c=attCounts(_attEdit.marks);
+  el.innerHTML = `<span style="color:#10b981">출석 ${c.P}</span> · <span style="color:#f59e0b">지각 ${c.L}</span> · <span style="color:#8b5cf6">조퇴 ${c.E}</span> · <span style="color:#ef4444">결석 ${c.A}</span>`;
+}
+
+// 출석 편집기 HTML — 선생님/관리자 공용
+function attEditorHtml(opts){
+  const c = getAttClass(_attEdit.classId);
+  if(!c) return `<div class="att-empty">반을 선택하세요.</div>`;
+  const stus = attClassStudents(c);
+  if(!stus.length) return `<div class="att-empty">이 반에 학생이 없습니다.<br>내 반에서 학생을 추가하세요.</div>`;
+  const rec = attRecord(_attEdit.date, c.id);
+  const d = new Date(_attEdit.date+'T00:00:00');
+  const dateLabel = `${d.getMonth()+1}/${d.getDate()} (${ATT_DAYS[d.getDay()]})`;
+  const saved = rec ? `<span style="color:var(--success)">✓ ${new Date(rec.savedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} 저장</span>` : `<span style="color:var(--text3)">미저장</span>`;
+  const sms = getAtt().autoSms;
+  const rows = stus.map(s=>{
+    const st=_attEdit.marks[s.id]||'P';
+    const grade = s.grade||s.school||'';
+    const noParent = !attParentPhone(s);
+    return `<div class="att-row" data-att-sid="${s.id}">
+      <div class="nm">${s.name}<small>${grade}${noParent?' · <span style="color:#ef4444">보호자 번호 없음</span>':''}</small></div>
+      <div class="att-btns">${Object.keys(ATT_STATUS).map(k=>`<button class="att-b${st===k?' on-'+k:''}" data-st="${k}" onclick="attMark('${s.id}','${k}')">${ATT_STATUS[k]}</button>`).join('')}</div>
+    </div>`;
+  }).join('');
+  const smsNote = sms.on ? `<div style="font-size:12px;color:var(--text2);margin:4px 0 8px">📱 결석 처리된 학생은 수업 시작(${c.start||'--:--'}) ${sms.delayMin||60}분 후 보호자에게 자동 문자가 갑니다.</div>` : '';
+  const adminBtn = opts?.admin ? `<button class="btn btn-neutral" onclick="attSendAbsentNow()">📱 결석 문자 지금 보내기</button>` : '';
+  return `
+    <div class="att-head"><div><b>${c.name}</b> · ${dateLabel} · ${stus.length}명</div><div>${saved}</div></div>
+    <div class="att-head" style="margin-top:-4px"><div id="att-counts"></div>
+      <div><button class="btn btn-neutral btn-sm" onclick="attMarkAll('P')">전원 출석</button></div></div>
+    ${rows}
+    ${smsNote}
+    <div class="att-save">${adminBtn}<button class="btn btn-primary" onclick="attSave()">💾 출석 저장</button></div>`;
+}
+
+async function attSave(){
+  const c = getAttClass(_attEdit.classId); if(!c){ showToast('반을 선택하세요.','error'); return; }
+  const att = getAtt();
+  if(!att.records[_attEdit.date]) att.records[_attEdit.date] = {};
+  att.records[_attEdit.date][c.id] = { marks:{..._attEdit.marks}, savedAt:now().toISOString(), savedBy:currentUser.id };
+  const ok = await saveAcademy();
+  if(ok!==false){
+    _attEdit.dirty=false;
+    const cnt = attCounts(_attEdit.marks);
+    showToast(`저장 완료 — 결석 ${cnt.A}명${cnt.A&&att.autoSms.on?' (보호자 자동 문자 예약됨)':''}`,'success');
+    attRerender();
+  }
+}
+function attRerender(){
+  if(currentUser?.role==='teacher') renderTeacherApp(); else attAdminRender();
+}
+
+// ── 결석 문자 즉시 발송 (관리자 수동) ──
+async function attSendAbsentNow(){
+  const c = getAttClass(_attEdit.classId); if(!c) return;
+  if(_attEdit.dirty){ showToast('먼저 출석을 저장하세요.','warning'); return; }
+  const rec = attRecord(_attEdit.date, c.id);
+  if(!rec){ showToast('저장된 출석이 없습니다.','error'); return; }
+  const absent = attClassStudents(c).filter(s=>rec.marks[s.id]==='A');
+  if(!absent.length){ showToast('결석 학생이 없습니다.','warning'); return; }
+  if(!_smsCredReady){ showToast('문자 발송 설정(학원 설정)이 필요합니다.','error'); return; }
+  const tpl = getAtt().autoSms.template || ATT_SMS_DEFAULT;
+  if(!confirm(`결석 ${absent.length}명의 보호자에게 문자를 보낼까요?\n\n${attSmsBody(tpl, absent[0], c, _attEdit.date)}`)) return;
+  let ok=0, fail=0;
+  for(const s of absent){
+    const phone = attParentPhone(s);
+    if(!/^0\d{8,10}$/.test(phone)){ fail++; continue; }
+    const sent = await callCoolSmsApi(phone, attSmsBody(tpl, s, c, _attEdit.date));
+    sent ? ok++ : fail++;
+    await new Promise(r=>setTimeout(r,350));
+  }
+  if(ok) { logSms(ok,'SMS',`결석 알림(${c.name}) — ${ok}명`); }
+  showToast(`발송 ${ok}명${fail?`, 실패/번호없음 ${fail}명`:''}`, fail?'warning':'success');
+}
+function attSmsBody(tpl, s, c, date){
+  const d = new Date(date+'T00:00:00');
+  const t = getTeacher(c.teacherId);
+  return (tpl||'')
+    .replace(/{학원명}/g, currentAcademy.name||'')
+    .replace(/{이름}/g, s.name||'')
+    .replace(/{반}/g, c.name||'')
+    .replace(/{날짜}/g, `${d.getMonth()+1}월 ${d.getDate()}일`)
+    .replace(/{선생님}/g, t?.name||'');
+}
+
+// ── 출석반 만들기/편집 (공용 모달) ──
+let _macStudentsCache = [];
+function openAttClassModal(id){
+  const c = id ? getAttClass(id) : null;
+  const isTeacher = currentUser.role==='teacher';
+  document.getElementById('mac-title').textContent = c ? '📚 출석반 편집' : '📚 출석반 만들기';
+  document.getElementById('mac-id').value = c?.id||'';
+  document.getElementById('mac-name').value = c?.name||'';
+  document.getElementById('mac-start').value = c?.start||'19:00';
+  document.getElementById('mac-del').style.display = c ? '' : 'none';
+  // 담당 선생님 — 선생님 계정이면 본인 고정
+  const tw = document.getElementById('mac-teacher-wrap');
+  const ts = document.getElementById('mac-teacher');
+  ts.innerHTML = getTeachers().filter(t=>t.status!=='resigned').map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+  if(isTeacher){ tw.style.display='none'; ts.value = myTeacherId(); }
+  else { tw.style.display=''; if(c) ts.value=c.teacherId; }
+  // 요일
+  const days = new Set(c?.days||[]);
+  document.getElementById('mac-days').innerHTML = ATT_DAYS.map((d,i)=>`<span class="att-daybtn${days.has(i)?' on':''}" data-d="${i}" onclick="this.classList.toggle('on')">${d}</span>`).join('');
+  // 학생 — 재원생 + 체험중 (이미 포함된 학생은 상태 무관 유지)
+  const picked = new Set(c?.studentIds||[]);
+  _macStudentsCache = (currentAcademy.students||[])
+    .filter(s=>isActiveStudent(s) || s.status==='trial' || picked.has(s.id))
+    .sort((a,b)=>a.name.localeCompare(b.name,'ko'))
+    .map(s=>({id:s.id, name:s.name, sub:[s.school,s.grade].filter(Boolean).join(' '), on:picked.has(s.id)}));
+  document.getElementById('mac-stu-q').value='';
+  macFilterStudents();
+  openModal('m-att-class');
+}
+function macFilterStudents(){
+  const q = (document.getElementById('mac-stu-q').value||'').trim();
+  // 현재 체크 상태를 캐시에 반영한 뒤 다시 그린다
+  document.querySelectorAll('#mac-students input[type=checkbox]').forEach(cb=>{
+    const it=_macStudentsCache.find(x=>x.id===cb.value); if(it) it.on=cb.checked;
+  });
+  const list = _macStudentsCache.filter(x=>!q || x.name.includes(q));
+  document.getElementById('mac-students').innerHTML = list.length
+    ? list.map(x=>`<label><input type="checkbox" value="${x.id}" ${x.on?'checked':''} onchange="macCount()"/><span style="flex:1">${x.name}</span><small style="color:var(--text3)">${x.sub}</small></label>`).join('')
+    : `<div style="padding:12px;color:var(--text3);text-align:center">검색 결과 없음</div>`;
+  macCount();
+}
+function macCount(){
+  document.querySelectorAll('#mac-students input[type=checkbox]').forEach(cb=>{
+    const it=_macStudentsCache.find(x=>x.id===cb.value); if(it) it.on=cb.checked;
+  });
+  document.getElementById('mac-stu-cnt').textContent = `${_macStudentsCache.filter(x=>x.on).length}명 선택`;
+}
+async function saveAttClass(){
+  macCount();
+  const id = document.getElementById('mac-id').value;
+  const name = document.getElementById('mac-name').value.trim();
+  const teacherId = currentUser.role==='teacher' ? myTeacherId() : document.getElementById('mac-teacher').value;
+  if(!name){ showToast('반 이름을 입력하세요.','error'); return; }
+  if(!teacherId){ showToast('담당 선생님을 선택하세요.','error'); return; }
+  const days = [...document.querySelectorAll('#mac-days .att-daybtn.on')].map(e=>+e.dataset.d);
+  const data = { name, teacherId, days, start:document.getElementById('mac-start').value||'', studentIds:_macStudentsCache.filter(x=>x.on).map(x=>x.id) };
+  const att = getAtt();
+  if(id){ const c=getAttClass(id); if(c) Object.assign(c, data); }
+  else att.classes.push({ id:uid(), ...data, createdAt:now().toISOString() });
+  const ok = await saveAcademy();
+  if(ok!==false){ closeModal('m-att-class'); showToast(id?'반이 수정되었습니다.':'반이 만들어졌습니다.','success'); attRerender(); }
+}
+async function deleteAttClass(){
+  const id = document.getElementById('mac-id').value; if(!id) return;
+  const c = getAttClass(id);
+  if(!confirm(`"${c?.name}" 반을 삭제할까요?\n이 반의 출석 기록도 함께 삭제됩니다.`)) return;
+  const att = getAtt();
+  att.classes = att.classes.filter(x=>x.id!==id);
+  Object.keys(att.records).forEach(d=>{ delete att.records[d][id]; if(!Object.keys(att.records[d]).length) delete att.records[d]; });
+  if(_attEdit.classId===id) _attEdit.classId=null;
+  const ok = await saveAcademy();
+  if(ok!==false){ closeModal('m-att-class'); showToast('삭제되었습니다.','success'); attRerender(); }
+}
+
+// ════════ 선생님 전용 앱 ════════
+let _taTab = 'att';
+function bootTeacherApp(){
+  document.getElementById('app').style.display='none';
+  document.getElementById('teacher-app').style.display='block';
+  if(!_attEdit.classId) attLoadEdit(todayYmd(), null);
+  document.getElementById('ta-date').value = _attEdit.date;
+  renderTeacherApp();
+  if(_sb && currentAcademy.id){ startRealtimeSync(); startKeepAlive(); }
+}
+function taTab(t){
+  _taTab=t;
+  ['att','cls','me'].forEach(k=>{
+    document.getElementById('ta-view-'+k).classList.toggle('active', k===t);
+    document.getElementById('ta-tab-'+k).classList.toggle('active', k===t);
+  });
+  document.getElementById('ta-title').textContent = {att:'출석', cls:'내 반', me:'프로필'}[t];
+  renderTeacherApp();
+}
+function renderTeacherApp(){
+  if(!currentUser || currentUser.role!=='teacher') return;
+  const t = getTeacher(myTeacherId());
+  document.getElementById('ta-sub').textContent = `${currentAcademy.name} · ${t?.name||currentUser.name} 선생님`;
+  // 출석 탭
+  const tid = myTeacherId();
+  const classes = attClassesFor(tid);
+  const date = _attEdit.date;
+  const sorted = [...classes].sort((a,b)=>(attIsToday(b,date)-attIsToday(a,date)) || (a.start||'').localeCompare(b.start||''));
+  if(sorted.length && !sorted.find(c=>c.id===_attEdit.classId)) attLoadEdit(date, sorted[0].id);
+  document.getElementById('ta-chips').innerHTML = sorted.length
+    ? sorted.map(c=>`<div class="att-chip${c.id===_attEdit.classId?' active':''}${attIsToday(c,date)?' today':''}" onclick="attPickClass('${c.id}')">${c.name}<span class="cnt">${(c.studentIds||[]).length}</span></div>`).join('')
+    : '';
+  document.getElementById('ta-editor').innerHTML = sorted.length ? attEditorHtml() : `<div class="att-empty">아직 반이 없습니다.<br>아래 <b>내 반</b> 탭에서 반을 만들어주세요.</div>`;
+  attUpdateCounts();
+  // 내 반 탭
+  document.getElementById('ta-classes').innerHTML = classes.length
+    ? classes.map(c=>`<div class="att-cls-card">
+        <div class="info"><b>${c.name}</b><small>${attDaysLabel(c)} ${c.start||''} · ${(c.studentIds||[]).length}명</small></div>
+        <button class="btn btn-neutral btn-sm" onclick="openAttClassModal('${c.id}')">편집</button></div>`).join('')
+    : `<div class="att-empty">반이 없습니다. 반을 만들고 학생을 넣어주세요.</div>`;
+  // 프로필 탭
+  document.getElementById('ta-me-academy').textContent = currentAcademy.name;
+  document.getElementById('ta-me-name').textContent = t?.name||currentUser.name;
+  document.getElementById('ta-me-email').textContent = currentUser.email;
+  const ph=document.getElementById('ta-me-phone'); if(document.activeElement!==ph) ph.value = t?.phone||'';
+}
+function attPickClass(id){
+  if(_attEdit.dirty && !confirm('저장하지 않은 출석이 있습니다. 이동할까요?')) return;
+  attLoadEdit(_attEdit.date, id); attRerender();
+}
+function attSetDate(d){
+  if(!d) return;
+  if(_attEdit.dirty && !confirm('저장하지 않은 출석이 있습니다. 이동할까요?')){ const el=document.getElementById('ta-date'); if(el) el.value=_attEdit.date; return; }
+  attLoadEdit(d, _attEdit.classId);
+  const el=document.getElementById('ta-date'); if(el) el.value=d;
+  attRerender();
+}
+function attShiftDate(n){
+  const d=new Date(_attEdit.date+'T00:00:00'); d.setDate(d.getDate()+n);
+  attSetDate(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+}
+async function saveTeacherProfile(){
+  const t = getTeacher(myTeacherId()); if(!t){ showToast('선생님 정보를 찾을 수 없습니다.','error'); return; }
+  t.phone = document.getElementById('ta-me-phone').value.trim();
+  const ok = await saveAcademy();
+  if(ok!==false) showToast('저장되었습니다.','success');
+}
+
+// ════════ 관리자 출석 페이지 ════════
+function initAttendancePage(){
+  const ts=document.getElementById('att-a-teacher');
+  const cur=ts.value;
+  ts.innerHTML = '<option value="">전체 선생님</option>' + getTeachers().map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+  ts.value=cur;
+  const de=document.getElementById('att-a-date'); if(!de.value) de.value=todayYmd();
+  const me=document.getElementById('att-m-month'); if(!me.value) me.value=todayYmd().slice(0,7);
+  attAdminFillClasses();
+  // 자동 문자 설정
+  const sms=getAtt().autoSms;
+  document.getElementById('att-sms-on').classList.toggle('on', !!sms.on);
+  document.getElementById('att-sms-delay').value = sms.delayMin ?? 60;
+  const tpl=document.getElementById('att-sms-tpl'); tpl.value = sms.template || ATT_SMS_DEFAULT;
+  tpl.oninput = attSmsBytes; attSmsBytes();
+  attAdminRender();
+}
+function attSmsBytes(){
+  const v=document.getElementById('att-sms-tpl').value;
+  const b=(typeof smsByteLength==='function')?smsByteLength(v):v.length*2;
+  document.getElementById('att-sms-bytes').textContent = `${b} byte · ${b>90?'LMS':'SMS'} (변수 치환 전 기준)`;
+}
+function attAdminFillClasses(){
+  const tid=document.getElementById('att-a-teacher').value;
+  const cs=document.getElementById('att-a-class');
+  const cur=cs.value;
+  const list=attClassesFor(tid||null);
+  cs.innerHTML = list.length ? list.map(c=>`<option value="${c.id}">${c.name} (${getTeacher(c.teacherId)?.name||'-'})</option>`).join('') : '<option value="">출석반 없음</option>';
+  cs.value = list.find(c=>c.id===cur) ? cur : (list[0]?.id||'');
+}
+function attAdminRender(){
+  if(!document.getElementById('page-attendance').classList.contains('active')) return;
+  const cid=document.getElementById('att-a-class').value||null;
+  const date=document.getElementById('att-a-date').value||todayYmd();
+  if(_attEdit.classId!==cid || _attEdit.date!==date || !_attEdit.dirty) attLoadEdit(date, cid);
+  document.getElementById('att-a-editor').innerHTML = cid ? attEditorHtml({admin:true}) : `<div class="att-empty">출석반이 없습니다. 오른쪽 위 "+ 출석반 만들기"로 시작하세요.</div>`;
+  attUpdateCounts();
+  // 반 목록
+  document.getElementById('att-a-classes').innerHTML = getAtt().classes.length
+    ? getAtt().classes.map(c=>`<tr><td><strong>${c.name}</strong></td><td>${getTeacher(c.teacherId)?.name||'<span style="color:var(--danger)">미배정</span>'}</td><td>${attDaysLabel(c)}</td><td>${c.start||'-'}</td><td>${(c.studentIds||[]).length}명</td>
+        <td><button class="btn btn-neutral btn-sm" onclick="openAttClassModal('${c.id}')">편집</button></td></tr>`).join('')
+    : `<tr><td colspan="6" class="empty-row"><p>출석반이 없습니다</p></td></tr>`;
+  attAdminMonth();
+}
+function attAdminMonth(){
+  const cid=document.getElementById('att-a-class').value; const c=getAttClass(cid);
+  const ym=document.getElementById('att-m-month').value||todayYmd().slice(0,7);
+  const box=document.getElementById('att-a-month');
+  if(!c){ box.innerHTML=''; return; }
+  const recs=getAtt().records;
+  const dates=Object.keys(recs).filter(d=>d.startsWith(ym) && recs[d][c.id]).sort();
+  if(!dates.length){ box.innerHTML=`<div class="att-empty">${ym} 에 저장된 출석이 없습니다.</div>`; return; }
+  const stus=attClassStudents(c);
+  const tot={}; stus.forEach(s=>tot[s.id]={P:0,L:0,E:0,A:0});
+  const rows=stus.map(s=>{
+    const cells=dates.map(d=>{ const m=recs[d][c.id].marks[s.id]; if(m&&tot[s.id][m]!=null) tot[s.id][m]++; return `<td class="m-${m||''}">${m?ATT_STATUS[m][0]:'-'}</td>`; }).join('');
+    const t=tot[s.id];
+    return `<tr><td class="nm">${s.name}</td>${cells}<td style="font-size:11px;color:var(--text2)">출${t.P} 지${t.L} 조${t.E} <b style="color:#ef4444">결${t.A}</b></td></tr>`;
+  }).join('');
+  box.innerHTML=`<table class="att-month-table"><thead><tr><th style="text-align:left">학생</th>${dates.map(d=>{const x=new Date(d+'T00:00:00');return `<th>${x.getDate()}<br><span style="font-weight:400;color:var(--text3)">${ATT_DAYS[x.getDay()]}</span></th>`;}).join('')}<th>합계</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+async function saveAttSmsSettings(){
+  const sms=getAtt().autoSms;
+  sms.on = document.getElementById('att-sms-on').classList.contains('on');
+  sms.delayMin = Math.max(0, parseInt(document.getElementById('att-sms-delay').value)||0);
+  sms.template = document.getElementById('att-sms-tpl').value.trim() || ATT_SMS_DEFAULT;
+  if(sms.on && !_smsCredReady){ showToast('학원 설정에서 문자 발송(CoolSMS) 설정을 먼저 해주세요.','warning'); }
+  const ok=await saveAcademy();
+  if(ok!==false){ showToast('결석 문자 설정이 저장되었습니다.','success'); attAdminRender(); }
+}
+
+// ════════ 계정 추가 — 선생님 목록 / 초대 계정 첫 로그인 ════════
+function fillMuTeachers(){
+  const sel=document.getElementById('mu-teacher'); if(!sel) return;
+  const linked=new Set((currentAcademy.users||[]).map(u=>u.teacherId).filter(Boolean));
+  const list=getTeachers().filter(t=>!linked.has(t.id));
+  sel.innerHTML = list.length ? list.map(t=>`<option value="${t.id}">${t.name}${t.email?' ('+t.email+')':''}</option>`).join('') : '<option value="">연결 가능한 선생님 없음</option>';
+  // 선생님 레코드에 이메일이 있으면 자동으로 채워준다
+  sel.onchange=()=>{ const t=getTeacher(sel.value); const em=document.getElementById('mu-email'); const nm=document.getElementById('mu-name'); if(t){ if(em&&!em.value) em.value=t.email||''; if(nm&&!nm.value) nm.value=t.name; } };
+}
+function showInvitePanel(){ hideForgotPassword(); document.getElementById('invite-panel').style.display=''; const em=document.getElementById('l-email').value; if(em) document.getElementById('inv-email').value=em; }
+function hideInvitePanel(){ document.getElementById('invite-panel').style.display='none'; hideErr('inv-err'); }
+async function doInviteFirstLogin(){
+  hideErr('inv-err');
+  const email=document.getElementById('inv-email').value.trim();
+  const pw=document.getElementById('inv-pw').value, pw2=document.getElementById('inv-pw2').value;
+  if(!email.includes('@')){ showErr('inv-err','올바른 이메일을 입력해주세요.'); return; }
+  if(pw.length<8){ showErr('inv-err','비밀번호는 8자 이상이어야 합니다.'); return; }
+  if(pw!==pw2){ showErr('inv-err','비밀번호가 일치하지 않습니다.'); return; }
+  if(!_sb){ showErr('inv-err','서버에 연결할 수 없습니다.'); return; }
+  const registered = await sbCheckEmailExists(email);
+  if(!registered){ showErr('inv-err','등록되지 않은 이메일입니다. 관리자에게 사용자 관리에서 계정 추가를 요청하세요.'); return; }
+  const { error } = await _sb.auth.signUp({ email, password:pw });
+  if(error){
+    const m=(error.message||'').toLowerCase();
+    if(m.includes('already')||m.includes('registered')) showErr('inv-err','이미 비밀번호가 설정된 계정입니다. 로그인 탭에서 로그인하거나 "비밀번호를 잊으셨나요?"를 이용하세요.');
+    else showErr('inv-err','설정 실패: '+error.message);
+    return;
+  }
+  document.getElementById('l-email').value=email;
+  document.getElementById('l-password').value=pw;
+  hideInvitePanel();
+  doLogin();
+}
+
 </script>
 <script>
 // ★ 서비스워커를 더 이상 등록하지 않는다.
