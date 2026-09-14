@@ -1666,7 +1666,7 @@ tbody tr:hover td{background:#f8f9ff}
       <div class="ff"><label>연락처 *</label><input id="mt-phone" placeholder="010-0000-0000" inputmode="tel" maxlength="13" oninput="onPhoneInput(this)"/></div>
     </div>
     <div class="frow">
-      <div class="ff"><label>이메일</label><input id="mt-email" type="email" placeholder="teacher@academy.com"/></div>
+      <div class="ff"><label>이메일 <span style="color:var(--text3);font-weight:400">(출석 관리 계정 로그인용)</span></label><input id="mt-email" type="email" placeholder="teacher@academy.com" autocomplete="off"/></div>
       <div class="ff"><label>생년월일</label><input id="mt-birth" type="date"/></div>
     </div>
     <div class="frow">
@@ -2435,7 +2435,7 @@ tbody tr:hover td{background:#f8f9ff}
     <h2>🔑 계정 추가</h2>
     <div class="ff"><label>이름 *</label><input id="mu-name" placeholder="이름"/></div>
     <div class="ff"><label>이메일 *</label><input id="mu-email" type="email" placeholder="email@example.com"/></div>
-    <div class="ff"><label>역할 *</label><select id="mu-role" onchange="document.getElementById('mu-teacher-wrap').style.display=this.value==='teacher'?'':'none'"><option value="sub">부운영자</option><option value="admin">운영자</option><option value="teacher">선생님 (출석 관리만)</option></select></div>
+    <div class="ff"><label>역할 *</label><select id="mu-role"><option value="sub">부운영자</option><option value="admin">운영자</option><option value="teacher">선생님 (출석 관리만)</option></select></div>
     <div class="ff" id="mu-teacher-wrap" style="display:none"><label>연결할 선생님 *</label><select id="mu-teacher"></select>
       <p style="font-size:11px;color:var(--text3);margin-top:4px">선생님 관리에 등록된 선생님과 연결합니다. 이 계정으로 로그인하면 출석 페이지만 보입니다.</p></div>
     <div class="modal-footer">
@@ -10547,8 +10547,15 @@ function fillMuTeachers(){
   const linked=new Set((currentAcademy.users||[]).map(u=>u.teacherId).filter(Boolean));
   const list=getTeachers().filter(t=>!linked.has(t.id));
   sel.innerHTML = list.length ? list.map(t=>`<option value="${t.id}">${t.name}${t.email?' ('+t.email+')':''}</option>`).join('') : '<option value="">연결 가능한 선생님 없음</option>';
-  // 선생님 레코드에 이메일이 있으면 자동으로 채워준다
-  sel.onchange=()=>{ const t=getTeacher(sel.value); const em=document.getElementById('mu-email'); const nm=document.getElementById('mu-name'); if(t){ if(em&&!em.value) em.value=t.email||''; if(nm&&!nm.value) nm.value=t.name; } };
+  // 선생님을 고르면 선생님 관리에 적어둔 이메일/이름을 자동으로 채운다 (수동 수정 가능)
+  sel.onchange=()=>{ const t=getTeacher(sel.value); if(!t) return;
+    document.getElementById('mu-email').value = t.email||'';
+    document.getElementById('mu-name').value  = t.name||''; };
+  // 역할 선택이 '선생님'으로 바뀔 때도 채우도록 연결
+  const role=document.getElementById('mu-role');
+  role.onchange=()=>{ const isT=role.value==='teacher'; document.getElementById('mu-teacher-wrap').style.display=isT?'':'none'; if(isT) sel.onchange(); };
+  ['mu-name','mu-email'].forEach(id=>document.getElementById(id).value='');
+  role.value='sub'; role.onchange();
 }
 function showInvitePanel(){ hideForgotPassword(); document.getElementById('invite-panel').style.display=''; const em=document.getElementById('l-email').value; if(em) document.getElementById('inv-email').value=em; }
 function hideInvitePanel(){ document.getElementById('invite-panel').style.display='none'; hideErr('inv-err'); }
