@@ -47,7 +47,13 @@ body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text);
 }
 #auth-screen{align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
 #auth-screen .auth-box{max-width:100%;box-sizing:border-box}
-@media(max-width:480px){ .auth-box{width:100%;padding:28px 20px} }
+/* 모바일 로그인: 왼쪽 소개(hero)를 숨기고 카드만 세로 중앙에 */
+@media(max-width:768px){
+  #auth-screen{padding:0;min-height:100vh;min-height:100dvh;align-items:flex-start}
+  .auth-split{flex-direction:column;padding:24px 16px;gap:0;min-height:100vh;min-height:100dvh;justify-content:center;box-sizing:border-box}
+  .auth-hero{display:none}
+  .auth-box{width:100%;max-width:420px;margin:0 auto;padding:28px 20px;box-sizing:border-box}
+}
 #auth-screen::before{
   content:'';position:absolute;inset:0;
   background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
