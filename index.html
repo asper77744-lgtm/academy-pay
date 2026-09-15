@@ -506,7 +506,9 @@ tbody tr:hover td{background:#f8f9ff}
 .att-month-table{font-size:12px;white-space:nowrap}
 .att-month-table th,.att-month-table td{text-align:center;padding:5px 6px!important}
 .att-month-table td.m-P{color:#10b981}.att-month-table td.m-L{color:#f59e0b}.att-month-table td.m-E{color:#8b5cf6}.att-month-table td.m-A{color:#ef4444;font-weight:700}
-.att-month-table td.nm{text-align:left;font-weight:600;position:sticky;left:0;background:#fff}
+.att-month-table td.nm{text-align:left;font-weight:600;position:sticky;left:0;background:#fff;z-index:1}
+#teacher-app .att-month-table th,#teacher-app .att-month-table td{padding:4px 4px!important;font-size:11px}
+#teacher-app .att-month-table td.nm{font-size:12px}
 .ta-profile .pf{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);font-size:14px}
 .ta-profile .pf span:first-child{color:var(--text3)}
 @media(min-width:769px){ #teacher-app .ta-body{max-width:560px} }
@@ -1636,6 +1638,17 @@ tbody tr:hover td{background:#f8f9ff}
       <div id="ta-classes"></div>
       <button class="btn btn-primary" style="width:100%;padding:14px;border-radius:12px;font-size:15px" onclick="openAttClassModal()">+ 반 만들기</button>
     </div>
+    <!-- 월별 -->
+    <div class="ta-view" id="ta-view-mon">
+      <div class="att-datebar">
+        <button class="nb" onclick="taMonthShift(-1)">◀</button>
+        <input type="month" id="ta-month" onchange="taMonthSet(this.value)"/>
+        <button class="nb" onclick="taMonthShift(1)">▶</button>
+      </div>
+      <div class="att-chips" id="ta-mon-classes"></div>
+      <div class="att-chips" id="ta-mon-filter"></div>
+      <div id="ta-mon-table" style="background:#fff;border:1px solid var(--border);border-radius:12px;overflow:auto"></div>
+    </div>
     <!-- 프로필 -->
     <div class="ta-view ta-profile" id="ta-view-me">
       <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:6px 16px 16px;margin-bottom:12px">
@@ -1651,6 +1664,7 @@ tbody tr:hover td{background:#f8f9ff}
   <div class="ta-tabs">
     <div class="ta-tab active" id="ta-tab-att" onclick="taTab('att')"><span class="ico">📋</span>출석</div>
     <div class="ta-tab" id="ta-tab-cls" onclick="taTab('cls')"><span class="ico">📚</span>내 반</div>
+    <div class="ta-tab" id="ta-tab-mon" onclick="taTab('mon')"><span class="ico">📊</span>월별</div>
     <div class="ta-tab" id="ta-tab-me" onclick="taTab('me')"><span class="ico">👤</span>프로필</div>
   </div>
 </div>
@@ -10486,11 +10500,11 @@ function bootTeacherApp(){
 }
 function taTab(t){
   _taTab=t;
-  ['att','cls','me'].forEach(k=>{
+  ['att','cls','mon','me'].forEach(k=>{
     document.getElementById('ta-view-'+k).classList.toggle('active', k===t);
     document.getElementById('ta-tab-'+k).classList.toggle('active', k===t);
   });
-  document.getElementById('ta-title').textContent = {att:'출석', cls:'내 반', me:'프로필'}[t];
+  document.getElementById('ta-title').textContent = {att:'출석', cls:'내 반', mon:'월별 출석 현황', me:'프로필'}[t];
   renderTeacherApp();
 }
 function renderTeacherApp(){
@@ -10515,6 +10529,18 @@ function renderTeacherApp(){
         <div class="info"><b>${attLevelBadge(c)}${c.name}</b><small>${attDaysLabel(c)} ${c.start||''} · ${(c.studentIds||[]).length}명</small></div>
         <button class="btn btn-neutral btn-sm" onclick="openAttClassModal('${c.id}')">편집</button></div>`).join('')
     : `<div class="att-empty">반이 없습니다. 반을 만들고 학생을 넣어주세요.</div>`;
+  // 월별 탭 — 기본 전체 반, 반 칩 누르면 그 반만
+  if(_taTab==='mon'){
+    if(!_taMon.ym) _taMon.ym=todayYmd().slice(0,7);
+    document.getElementById('ta-month').value=_taMon.ym;
+    if(_taMon.cid && !classes.find(c=>c.id===_taMon.cid)) _taMon.cid='';
+    document.getElementById('ta-mon-classes').innerHTML =
+      `<div class="att-chip${!_taMon.cid?' active':''}" onclick="taMonClass('')">전체</div>` +
+      classes.map(c=>`<div class="att-chip lv-${attLevel(c)}${c.id===_taMon.cid?' active':''}" onclick="taMonClass('${c.id}')">${c.name}</div>`).join('');
+    document.getElementById('ta-mon-filter').innerHTML = attFilterChipsHtml(_taMon.filter,'taMonFilter');
+    const list = _taMon.cid ? classes.filter(c=>c.id===_taMon.cid) : classes;
+    document.getElementById('ta-mon-table').innerHTML = list.length ? attMonthTableHtml(list, _taMon.ym, _taMon.filter, !_taMon.cid) : `<div class="att-empty">반이 없습니다.</div>`;
+  }
   // 프로필 탭
   document.getElementById('ta-me-academy').textContent = currentAcademy.name;
   document.getElementById('ta-me-name').textContent = t?.name||currentUser.name;
@@ -10558,6 +10584,12 @@ async function attDragEnd(e){
   const ok=await saveAcademy();
   if(ok!==false) renderTeacherApp();
 }
+// ── 월별 탭 상태 ──
+let _taMon={ ym:'', cid:'', filter:'' };
+function taMonClass(cid){ _taMon.cid=cid; renderTeacherApp(); }
+function taMonFilter(f){ _taMon.filter=f; renderTeacherApp(); }
+function taMonthSet(ym){ if(ym) _taMon.ym=ym; renderTeacherApp(); }
+function taMonthShift(n){ const [y,m]=(_taMon.ym||todayYmd().slice(0,7)).split('-').map(Number); const d=new Date(y,m-1+n,1); taMonthSet(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`); }
 function attPickClass(id){
   if(_attEdit.dirty && !confirm('저장하지 않은 출석이 있습니다. 이동할까요?')) return;
   attLoadEdit(_attEdit.date, id); attRerender();
@@ -10650,16 +10682,22 @@ function attAllDaySummaryHtml(date){
 
 let _attMonthFilter='';
 function attMonthFilter(f){ _attMonthFilter=f; attAdminMonth(); }
+function attFilterChipsHtml(cur, fn){
+  return [['','전체'],['P','출석'],['L','지각'],['E','조퇴'],['A','결석']]
+    .map(([k,l])=>`<div class="att-chip${cur===k?' active':''}" style="padding:5px 11px;font-size:12px" onclick="${fn}('${k}')">${l}</div>`).join('');
+}
 function attAdminMonth(){
   const cidRaw=document.getElementById('att-a-class').value;
   const all = cidRaw==='__all';
   const classes = all ? attClassesFor(document.getElementById('att-a-teacher').value||null) : [getAttClass(cidRaw)].filter(Boolean);
   const ym=document.getElementById('att-m-month').value||todayYmd().slice(0,7);
-  const box=document.getElementById('att-a-month');
-  // 필터 칩
-  document.getElementById('att-m-filter').innerHTML = [['','전체'],['P','출석'],['L','지각'],['E','조퇴'],['A','결석']]
-    .map(([k,l])=>`<div class="att-chip${_attMonthFilter===k?' active':''}" style="padding:5px 11px;font-size:12px" onclick="attMonthFilter('${k}')">${l}</div>`).join('');
-  if(!classes.length){ box.innerHTML=''; return; }
+  document.getElementById('att-m-filter').innerHTML = attFilterChipsHtml(_attMonthFilter,'attMonthFilter');
+  document.getElementById('att-a-month').innerHTML = attMonthTableHtml(classes, ym, _attMonthFilter, all);
+}
+// 월별 표 HTML — 관리자 페이지와 선생님 앱 공용
+function attMonthTableHtml(classes, ym, filter, showClass){
+  if(!classes.length) return '';
+  const _attMonthFilter=filter, all=showClass;
   const recs=getAtt().records;
   const [y,m]=ym.split('-').map(Number);
   const nDays=new Date(y,m,0).getDate();
@@ -10679,10 +10717,10 @@ function attAdminMonth(){
       rows.push(`<tr><td class="nm">${s.name}${all?`<br><span style="font-weight:400;font-size:11px;color:var(--text3)">${attLevelBadge(c)}${c.name}</span>`:''}</td>${cells}<td style="font-size:11px;color:var(--text2);white-space:nowrap">출${tot.P} 지${tot.L} 조${tot.E} <b style="color:#ef4444">결${tot.A}</b></td></tr>`);
     });
   });
-  if(!any){ box.innerHTML=`<div class="att-empty">${ym} 에 저장된 출석이 없습니다.</div>`; return; }
-  if(!rows.length){ box.innerHTML=`<div class="att-empty">${ym} 에 '${ATT_STATUS[_attMonthFilter]}' 기록이 있는 학생이 없습니다.</div>`; return; }
+  if(!any) return `<div class="att-empty">${ym} 에 저장된 출석이 없습니다.</div>`;
+  if(!rows.length) return `<div class="att-empty">${ym} 에 '${ATT_STATUS[_attMonthFilter]}' 기록이 있는 학생이 없습니다.</div>`;
   const head=days.map((d,i)=>{const x=new Date(d+'T00:00:00');const wk=x.getDay()===0||x.getDay()===6;return `<th style="${wk?'color:#ef4444;':''}">${i+1}<br><span style="font-weight:400;color:var(--text3)">${ATT_DAYS[x.getDay()]}</span></th>`;}).join('');
-  box.innerHTML=`<table class="att-month-table"><thead><tr><th style="text-align:left;position:sticky;left:0;background:#fff">학생</th>${head}<th>합계</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  return `<table class="att-month-table"><thead><tr><th style="text-align:left;position:sticky;left:0;background:#fff;z-index:1">학생</th>${head}<th>합계</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 async function saveAttSmsSettings(){
   const sms=getAtt().autoSms;
