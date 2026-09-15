@@ -41,10 +41,13 @@ body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--text);
 
 /* ─── AUTH ─────────────────────────────── */
 #auth-screen{
-  display:none;min-height:100vh;
+  display:none;min-height:100vh;width:100%;
   background:linear-gradient(135deg,#667eea 0%,#764ba2 50%,#f72585 100%);
   position:relative;overflow:hidden;
 }
+#auth-screen{align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+#auth-screen .auth-box{max-width:100%;box-sizing:border-box}
+@media(max-width:480px){ .auth-box{width:100%;padding:28px 20px} }
 #auth-screen::before{
   content:'';position:absolute;inset:0;
   background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
@@ -3019,7 +3022,12 @@ function logout(){
   document.getElementById('app').style.display='none';
   document.getElementById('teacher-app').style.display='none';
   document.getElementById('superadmin-screen').style.display='none';
+  // 로그아웃 직전 화면의 스크롤 위치·열린 모달이 남아 로그인 카드가 화면 밖으로 밀리는 문제 방지
+  document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open'));
+  document.body.style.overflow='';
   document.getElementById('auth-screen').style.display='flex';
+  window.scrollTo(0,0);
+  setTimeout(()=>window.scrollTo(0,0),50);
   const em=document.getElementById('l-email'); if(em) em.value='';
   const pw=document.getElementById('l-password'); if(pw) pw.value='';
   hideErr('l-err1');
