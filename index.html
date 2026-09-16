@@ -518,6 +518,14 @@ tbody tr:hover td{background:#f8f9ff}
 .att-month-table td.nm{text-align:left;font-weight:600;position:sticky;left:0;background:#fff;z-index:1}
 #teacher-app .att-month-table th,#teacher-app .att-month-table td{padding:4px 4px!important;font-size:11px}
 #teacher-app .att-month-table td.nm{font-size:12px}
+.att-fold .card-head{cursor:pointer;user-select:none}
+.att-fold .card-head h3::before{content:'▸';display:inline-block;width:14px;color:var(--text3);transition:transform .15s}
+.att-fold.open .card-head h3::before{transform:rotate(90deg)}
+.att-fold:not(.open) .card-head{border-bottom:none}
+.att-fold:not(.open)>*:not(.card-head){display:none}
+.att-grade-table td.num{text-align:center;cursor:pointer;font-weight:600}
+.att-grade-table td.num:hover{background:#f0f2ff}
+.att-grade-table td.num.sel{background:var(--accent);color:#fff;border-radius:6px}
 .ta-profile .pf{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);font-size:14px}
 .ta-profile .pf span:first-child{color:var(--text3)}
 @media(min-width:769px){ #teacher-app .ta-body{max-width:560px} }
@@ -1574,7 +1582,20 @@ tbody tr:hover td{background:#f8f9ff}
       </div>
 
       <div class="card" style="margin-bottom:16px">
-        <div class="card-head"><h3>📅 날짜별 출석</h3></div>
+        <div class="card-head" style="flex-wrap:wrap;gap:8px"><h3>📌 오늘의 출석 상황</h3>
+          <div style="display:flex;gap:6px;align-items:center;margin-left:auto">
+            <button class="btn btn-neutral btn-sm" onclick="attGradeShift(-1)">◀</button>
+            <input type="date" id="att-g-date" onchange="attGradeRender()" style="padding:6px;border:1px solid var(--border);border-radius:8px"/>
+            <button class="btn btn-neutral btn-sm" onclick="attGradeShift(1)">▶</button>
+            <button class="btn btn-neutral btn-sm" onclick="attGradeSetDate(todayYmd())">오늘</button>
+          </div>
+        </div>
+        <div style="padding:0" id="att-g-table"></div>
+        <div id="att-g-detail" style="padding:0 20px 16px"></div>
+      </div>
+
+      <div class="card att-fold" style="margin-bottom:16px" id="att-fold-day">
+        <div class="card-head" onclick="attFold('att-fold-day')"><h3>📅 날짜별 출석</h3></div>
         <div class="card-body">
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
             <select id="att-a-teacher" onchange="attAdminFillClasses();attAdminRender()" style="padding:8px;border:1px solid var(--border);border-radius:8px"><option value="">전체 선생님</option></select>
@@ -1595,8 +1616,8 @@ tbody tr:hover td{background:#f8f9ff}
         <div style="padding:0;overflow:auto" id="att-a-month"></div>
       </div>
 
-      <div class="card" style="margin-bottom:16px">
-        <div class="card-head"><h3>📚 출석반 목록</h3></div>
+      <div class="card att-fold" style="margin-bottom:16px" id="att-fold-cls">
+        <div class="card-head" onclick="attFold('att-fold-cls')"><h3>📚 출석반 목록</h3></div>
         <div style="padding:0"><table><thead><tr><th>반 이름</th><th>선생님</th><th>수업 요일</th><th>시작</th><th>인원</th><th></th></tr></thead><tbody id="att-a-classes"></tbody></table></div>
       </div>
 
@@ -10656,6 +10677,7 @@ function initAttendancePage(){
   const de=document.getElementById('att-a-date'); if(!de.value) de.value=todayYmd();
   const me=document.getElementById('att-m-month'); if(!me.value) me.value=todayYmd().slice(0,7);
   attAdminFillClasses();
+  if(!_attG.date) _attG.date=todayYmd();
   // 자동 문자 설정
   const sms=getAtt().autoSms;
   document.getElementById('att-sms-on').classList.toggle('on', !!sms.on);
@@ -10663,6 +10685,49 @@ function initAttendancePage(){
   const tpl=document.getElementById('att-sms-tpl'); tpl.value = sms.template || ATT_SMS_DEFAULT;
   tpl.oninput = attSmsBytes; attSmsBytes();
   attAdminRender();
+}
+function attFold(id){ document.getElementById(id).classList.toggle('open'); }
+
+// ── 오늘의 출석 상황: 학년별 집계 (학생·반 단위 기록 기준) ──
+let _attG={ date:'', sel:null };   // sel = {grade, st}
+function attGradeSetDate(d){ if(!d) return; _attG.date=d; _attG.sel=null; document.getElementById('att-g-date').value=d; attGradeRender(); }
+function attGradeShift(n){ const d=new Date((_attG.date||todayYmd())+'T00:00:00'); d.setDate(d.getDate()+n); attGradeSetDate(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`); }
+function attGradeOrder(g){ const m=/^(초|중|고)(\d)/.exec(g||''); return m ? ({초:0,중:10,고:20})[m[1]]+ +m[2] : 99; }
+function attGradePick(grade, st){
+  _attG.sel = (_attG.sel && _attG.sel.grade===grade && _attG.sel.st===st) ? null : {grade, st};
+  attGradeRender();
+}
+function attGradeRender(){
+  const de=document.getElementById('att-g-date');
+  if(!_attG.date) _attG.date = de.value || todayYmd();
+  if(de.value!==_attG.date) de.value=_attG.date;
+  const date=_attG.date;
+  const recs=getAtt().records[date]||{};
+  const d=new Date(date+'T00:00:00');
+  // 기록 수집: {grade, sid, name, cls, st}
+  const items=[];
+  getAtt().classes.forEach(c=>{
+    const r=recs[c.id]; if(!r) return;
+    attClassStudents(c).forEach(s=>{ const st=r.marks[s.id]; if(!st) return; items.push({grade:s.grade||'학년 미입력', sid:s.id, name:s.name, cls:c.name, st}); });
+  });
+  const box=document.getElementById('att-g-table'), det=document.getElementById('att-g-detail');
+  if(!items.length){ box.innerHTML=`<div class="att-empty">${d.getMonth()+1}/${d.getDate()} (${ATT_DAYS[d.getDay()]}) 저장된 출석이 없습니다.</div>`; det.innerHTML=''; return; }
+  const grades=[...new Set(items.map(i=>i.grade))].sort((a,b)=>attGradeOrder(a)-attGradeOrder(b)||a.localeCompare(b,'ko'));
+  const cnt=(list,st)=>st?list.filter(i=>i.st===st).length:list.length;
+  const col=[['','전체'],['P','출석'],['L','지각'],['E','조퇴'],['A','결석']];
+  const colors={'':'var(--text)',P:'#10b981',L:'#f59e0b',E:'#8b5cf6',A:'#ef4444'};
+  const cell=(g,st,list)=>{ const n=cnt(list,st); const sel=_attG.sel&&_attG.sel.grade===g&&_attG.sel.st===st; return `<td class="num${sel?' sel':''}" style="color:${sel?'#fff':(n?colors[st]:'var(--text3)')}" onclick="attGradePick('${g}','${st}')">${n||'-'}</td>`; };
+  const rows=grades.map(g=>{ const list=items.filter(i=>i.grade===g); return `<tr><td><strong>${g}</strong></td>${col.map(([st])=>cell(g,st,list)).join('')}</tr>`; }).join('');
+  const total=`<tr style="background:#f7f8fb;font-weight:700"><td>합계</td>${col.map(([st])=>cell('__all',st,items)).join('')}</tr>`;
+  box.innerHTML=`<table class="att-grade-table"><thead><tr><th>학년 <span style="font-weight:400;color:var(--text3)">· ${d.getMonth()+1}/${d.getDate()} (${ATT_DAYS[d.getDay()]})</span></th>${col.map(([st,l])=>`<th style="text-align:center;color:${colors[st]}">${l}</th>`).join('')}</tr></thead><tbody>${rows}${total}</tbody></table>`;
+  // 숫자 클릭 → 해당 학생 목록
+  if(_attG.sel){
+    const {grade,st}=_attG.sel;
+    const list=items.filter(i=>(grade==='__all'||i.grade===grade)&&(!st||i.st===st));
+    const label=`${grade==='__all'?'전체':grade} · ${st?ATT_STATUS[st]:'전체'} ${list.length}명`;
+    det.innerHTML=`<div style="margin-top:12px;font-size:13px"><b>${label}</b> <a onclick="_attG.sel=null;attGradeRender()" style="color:var(--text3);cursor:pointer;margin-left:6px">닫기</a></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${list.map(i=>`<span style="background:#f7f8fb;border:1px solid var(--border);border-radius:14px;padding:4px 10px;font-size:12px;color:${colors[i.st]}"><b>${i.name}</b> <span style="color:var(--text3)">${i.cls} · ${ATT_STATUS[i.st]}</span></span>`).join('')}</div>`;
+  } else det.innerHTML='';
 }
 function attSmsBytes(){
   const v=document.getElementById('att-sms-tpl').value;
@@ -10697,6 +10762,7 @@ function attAdminRender(){
         <td><button class="btn btn-neutral btn-sm" onclick="openAttClassModal('${c.id}')">편집</button></td></tr>`).join('')
     : `<tr><td colspan="6" class="empty-row"><p>출석반이 없습니다</p></td></tr>`;
   attAdminMonth();
+  attGradeRender();
 }
 // 전체 반 선택 시 날짜별 요약 (편집은 반을 골라야 가능)
 function attAllDaySummaryHtml(date){
