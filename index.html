@@ -10702,31 +10702,25 @@ function attGradeRender(){
   if(!_attG.date) _attG.date = de.value || todayYmd();
   if(de.value!==_attG.date) de.value=_attG.date;
   const date=_attG.date;
-  const recs=getAtt().records[date]||{};
   const d=new Date(date+'T00:00:00');
-  // 기록 수집: {grade, sid, name, cls, st}
-  const items=[];
-  getAtt().classes.forEach(c=>{
-    const r=recs[c.id]; if(!r) return;
-    attClassStudents(c).forEach(s=>{ const st=r.marks[s.id]; if(!st) return; items.push({grade:s.grade||'학년 미입력', sid:s.id, name:s.name, cls:c.name, st}); });
-  });
+  const map=attDayByStudent(date, getAtt().classes);
+  const items=[...map.entries()].map(([sid,v])=>{ const s=getStudent(sid); return s?{grade:s.grade||'학년 미입력', sid, name:s.name, st:v.st, detail:v.detail}:null; }).filter(Boolean);
   const box=document.getElementById('att-g-table'), det=document.getElementById('att-g-detail');
   if(!items.length){ box.innerHTML=`<div class="att-empty">${d.getMonth()+1}/${d.getDate()} (${ATT_DAYS[d.getDay()]}) 저장된 출석이 없습니다.</div>`; det.innerHTML=''; return; }
   const grades=[...new Set(items.map(i=>i.grade))].sort((a,b)=>attGradeOrder(a)-attGradeOrder(b)||a.localeCompare(b,'ko'));
   const cnt=(list,st)=>st?list.filter(i=>i.st===st).length:list.length;
-  const col=[['','전체'],['P','출석'],['L','지각'],['E','조퇴'],['A','결석']];
-  const colors={'':'var(--text)',P:'#10b981',L:'#f59e0b',E:'#8b5cf6',A:'#ef4444'};
-  const cell=(g,st,list)=>{ const n=cnt(list,st); const sel=_attG.sel&&_attG.sel.grade===g&&_attG.sel.st===st; return `<td class="num${sel?' sel':''}" style="color:${sel?'#fff':(n?colors[st]:'var(--text3)')}" onclick="attGradePick('${g}','${st}')">${n||'-'}</td>`; };
+  const col=[['','전체'],['P','출석'],['L','지각'],['E','조퇴'],['PA','부분결석'],['A','결석']];
+  const cell=(g,st,list)=>{ const n=cnt(list,st); const sel=_attG.sel&&_attG.sel.grade===g&&_attG.sel.st===st; return `<td class="num${sel?' sel':''}" style="color:${sel?'#fff':(n?ATT_COLOR[st]:'var(--text3)')}" onclick="attGradePick('${g}','${st}')">${n||'-'}</td>`; };
   const rows=grades.map(g=>{ const list=items.filter(i=>i.grade===g); return `<tr><td><strong>${g}</strong></td>${col.map(([st])=>cell(g,st,list)).join('')}</tr>`; }).join('');
   const total=`<tr style="background:#f7f8fb;font-weight:700"><td>합계</td>${col.map(([st])=>cell('__all',st,items)).join('')}</tr>`;
-  box.innerHTML=`<table class="att-grade-table"><thead><tr><th>학년 <span style="font-weight:400;color:var(--text3)">· ${d.getMonth()+1}/${d.getDate()} (${ATT_DAYS[d.getDay()]})</span></th>${col.map(([st,l])=>`<th style="text-align:center;color:${colors[st]}">${l}</th>`).join('')}</tr></thead><tbody>${rows}${total}</tbody></table>`;
-  // 숫자 클릭 → 해당 학생 목록
+  box.innerHTML=`<table class="att-grade-table"><thead><tr><th>학년 <span style="font-weight:400;color:var(--text3)">· ${d.getMonth()+1}/${d.getDate()} (${ATT_DAYS[d.getDay()]}) · 학생 ${items.length}명</span></th>${col.map(([st,l])=>`<th style="text-align:center;color:${ATT_COLOR[st]}">${l}</th>`).join('')}</tr></thead><tbody>${rows}${total}</tbody></table>`;
+  // 숫자 클릭 → 학생 목록 (학년 이름 순, 과목별 내역)
   if(_attG.sel){
     const {grade,st}=_attG.sel;
-    const list=items.filter(i=>(grade==='__all'||i.grade===grade)&&(!st||i.st===st));
-    const label=`${grade==='__all'?'전체':grade} · ${st?ATT_STATUS[st]:'전체'} ${list.length}명`;
+    const list=items.filter(i=>(grade==='__all'||i.grade===grade)&&(!st||i.st===st)).sort((a,b)=>attGradeOrder(a.grade)-attGradeOrder(b.grade)||a.name.localeCompare(b.name,'ko'));
+    const label=`${grade==='__all'?'전체':grade} · ${st?ATT_DAY_STATUS[st]:'전체'} ${list.length}명`;
     det.innerHTML=`<div style="margin-top:12px;font-size:13px"><b>${label}</b> <a onclick="_attG.sel=null;attGradeRender()" style="color:var(--text3);cursor:pointer;margin-left:6px">닫기</a></div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${list.map(i=>`<span style="background:#f7f8fb;border:1px solid var(--border);border-radius:14px;padding:4px 10px;font-size:12px;color:${colors[i.st]}"><b>${i.name}</b> <span style="color:var(--text3)">${i.cls} · ${ATT_STATUS[i.st]}</span></span>`).join('')}</div>`;
+      <table style="margin-top:8px;font-size:12px"><thead><tr><th>학년</th><th>학생</th><th>종합</th><th>과목별</th></tr></thead><tbody>${list.map(i=>`<tr><td>${i.grade}</td><td><b>${i.name}</b></td><td style="color:${ATT_COLOR[i.st]};font-weight:700">${ATT_DAY_STATUS[i.st]}</td><td style="color:var(--text2)">${attDetailStr(i.detail)}</td></tr>`).join('')}</tbody></table>`;
   } else det.innerHTML='';
 }
 function attSmsBytes(){
@@ -10764,27 +10758,59 @@ function attAdminRender(){
   attAdminMonth();
   attGradeRender();
 }
-// 전체 반 선택 시 날짜별 요약 (편집은 반을 골라야 가능)
+// 전체 반 선택 시 날짜별 요약 — 학생 한 줄(종합 상태 + 과목별 내역)
 function attAllDaySummaryHtml(date){
   const d=new Date(date+'T00:00:00');
-  const recs=getAtt().records[date]||{};
   const classes=attClassesFor(document.getElementById('att-a-teacher').value||null);
-  const rows=classes.map(c=>{
-    const r=recs[c.id]; const cnt=r?attCounts(r.marks):null;
-    const absent=r?attClassStudents(c).filter(s=>r.marks[s.id]==='A').map(s=>s.name).join(', '):'';
-    return `<tr><td><strong>${attLevelBadge(c)}${c.name}</strong> <span style="color:var(--text3);font-size:11px">${getTeacher(c.teacherId)?.name||''}</span></td>
-      <td>${attIsToday(c,date)?'<span class="badge b-info">수업일</span>':'<span style="color:var(--text3)">-</span>'}</td>
-      <td>${r?`<span style="color:#10b981">출 ${cnt.P}</span> · <span style="color:#f59e0b">지 ${cnt.L}</span> · <span style="color:#8b5cf6">조 ${cnt.E}</span> · <b style="color:#ef4444">결 ${cnt.A}</b>`:'<span style="color:var(--text3)">미저장</span>'}</td>
-      <td style="color:#ef4444;font-size:12px">${absent}</td></tr>`;
-  }).join('');
-  return `<div class="att-head"><div><b>전체 반</b> · ${d.getMonth()+1}/${d.getDate()} (${ATT_DAYS[d.getDay()]})</div><div style="color:var(--text3)">출석을 수정하려면 반을 선택하세요</div></div>
-    <table><thead><tr><th>반</th><th>수업</th><th>출석 현황</th><th>결석 학생</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty-row"><p>출석반이 없습니다</p></td></tr>'}</tbody></table>`;
+  const map=attDayByStudent(date, classes);
+  const stus=attStudentsOf(classes).filter(s=>map.has(s.id));
+  const rows=stus.map(s=>{ const v=map.get(s.id); return `<tr><td>${s.grade||''}</td><td><strong>${s.name}</strong></td><td style="color:${ATT_COLOR[v.st]};font-weight:700">${ATT_DAY_STATUS[v.st]}</td><td style="color:var(--text2);font-size:12px">${attDetailStr(v.detail)}</td></tr>`; }).join('');
+  const unsaved=classes.filter(c=>!getAtt().records[date]?.[c.id] && attIsToday(c,date)).map(c=>c.name);
+  return `<div class="att-head"><div><b>전체 반</b> · ${d.getMonth()+1}/${d.getDate()} (${ATT_DAYS[d.getDay()]}) · ${stus.length}명</div><div style="color:var(--text3)">출석을 수정하려면 반을 선택하세요</div></div>
+    ${unsaved.length?`<div style="font-size:12px;color:#f59e0b;margin-bottom:8px">아직 저장 안 된 수업: ${unsaved.join(', ')}</div>`:''}
+    <table><thead><tr><th>학년</th><th>학생</th><th>종합</th><th>과목별</th></tr></thead><tbody>${rows||'<tr><td colspan="4" class="empty-row"><p>저장된 출석이 없습니다</p></td></tr>'}</tbody></table>`;
 }
 
 let _attMonthFilter='';
 function attMonthFilter(f){ _attMonthFilter=f; attAdminMonth(); }
+// 학생 하루 종합 상태 — 그날 들은 모든 반의 기록을 합쳐 하나로
+//   전부 결석 → 결석(A) / 일부 결석 → 부분결석(PA) / 조퇴 있음 → 조퇴(E) / 지각 있음 → 지각(L) / 전부 출석 → 출석(P)
+const ATT_DAY_STATUS = { P:'출석', L:'지각', E:'조퇴', PA:'부분결석', A:'결석' };
+const ATT_DAY_SHORT  = { P:'출', L:'지', E:'조', PA:'부', A:'결' };
+const ATT_COLOR = { '':'var(--text)', P:'#10b981', L:'#f59e0b', E:'#8b5cf6', PA:'#f97316', A:'#ef4444' };
+function attCombine(marks){          // marks: ['P','A',...] → 종합 코드
+  if(!marks.length) return '';
+  const a=marks.filter(m=>m==='A').length;
+  if(a===marks.length) return 'A';
+  if(a>0) return 'PA';
+  if(marks.includes('E')) return 'E';
+  if(marks.includes('L')) return 'L';
+  return 'P';
+}
+// classes 범위 안에서 학생별 하루 종합: Map(sid → {st, detail:[{cls,st}]})
+function attDayByStudent(date, classes){
+  const recs=getAtt().records[date]||{};
+  const map=new Map();
+  classes.forEach(c=>{
+    const r=recs[c.id]; if(!r) return;
+    (c.studentIds||[]).forEach(sid=>{
+      const st=r.marks?.[sid]; if(!st) return;
+      if(!map.has(sid)) map.set(sid,{detail:[]});
+      map.get(sid).detail.push({cls:c.name, st});
+    });
+  });
+  map.forEach(v=>{ v.st=attCombine(v.detail.map(d=>d.st)); });
+  return map;
+}
+// classes 에 속한 학생 목록(중복 제거) — 학년순 → 이름순
+function attStudentsOf(classes){
+  const set=new Set(); classes.forEach(c=>(c.studentIds||[]).forEach(id=>set.add(id)));
+  return [...set].map(getStudent).filter(Boolean).sort((a,b)=>attGradeOrder(a.grade)-attGradeOrder(b.grade)||(a.grade||'').localeCompare(b.grade||'','ko')||a.name.localeCompare(b.name,'ko'));
+}
+function attDetailStr(detail){ return detail.map(d=>`${d.cls} ${ATT_STATUS[d.st]}`).join(', '); }
+
 function attFilterChipsHtml(cur, fn){
-  return [['','전체'],['P','출석'],['L','지각'],['E','조퇴'],['A','결석']]
+  return [['','전체'],['P','출석'],['L','지각'],['E','조퇴'],['PA','부분결석'],['A','결석']]
     .map(([k,l])=>`<div class="att-chip${cur===k?' active':''}" style="padding:5px 11px;font-size:12px" onclick="${fn}('${k}')">${l}</div>`).join('');
 }
 function attAdminMonth(){
@@ -10795,33 +10821,36 @@ function attAdminMonth(){
   document.getElementById('att-m-filter').innerHTML = attFilterChipsHtml(_attMonthFilter,'attMonthFilter');
   document.getElementById('att-a-month').innerHTML = attMonthTableHtml(classes, ym, _attMonthFilter, all);
 }
-// 월별 표 HTML — 관리자 페이지와 선생님 앱 공용
+// 월별 표 HTML — 관리자 페이지와 선생님 앱 공용. 학생 한 줄, 그날 종합 상태 한 칸
 function attMonthTableHtml(classes, ym, filter, showClass){
   if(!classes.length) return '';
-  const _attMonthFilter=filter, all=showClass;
-  const recs=getAtt().records;
   const [y,m]=ym.split('-').map(Number);
   const nDays=new Date(y,m,0).getDate();
   const days=[...Array(nDays)].map((_,i)=>`${ym}-${String(i+1).padStart(2,'0')}`);
-  // 행 = (학생, 반) 조합. 전체 반이면 반 이름 열 추가
+  const byDay=days.map(d=>attDayByStudent(d, classes));
+  const stus=attStudentsOf(classes);
   const rows=[]; let any=false;
-  classes.forEach(c=>{
-    attClassStudents(c).forEach(s=>{
-      const tot={P:0,L:0,E:0,A:0};
-      const marks=days.map(d=>{ const mk=recs[d]?.[c.id]?.marks?.[s.id]||''; if(mk&&tot[mk]!=null){tot[mk]++;any=true;} return mk; });
-      if(_attMonthFilter && !tot[_attMonthFilter]) return;
-      const cells=marks.map((mk,i)=>{
-        const dim = _attMonthFilter && mk && mk!==_attMonthFilter;
-        const x=new Date(days[i]+'T00:00:00'); const wk=x.getDay()===0||x.getDay()===6;
-        return `<td class="m-${mk}" style="${dim?'opacity:.25;':''}${wk?'background:#fafafa;':''}">${mk?ATT_STATUS[mk][0]:''}</td>`;
-      }).join('');
-      rows.push(`<tr><td class="nm">${s.name}${all?`<br><span style="font-weight:400;font-size:11px;color:var(--text3)">${attLevelBadge(c)}${c.name}</span>`:''}</td>${cells}<td style="font-size:11px;color:var(--text2);white-space:nowrap">출${tot.P} 지${tot.L} 조${tot.E} <b style="color:#ef4444">결${tot.A}</b></td></tr>`);
+  stus.forEach(s=>{
+    const tot={P:0,L:0,E:0,PA:0,A:0};
+    const cells=[];
+    days.forEach((d,i)=>{
+      const v=byDay[i].get(s.id); const st=v?v.st:'';
+      if(st){ tot[st]++; any=true; }
+      cells.push({st, title:v?attDetailStr(v.detail):''});
     });
+    if(filter && !tot[filter]) return;
+    const tds=cells.map((c,i)=>{
+      const dim = filter && c.st && c.st!==filter;
+      const x=new Date(days[i]+'T00:00:00'); const wk=x.getDay()===0||x.getDay()===6;
+      return `<td title="${c.title}" style="color:${ATT_COLOR[c.st]||''};${c.st==='A'||c.st==='PA'?'font-weight:700;':''}${dim?'opacity:.25;':''}${wk?'background:#fafafa;':''}">${c.st?ATT_DAY_SHORT[c.st]:''}</td>`;
+    }).join('');
+    rows.push(`<tr><td class="nm"><span style="color:var(--text3);font-weight:400;font-size:11px;margin-right:4px">${s.grade||''}</span>${s.name}</td>${tds}<td style="font-size:11px;color:var(--text2);white-space:nowrap">출${tot.P} 지${tot.L} 조${tot.E} <b style="color:#f97316">부${tot.PA}</b> <b style="color:#ef4444">결${tot.A}</b></td></tr>`);
   });
   if(!any) return `<div class="att-empty">${ym} 에 저장된 출석이 없습니다.</div>`;
-  if(!rows.length) return `<div class="att-empty">${ym} 에 '${ATT_STATUS[_attMonthFilter]}' 기록이 있는 학생이 없습니다.</div>`;
+  if(!rows.length) return `<div class="att-empty">${ym} 에 '${ATT_DAY_STATUS[filter]}' 기록이 있는 학생이 없습니다.</div>`;
   const head=days.map((d,i)=>{const x=new Date(d+'T00:00:00');const wk=x.getDay()===0||x.getDay()===6;return `<th style="${wk?'color:#ef4444;':''}">${i+1}<br><span style="font-weight:400;color:var(--text3)">${ATT_DAYS[x.getDay()]}</span></th>`;}).join('');
-  return `<table class="att-month-table"><thead><tr><th style="text-align:left;position:sticky;left:0;background:#fff;z-index:1">학생</th>${head}<th>합계</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
+  return `<div style="font-size:11px;color:var(--text3);padding:8px 12px 0">출=출석 · 지=지각 · 조=조퇴 · <b style="color:#f97316">부=부분결석</b>(일부 수업만 결석) · <b style="color:#ef4444">결=결석</b>(그날 수업 전부 결석) — 칸에 마우스를 올리면 과목별 내역</div>
+    <table class="att-month-table"><thead><tr><th style="text-align:left;position:sticky;left:0;background:#fff;z-index:1">학생</th>${head}<th>합계</th></tr></thead><tbody>${rows.join('')}</tbody></table>`;
 }
 async function saveAttSmsSettings(){
   const sms=getAtt().autoSms;
