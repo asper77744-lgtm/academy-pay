@@ -505,9 +505,12 @@ tbody tr:hover td{background:#f8f9ff}
 .mac-grades .att-chip{padding:5px 11px;font-size:12px}
 .att-rows{display:grid;grid-template-columns:1fr;gap:8px}
 .att-rows .att-row{margin-bottom:0}
+/* 관리자 페이지의 저장 버튼은 하단 고정 안 함 (bottom:64px는 선생님 앱 탭바 기준이라 여기선 카드와 겹침) */
+#page-attendance .att-save{position:static;flex-wrap:wrap;margin-top:14px}
+#page-attendance .att-save .btn{flex:1 1 160px}
 @media(min-width:900px){
   #page-attendance .att-rows{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
-  #page-attendance .att-save{position:static;justify-content:flex-end}
+  #page-attendance .att-save{justify-content:flex-end}
   #page-attendance .att-save .btn{flex:0 0 auto;padding:10px 22px;font-size:14px}
   #page-attendance .att-row{padding:8px 12px}
   #page-attendance .att-b{width:40px;height:34px}
