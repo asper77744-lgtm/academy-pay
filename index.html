@@ -724,7 +724,8 @@ tbody tr:hover td{background:#f8f9ff}
     <div class="sb-foot">
       <div class="sb-user">
         <div class="sb-avatar" id="sb-avatar">A</div>
-        <div><div class="sb-uname" id="sb-uname">-</div><div class="sb-urole" id="sb-urole">-</div></div>
+        <div style="flex:1;cursor:pointer" onclick="openMyAccount()" title="내 정보 · 비밀번호 변경"><div class="sb-uname" id="sb-uname">-</div><div class="sb-urole" id="sb-urole">-</div></div>
+        <button class="sb-logout" onclick="openMyAccount()" title="내 정보" style="margin-right:4px">⚙</button>
         <button class="sb-logout" onclick="logout()" title="로그아웃">⏻</button>
       </div>
       <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06m</div>
@@ -1666,6 +1667,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div class="pf"><span>이메일</span><span id="ta-me-email"></span></div>
         <div class="ff" style="margin-top:14px"><label>연락처</label><input id="ta-me-phone" placeholder="010-0000-0000" oninput="this.value=formatPhone(this.value)"/></div>
         <button class="btn btn-primary" style="width:100%;padding:12px" onclick="saveTeacherProfile()">저장</button>
+        <button class="btn btn-neutral" style="width:100%;padding:12px;margin-top:8px" onclick="openMyAccount()">🔒 비밀번호 변경 · 정보 수정</button>
       </div>
       <button class="btn btn-neutral" style="width:100%;padding:12px" onclick="logout()">로그아웃</button>
     </div>
@@ -1675,6 +1677,25 @@ tbody tr:hover td{background:#f8f9ff}
     <div class="ta-tab" id="ta-tab-cls" onclick="taTab('cls')"><span class="ico">📚</span>내 반</div>
     <div class="ta-tab" id="ta-tab-mon" onclick="taTab('mon')"><span class="ico">📊</span>월별</div>
     <div class="ta-tab" id="ta-tab-me" onclick="taTab('me')"><span class="ico">👤</span>프로필</div>
+  </div>
+</div>
+
+<!-- ══ 내 정보 / 비밀번호 변경 (모든 역할 공용) ══ -->
+<div class="modal-overlay" id="m-my-account">
+  <div class="modal" style="max-width:440px">
+    <h2>👤 내 정보</h2>
+    <div class="ff"><label>이메일</label><input id="ma-email" disabled style="background:#f5f6fa"/></div>
+    <div class="ff"><label>표시 이름</label><input id="ma-name" placeholder="이름"/></div>
+    <div class="ff" id="ma-phone-wrap"><label>연락처</label><input id="ma-phone" placeholder="010-0000-0000" oninput="this.value=formatPhone(this.value)"/></div>
+    <div style="border-top:1px solid var(--border);margin:14px 0 12px;padding-top:12px;font-weight:700;font-size:13px">비밀번호 변경 <span style="font-weight:400;color:var(--text3)">(바꾸지 않으면 비워두세요)</span></div>
+    <div class="ff"><label>현재 비밀번호</label><input type="password" id="ma-pw0" autocomplete="current-password"/></div>
+    <div class="ff"><label>새 비밀번호 (8자 이상)</label><input type="password" id="ma-pw1" autocomplete="new-password"/></div>
+    <div class="ff"><label>새 비밀번호 확인</label><input type="password" id="ma-pw2" autocomplete="new-password"/></div>
+    <div class="err-msg" id="ma-err"></div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-neutral" onclick="closeModal('m-my-account')">취소</button>
+      <button class="btn btn-primary" id="ma-save" onclick="saveMyAccount()">저장</button>
+    </div>
   </div>
 </div>
 
@@ -10744,6 +10765,57 @@ async function saveAttSmsSettings(){
   if(sms.on && !_smsCredReady){ showToast('학원 설정에서 문자 발송(CoolSMS) 설정을 먼저 해주세요.','warning'); }
   const ok=await saveAcademy();
   if(ok!==false){ showToast('결석 문자 설정이 저장되었습니다.','success'); attAdminRender(); }
+}
+
+// ════════ 내 정보 / 비밀번호 변경 (관리자·부운영자·선생님 공용) ════════
+function openMyAccount(){
+  hideErr('ma-err');
+  document.getElementById('ma-email').value = currentUser.email||'';
+  document.getElementById('ma-name').value  = currentUser.name||'';
+  const t = currentUser.role==='teacher' ? getTeacher(currentUser.teacherId) : null;
+  const pw = document.getElementById('ma-phone-wrap');
+  if(t){ pw.style.display=''; document.getElementById('ma-phone').value = t.phone||''; }
+  else if(currentUser.role==='admin'){ pw.style.display=''; document.getElementById('ma-phone').value = currentAcademy.phone||''; }
+  else pw.style.display='none';
+  ['ma-pw0','ma-pw1','ma-pw2'].forEach(id=>document.getElementById(id).value='');
+  openModal('m-my-account');
+}
+async function saveMyAccount(){
+  hideErr('ma-err');
+  const name = document.getElementById('ma-name').value.trim();
+  const phone= document.getElementById('ma-phone').value.trim();
+  const pw0=document.getElementById('ma-pw0').value, pw1=document.getElementById('ma-pw1').value, pw2=document.getElementById('ma-pw2').value;
+  if(!name){ showErr('ma-err','이름을 입력하세요.'); return; }
+  const wantPw = pw0||pw1||pw2;
+  if(wantPw){
+    if(!pw0){ showErr('ma-err','현재 비밀번호를 입력하세요.'); return; }
+    if(pw1.length<8){ showErr('ma-err','새 비밀번호는 8자 이상이어야 합니다.'); return; }
+    if(pw1!==pw2){ showErr('ma-err','새 비밀번호가 일치하지 않습니다.'); return; }
+    if(pw1===pw0){ showErr('ma-err','현재 비밀번호와 다른 비밀번호를 입력하세요.'); return; }
+    if(!_sb){ showErr('ma-err','서버에 연결할 수 없습니다.'); return; }
+  }
+  const btn=document.getElementById('ma-save'); btn.disabled=true; btn.textContent='저장 중...';
+  try{
+    if(wantPw){
+      // 현재 비밀번호 확인 — 다시 로그인해서 검증 (본인 확인)
+      const { error:e1 } = await _sb.auth.signInWithPassword({ email:currentUser.email, password:pw0 });
+      if(e1){ showErr('ma-err','현재 비밀번호가 올바르지 않습니다.'); return; }
+      const { error:e2 } = await _sb.auth.updateUser({ password:pw1 });
+      if(e2){ showErr('ma-err','비밀번호 변경 실패: '+e2.message); return; }
+    }
+    // 이름/연락처 — 학원 데이터의 users 항목(및 선생님 레코드) 갱신
+    const u=(currentAcademy.users||[]).find(x=>x.id===currentUser.id || x.email===currentUser.email);
+    if(u) u.name=name;
+    currentUser.name=name;
+    if(currentUser.role==='teacher'){ const t=getTeacher(currentUser.teacherId); if(t) t.phone=phone; }
+    else if(currentUser.role==='admin' && document.getElementById('ma-phone-wrap').style.display!=='none'){ currentAcademy.phone=phone; }
+    const ok=await saveAcademy();
+    if(ok===false){ showErr('ma-err','정보 저장에 실패했습니다.'); return; }
+    closeModal('m-my-account');
+    showToast(wantPw?'비밀번호와 정보가 변경되었습니다.':'정보가 저장되었습니다.','success');
+    if(currentUser.role==='teacher') renderTeacherApp();
+    else { const el=document.getElementById('sb-uname'); if(el) el.textContent=name; const av=document.getElementById('sb-avatar'); if(av) av.textContent=name[0]; const g=document.getElementById('dash-greeting'); if(g) g.textContent='안녕하세요, '+name+'님 👋'; }
+  } finally { btn.disabled=false; btn.textContent='저장'; }
 }
 
 // ════════ 계정 추가 — 선생님 목록 / 초대 계정 첫 로그인 ════════
