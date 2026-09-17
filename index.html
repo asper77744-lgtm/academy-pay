@@ -477,6 +477,9 @@ tbody tr:hover td{background:#f8f9ff}
 .att-row .nm{flex:1;font-weight:600;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .att-row .nm small{display:block;font-weight:400;font-size:11px;color:var(--text3)}
 .att-btns{display:flex;gap:4px}
+.att-allp{background:#10b981;color:#fff;border:none;font-weight:700;padding:8px 14px;box-shadow:0 2px 6px rgba(16,185,129,.35)}
+.att-allp:hover{background:#0ea371}
+.att-row.unmarked{border-style:dashed}
 .att-b{width:44px;height:38px;border-radius:9px;border:1px solid var(--border);background:#f7f8fb;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;font-family:inherit}
 .att-b.on-P{background:#10b981;color:#fff;border-color:#10b981}
 .att-b.on-L{background:#f59e0b;color:#fff;border-color:#f59e0b}
@@ -553,7 +556,8 @@ tbody tr:hover td{background:#f8f9ff}
   #teacher-app .att-row{padding:8px 12px}
   #teacher-app .att-b{width:40px;height:34px}
   #teacher-app .att-chips{flex-wrap:wrap;overflow:visible}
-  #teacher-app .att-datebar{max-width:520px}
+  #teacher-app .att-datebar{max-width:520px;margin:0 auto 12px}
+  #teacher-app .att-chips{justify-content:center}
   #teacher-app .att-save{position:sticky;bottom:70px;justify-content:flex-end}
   #teacher-app .att-save .btn{flex:0 0 auto;padding:12px 28px}
   #teacher-app #ta-classes{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px;margin-bottom:12px}
@@ -10380,10 +10384,12 @@ function attLoadEdit(date, classId){
   const c = getAttClass(classId);
   const rec = attRecord(date, classId);
   _attEdit.marks = {};
-  if(c) attClassStudents(c).forEach(s=>{ _attEdit.marks[s.id] = rec?.marks?.[s.id] || 'P'; });
+  // 저장된 기록이 없으면 미체크('') 상태로 시작 — 선생님이 직접 눌러야 기록된다
+  if(c) attClassStudents(c).forEach(s=>{ _attEdit.marks[s.id] = rec?.marks?.[s.id] || ''; });
 }
 function attMark(sid, st){
   _attEdit.marks[sid] = st; _attEdit.dirty=true;
+  document.querySelectorAll(`[data-att-sid="${sid}"]`).forEach(r=>r.classList.remove('unmarked'));
   document.querySelectorAll(`[data-att-sid="${sid}"] .att-b`).forEach(b=>{
     b.className = 'att-b' + (b.dataset.st===st ? ' on-'+st : '');
   });
@@ -10392,16 +10398,17 @@ function attMark(sid, st){
 function attMarkAll(st){
   Object.keys(_attEdit.marks).forEach(sid=>_attEdit.marks[sid]=st);
   _attEdit.dirty=true;
+  document.querySelectorAll('[data-att-sid]').forEach(r=>r.classList.remove('unmarked'));
   document.querySelectorAll('[data-att-sid] .att-b').forEach(b=>{ b.className='att-b'+(b.dataset.st===st?' on-'+st:''); });
   attUpdateCounts();
 }
 function attCounts(marks){
-  const c={P:0,L:0,E:0,A:0}; Object.values(marks).forEach(v=>{ if(c[v]!=null) c[v]++; }); return c;
+  const c={P:0,L:0,E:0,A:0,none:0}; Object.values(marks).forEach(v=>{ if(c[v]!=null) c[v]++; else if(!v) c.none++; }); return c;
 }
 function attUpdateCounts(){
   const el=document.getElementById('att-counts'); if(!el) return;
   const c=attCounts(_attEdit.marks);
-  el.innerHTML = `<span style="color:#10b981">출석 ${c.P}</span> · <span style="color:#f59e0b">지각 ${c.L}</span> · <span style="color:#8b5cf6">조퇴 ${c.E}</span> · <span style="color:#ef4444">결석 ${c.A}</span>`;
+  el.innerHTML = `<span style="color:#10b981">출석 ${c.P}</span> · <span style="color:#f59e0b">지각 ${c.L}</span> · <span style="color:#8b5cf6">조퇴 ${c.E}</span> · <span style="color:#ef4444">결석 ${c.A}</span>${c.none?` · <span style="color:var(--text3)">미체크 ${c.none}</span>`:''}`;
 }
 
 // 출석 편집기 HTML — 선생님/관리자 공용
@@ -10416,10 +10423,10 @@ function attEditorHtml(opts){
   const saved = rec ? `<span style="color:var(--success)">✓ ${new Date(rec.savedAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} 저장</span>` : `<span style="color:var(--text3)">미저장</span>`;
   const sms = getAtt().autoSms;
   const rows = stus.map(s=>{
-    const st=_attEdit.marks[s.id]||'P';
+    const st=_attEdit.marks[s.id]||'';
     const grade = s.grade||s.school||'';
     const noParent = !attParentPhone(s);
-    return `<div class="att-row" data-att-sid="${s.id}">
+    return `<div class="att-row${st?'':' unmarked'}" data-att-sid="${s.id}">
       <div class="nm">${s.name}<small>${grade}${noParent?' · <span style="color:#ef4444">보호자 번호 없음</span>':''}</small></div>
       <div class="att-btns">${Object.keys(ATT_STATUS).map(k=>`<button class="att-b${st===k?' on-'+k:''}" data-st="${k}" onclick="attMark('${s.id}','${k}')">${ATT_STATUS[k]}</button>`).join('')}</div>
     </div>`;
@@ -10429,7 +10436,7 @@ function attEditorHtml(opts){
   return `
     <div class="att-head"><div><b>${attLevelBadge(c)}${c.name}</b> · ${dateLabel} · ${stus.length}명</div><div>${saved}</div></div>
     <div class="att-head" style="margin-top:-4px"><div id="att-counts"></div>
-      <div><button class="btn btn-neutral btn-sm" onclick="attMarkAll('P')">전원 출석</button></div></div>
+      <div><button class="btn btn-sm att-allp" onclick="attMarkAll('P')">✓ 전원 출석</button></div></div>
     <div class="att-rows">${rows}</div>
     ${smsNote}
     <div class="att-save">${adminBtn}<button class="btn btn-primary" onclick="attSave()">💾 출석 저장</button></div>`;
@@ -10437,9 +10444,13 @@ function attEditorHtml(opts){
 
 async function attSave(){
   const c = getAttClass(_attEdit.classId); if(!c){ showToast('반을 선택하세요.','error'); return; }
+  const marks={}; let none=0;
+  Object.entries(_attEdit.marks).forEach(([sid,st])=>{ if(st) marks[sid]=st; else none++; });
+  if(!Object.keys(marks).length){ showToast('체크된 학생이 없습니다.','warning'); return; }
+  if(none && !confirm(`미체크 ${none}명은 기록되지 않습니다.\n그대로 저장할까요?`)) return;
   const att = getAtt();
   if(!att.records[_attEdit.date]) att.records[_attEdit.date] = {};
-  att.records[_attEdit.date][c.id] = { marks:{..._attEdit.marks}, savedAt:now().toISOString(), savedBy:currentUser.id };
+  att.records[_attEdit.date][c.id] = { marks, savedAt:now().toISOString(), savedBy:currentUser.id };
   const ok = await saveAcademy();
   if(ok!==false){
     _attEdit.dirty=false;
