@@ -505,6 +505,18 @@ tbody tr:hover td{background:#f8f9ff}
 .mac-grades .att-chip{padding:5px 11px;font-size:12px}
 .att-rows{display:grid;grid-template-columns:1fr;gap:8px}
 .att-rows .att-row{margin-bottom:0}
+.att-name-table{table-layout:fixed;width:100%}
+.att-name-table td,.att-name-table th{white-space:normal;word-break:keep-all}
+@media(max-width:768px){
+  #page-attendance .card-head{flex-direction:column;align-items:stretch;gap:10px}
+  #page-attendance .card-head h3{margin:0}
+  #page-attendance .card-head>div{margin-left:0!important;width:100%}
+  #page-attendance .card-head input[type=date],#page-attendance .card-head input[type=month]{flex:1;min-width:0}
+  #page-attendance .att-chips{width:100%}
+  #page-attendance .att-name-table td:first-child{width:58px;padding-left:10px!important}
+  #page-attendance .att-name-table td:last-child{padding-right:10px!important}
+  #page-attendance .att-name-table span{font-size:12px!important;padding:3px 8px!important}
+}
 /* 관리자 페이지의 저장 버튼은 하단 고정 안 함 (bottom:64px는 선생님 앱 탭바 기준이라 여기선 카드와 겹침) */
 #page-attendance .att-save{position:static;flex-wrap:wrap;margin-top:14px}
 #page-attendance .att-save .btn{flex:1 1 160px}
@@ -526,6 +538,8 @@ tbody tr:hover td{background:#f8f9ff}
 .att-fold.open .card-head h3::before{transform:rotate(90deg)}
 .att-fold:not(.open) .card-head{border-bottom:none}
 .att-fold:not(.open)>*:not(.card-head){display:none}
+.att-fold:not(.open) .card-head>*:not(h3){display:none}
+.att-fold .card-head:not([onclick]){cursor:default}
 .att-grade-table td.num{text-align:center;cursor:pointer;font-weight:600}
 .att-grade-table td.num:hover{background:#f0f2ff}
 .att-grade-table td.num.sel{background:var(--accent);color:#fff;border-radius:6px}
@@ -1611,9 +1625,9 @@ tbody tr:hover td{background:#f8f9ff}
         </div>
       </div>
 
-      <div class="card" style="margin-bottom:16px">
-        <div class="card-head" style="flex-wrap:wrap;gap:8px"><h3>📊 월별 출석 현황</h3>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <div class="card att-fold" style="margin-bottom:16px" id="att-fold-month">
+        <div class="card-head" style="flex-wrap:wrap;gap:8px"><h3 onclick="attFold('att-fold-month')" style="cursor:pointer;flex:1">📊 월별 출석 현황</h3>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap" onclick="event.stopPropagation()">
             <div class="att-chips" id="att-m-grade" style="margin:0;padding:0"></div>
             <span style="color:var(--border)">|</span>
             <div class="att-chips" id="att-m-filter" style="margin:0;padding:0"></div>
@@ -10734,7 +10748,7 @@ function attGradeRender(){
       return `<tr><td style="white-space:nowrap;vertical-align:top;width:70px"><strong>${g}</strong> <span style="color:var(--text3);font-size:11px">${list.length}</span></td>
         <td><div style="display:flex;flex-wrap:wrap;gap:6px">${list.map(i=>`<span title="${attDetailStr(i.detail)}" style="border:1px solid ${i.st==='P'?'var(--border)':ATT_COLOR[i.st]};background:${i.st==='P'?'#fff':ATT_COLOR[i.st]+'14'};color:${i.st==='P'?'var(--text)':ATT_COLOR[i.st]};font-weight:${i.st==='P'?'500':'700'};border-radius:14px;padding:4px 10px;font-size:13px">${i.name}${i.st==='P'?'':' <small style="font-weight:400">'+ATT_DAY_STATUS[i.st]+'</small>'}</span>`).join('')}</div></td></tr>`;
     }).join('');
-    box.innerHTML=`<table><thead><tr><th style="width:70px">학년 <span style="font-weight:400;color:var(--text3)">· ${d.getMonth()+1}/${d.getDate()} (${ATT_DAYS[d.getDay()]})</span></th><th>학생 <span style="font-weight:400;color:var(--text3)">· 이름을 올리면 과목별 내역</span></th></tr></thead><tbody>${nameRows||`<tr><td colspan="2" class="empty-row"><p>'${ATT_DAY_STATUS[_attG.filter]}' 학생이 없습니다</p></td></tr>`}</tbody></table>`;
+    box.innerHTML=`<table class="att-name-table"><thead><tr><th style="width:70px">학년 <span style="font-weight:400;color:var(--text3)">· ${d.getMonth()+1}/${d.getDate()} (${ATT_DAYS[d.getDay()]})</span></th><th>학생 <span style="font-weight:400;color:var(--text3)">· 이름을 올리면 과목별 내역</span></th></tr></thead><tbody>${nameRows||`<tr><td colspan="2" class="empty-row"><p>'${ATT_DAY_STATUS[_attG.filter]}' 학생이 없습니다</p></td></tr>`}</tbody></table>`;
     det.innerHTML=''; return;
   }
   fbox.style.display='none';
