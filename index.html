@@ -546,7 +546,23 @@ tbody tr:hover td{background:#f8f9ff}
 .att-grade-table td.num.sel{background:var(--accent);color:#fff;border-radius:6px}
 .ta-profile .pf{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);font-size:14px}
 .ta-profile .pf span:first-child{color:var(--text3)}
-@media(min-width:769px){ #teacher-app .ta-body{max-width:560px} }
+/* PC(넓은 화면)에서 선생님 앱: 폭을 넓히고 학생 카드를 여러 열로 */
+@media(min-width:769px){
+  #teacher-app .ta-body{max-width:1100px;padding:20px 24px 30px}
+  #teacher-app .att-rows{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+  #teacher-app .att-row{padding:8px 12px}
+  #teacher-app .att-b{width:40px;height:34px}
+  #teacher-app .att-chips{flex-wrap:wrap;overflow:visible}
+  #teacher-app .att-datebar{max-width:520px}
+  #teacher-app .att-save{position:sticky;bottom:70px;justify-content:flex-end}
+  #teacher-app .att-save .btn{flex:0 0 auto;padding:12px 28px}
+  #teacher-app #ta-classes{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px;margin-bottom:12px}
+  #teacher-app #ta-classes .att-cls-card{margin-bottom:0}
+  #teacher-app #ta-view-cls>.btn{max-width:360px}
+  #teacher-app .ta-profile>div,#teacher-app .ta-profile>button{max-width:520px}
+  #teacher-app .ta-tabs{justify-content:center}
+  #teacher-app .ta-tab{flex:0 0 160px}
+}
 
 </style>
 </head>
