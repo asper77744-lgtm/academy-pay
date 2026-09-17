@@ -513,6 +513,7 @@ tbody tr:hover td{background:#f8f9ff}
   #page-attendance .card-head>div{margin-left:0!important;width:100%}
   #page-attendance .card-head input[type=date],#page-attendance .card-head input[type=month]{flex:1;min-width:0}
   #page-attendance .att-chips{width:100%}
+  #page-attendance .att-name-table{min-width:0!important;white-space:normal}
   #page-attendance .att-name-table td:first-child{width:58px;padding-left:10px!important}
   #page-attendance .att-name-table td:last-child{padding-right:10px!important}
   #page-attendance .att-name-table span{font-size:12px!important;padding:3px 8px!important}
@@ -3229,6 +3230,11 @@ function refreshAll(){
   updateSbBadge();
   updateSmsTarget();
   updateSmsPreview();
+  // 출석 관리 페이지가 열려 있으면 다시 그린다 (실시간 동기화로 currentAcademy가 교체됐을 때)
+  //   편집 중(_attEdit.dirty)인 반의 출석 편집기는 attAdminRender가 보존한다
+  if(document.getElementById('page-attendance')?.classList.contains('active')){
+    try{ attAdminFillClasses(); attAdminRender(); }catch(e){ console.warn('attendance refresh', e); }
+  }
 }
 
 // ── 수납 중복 정리 ─────────────────────────────────────
