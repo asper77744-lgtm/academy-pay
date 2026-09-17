@@ -1585,7 +1585,8 @@ tbody tr:hover td{background:#f8f9ff}
       </div>
 
       <div class="card" style="margin-bottom:16px">
-        <div class="card-head" style="flex-wrap:wrap;gap:8px"><h3>📌 오늘의 출석 상황</h3>
+        <div class="card-head" style="flex-wrap:wrap;gap:8px"><h3>📌 오늘의 출석</h3>
+          <div class="att-chips" id="att-g-mode" style="margin:0;padding:0;margin-left:6px"></div>
           <div style="display:flex;gap:6px;align-items:center;margin-left:auto">
             <button class="btn btn-neutral btn-sm" onclick="attGradeShift(-1)">◀</button>
             <input type="date" id="att-g-date" onchange="attGradeRender()" style="padding:6px;border:1px solid var(--border);border-radius:8px"/>
@@ -1593,6 +1594,7 @@ tbody tr:hover td{background:#f8f9ff}
             <button class="btn btn-neutral btn-sm" onclick="attGradeSetDate(todayYmd())">오늘</button>
           </div>
         </div>
+        <div class="att-chips" id="att-g-filter" style="margin:0;padding:10px 20px 0;display:none"></div>
         <div style="padding:0" id="att-g-table"></div>
         <div id="att-g-detail" style="padding:0 20px 16px"></div>
       </div>
@@ -10694,7 +10696,9 @@ function initAttendancePage(){
 function attFold(id){ document.getElementById(id).classList.toggle('open'); }
 
 // ── 오늘의 출석 상황: 학년별 집계 (학생·반 단위 기록 기준) ──
-let _attG={ date:'', sel:null };   // sel = {grade, st}
+let _attG={ date:'', sel:null, mode:null, filter:'' };   // sel = {grade, st} / mode = 'num'|'name' (null=자동)
+function attGradeMode(m){ _attG.mode=m; attGradeRender(); }
+function attGradeFilter(f){ _attG.filter=f; attGradeRender(); }
 function attGradeSetDate(d){ if(!d) return; _attG.date=d; _attG.sel=null; document.getElementById('att-g-date').value=d; attGradeRender(); }
 function attGradeShift(n){ const d=new Date((_attG.date||todayYmd())+'T00:00:00'); d.setDate(d.getDate()+n); attGradeSetDate(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`); }
 function attGradeOrder(g){ const m=/^(초|중|고)(\d)/.exec(g||''); return m ? ({초:0,중:10,고:20})[m[1]]+ +m[2] : 99; }
@@ -10715,6 +10719,25 @@ function attGradeRender(){
   const grades=[...new Set(items.map(i=>i.grade))].sort((a,b)=>attGradeOrder(a)-attGradeOrder(b)||a.localeCompare(b,'ko'));
   const cnt=(list,st)=>st?list.filter(i=>i.st===st).length:list.length;
   const col=[['','전체'],['P','출석'],['L','지각'],['E','조퇴'],['PA','부분결석'],['A','결석']];
+  // 표시 모드: 사용자가 고르지 않았으면 한 학년 20명 이상이면 숫자표, 아니면 이름
+  const maxPerGrade=Math.max(...grades.map(g=>cnt(items.filter(i=>i.grade===g))));
+  const mode=_attG.mode || (maxPerGrade>=20 ? 'num' : 'name');
+  document.getElementById('att-g-mode').innerHTML =
+    `<div class="att-chip${mode==='num'?' active':''}" style="padding:5px 11px;font-size:12px" onclick="attGradeMode('num')">🔢 숫자</div><div class="att-chip${mode==='name'?' active':''}" style="padding:5px 11px;font-size:12px" onclick="attGradeMode('name')">👤 이름</div>`;
+  const fbox=document.getElementById('att-g-filter');
+  if(mode==='name'){
+    fbox.style.display='';
+    fbox.innerHTML=col.map(([st,l])=>`<div class="att-chip${_attG.filter===st?' active':''}" style="padding:5px 11px;font-size:12px;${st&&_attG.filter!==st?'color:'+ATT_COLOR[st]+';':''}" onclick="attGradeFilter('${st}')">${l} <span style="opacity:.6">${cnt(items,st)}</span></div>`).join('');
+    const nameRows=grades.map(g=>{
+      const list=items.filter(i=>i.grade===g && (!_attG.filter||i.st===_attG.filter)).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+      if(!list.length) return '';
+      return `<tr><td style="white-space:nowrap;vertical-align:top;width:70px"><strong>${g}</strong> <span style="color:var(--text3);font-size:11px">${list.length}</span></td>
+        <td><div style="display:flex;flex-wrap:wrap;gap:6px">${list.map(i=>`<span title="${attDetailStr(i.detail)}" style="border:1px solid ${i.st==='P'?'var(--border)':ATT_COLOR[i.st]};background:${i.st==='P'?'#fff':ATT_COLOR[i.st]+'14'};color:${i.st==='P'?'var(--text)':ATT_COLOR[i.st]};font-weight:${i.st==='P'?'500':'700'};border-radius:14px;padding:4px 10px;font-size:13px">${i.name}${i.st==='P'?'':' <small style="font-weight:400">'+ATT_DAY_STATUS[i.st]+'</small>'}</span>`).join('')}</div></td></tr>`;
+    }).join('');
+    box.innerHTML=`<table><thead><tr><th style="width:70px">학년 <span style="font-weight:400;color:var(--text3)">· ${d.getMonth()+1}/${d.getDate()} (${ATT_DAYS[d.getDay()]})</span></th><th>학생 <span style="font-weight:400;color:var(--text3)">· 이름을 올리면 과목별 내역</span></th></tr></thead><tbody>${nameRows||`<tr><td colspan="2" class="empty-row"><p>'${ATT_DAY_STATUS[_attG.filter]}' 학생이 없습니다</p></td></tr>`}</tbody></table>`;
+    det.innerHTML=''; return;
+  }
+  fbox.style.display='none';
   const cell=(g,st,list)=>{ const n=cnt(list,st); const sel=_attG.sel&&_attG.sel.grade===g&&_attG.sel.st===st; return `<td class="num${sel?' sel':''}" style="color:${sel?'#fff':(n?ATT_COLOR[st]:'var(--text3)')}" onclick="attGradePick('${g}','${st}')">${n||'-'}</td>`; };
   const rows=grades.map(g=>{ const list=items.filter(i=>i.grade===g); return `<tr><td><strong>${g}</strong></td>${col.map(([st])=>cell(g,st,list)).join('')}</tr>`; }).join('');
   const total=`<tr style="background:#f7f8fb;font-weight:700"><td>합계</td>${col.map(([st])=>cell('__all',st,items)).join('')}</tr>`;
