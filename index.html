@@ -7084,7 +7084,14 @@ function matchesUnpaidSearch(s, qClean, payments){
   );
 }
 
+let _inUnpaidSearch=false;
 function renderUnpaid(){
+  // 수납처리 후 refreshAll → renderUnpaid 로 들어온 경우, 위쪽 '검색 결과' 카드도 다시 그린다
+  //   (searchDepositorUnpaid 가 renderUnpaid 를 부르므로 플래그로 재귀 방지)
+  if(!_inUnpaidSearch){
+    const q=(document.getElementById('depositor-search-input')?.value||'').trim();
+    if(q && document.getElementById('depositor-search-results')?.style.display!=='none'){ searchDepositorUnpaid(); return; }
+  }
   const {students,payments}=currentAcademy;
   const curYm=ym();
   const defaultPayDay=currentAcademy.payDay||25;
@@ -7212,7 +7219,7 @@ function searchDepositorUnpaid(){
   const noResult    = document.getElementById('depositor-no-result');
 
   // 아래 미납 테이블도 검색어에 맞춰 다시 그린다 (renderUnpaid가 입력값을 직접 읽는다)
-  renderUnpaid();
+  _inUnpaidSearch=true; try{ renderUnpaid(); } finally{ _inUnpaidSearch=false; }
 
   if(q.length < 2){
     resultsBox.style.display='none';
