@@ -1701,7 +1701,7 @@ tbody tr:hover td{background:#f8f9ff}
             <div class="tog" id="att-sms-on" onclick="this.classList.toggle('on')"></div>
             <span>그날 <b>종합 결석</b>(들은 수업 전부 결석)인 학생의 <b>보호자</b>에게 자동으로 문자를 보냅니다</span>
           </div>
-          <div class="ff" style="max-width:360px"><label>발송 시각 <span style="color:var(--text3);font-weight:400">(쉼표로 구분, 서버 스케줄과 같아야 함)</span></label><input id="att-sms-times" placeholder="17:00, 19:00, 23:00"/></div>
+          <div class="ff" style="max-width:360px"><label>발송 시각 <span style="color:var(--text3);font-weight:400">(쉼표로 구분, 서버 스케줄과 같아야 함)</span></label><input id="att-sms-times" placeholder="17:00, 21:00, 23:00"/></div>
           <p style="font-size:12px;color:var(--text2);margin:-4px 0 12px">각 시각마다 "그때까지 결석으로 저장된 학생" 중 <b>아직 안 보낸 학생에게만</b> 보냅니다. 17시에 A·B·C, 19시에 A~E가 결석이면 19시엔 D·E에게만 갑니다. 발송 전에 출석으로 고치면 보내지 않습니다.</p>
           <div class="ff"><label>문자 내용 <span style="color:var(--text3);font-weight:400">변수: {학원명} {이름} {반} {날짜} {선생님}</span></label>
             <textarea id="att-sms-tpl" rows="4" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:inherit"></textarea>
@@ -10441,8 +10441,9 @@ function getAtt(){
   const t = a.attendance;
   if(!t.classes) t.classes = [];
   if(!t.records) t.records = {};
-  if(!t.autoSms) t.autoSms = { on:false, times:['17:00','19:00','23:00'], template:ATT_SMS_DEFAULT };
-  if(!t.autoSms.times) t.autoSms.times=['17:00','19:00','23:00'];
+  if(!t.autoSms) t.autoSms = { on:false, times:['17:00','21:00','23:00'], template:ATT_SMS_DEFAULT };
+  if(!t.autoSms.times) t.autoSms.times=['17:00','21:00','23:00'];
+  if(t.autoSms.times.join()==='17:00,19:00,23:00') t.autoSms.times=['17:00','21:00','23:00'];   // 2026-09-22 스케줄 변경 반영
   return t;
 }
 function myTeacherId(){ return currentUser?.role==='teacher' ? (currentUser.teacherId||null) : null; }
@@ -11083,7 +11084,7 @@ async function saveAttSmsSettings(){
   const sms=getAtt().autoSms;
   sms.on = document.getElementById('att-sms-on').classList.contains('on');
   sms.times = document.getElementById('att-sms-times').value.split(/[,\s]+/).map(x=>x.trim()).filter(x=>/^\d{1,2}:\d{2}$/.test(x)).map(x=>x.padStart(5,'0'));
-  if(!sms.times.length) sms.times=['17:00','19:00','23:00'];
+  if(!sms.times.length) sms.times=['17:00','21:00','23:00'];
   sms.template = document.getElementById('att-sms-tpl').value.trim() || ATT_SMS_DEFAULT;
   if(sms.on && !_smsCredReady){ showToast('학원 설정에서 문자 발송(CoolSMS) 설정을 먼저 해주세요.','warning'); }
   const ok=await saveAcademy();
