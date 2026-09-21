@@ -9648,7 +9648,14 @@ async function loadSmsBalance(force){
   sub.textContent='잔액을 불러오는 중…'; badge.className='badge b-neutral'; badge.textContent='확인 중';
   try{
     const { data, error } = await _sb.functions.invoke('sms-balance', { body:{ academyId: currentAcademy.id } });
-    if(error){ let msg='잔액 조회 실패'; try{ msg=(await error.context?.json())?.error||msg; }catch(_){ } throw new Error(msg); }
+    if(error){
+      // 원인을 화면에 그대로 보여준다 (HTTP 상태 + 서버가 보낸 error 문구)
+      let msg = error.message || '잔액 조회 실패';
+      const st = error.context?.status;
+      try{ const txt = await error.context?.text(); const j = JSON.parse(txt); if(j?.error) msg = j.error; else if(txt) msg = txt.slice(0,120); }catch(_){ }
+      if(st===404) msg = 'Edge Function "sms-balance"가 배포되지 않았습니다 (404)';
+      throw new Error((st?`[${st}] `:'')+msg);
+    }
     if(!data?.ok) throw new Error(data?.error||'잔액 조회 실패');
     _smsBalance={ at:Date.now(), data, error:null };
   }catch(e){
