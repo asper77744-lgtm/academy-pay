@@ -1654,7 +1654,7 @@ tbody tr:hover td{background:#f8f9ff}
           <div class="att-chips" id="att-g-mode" style="margin:0;padding:0;margin-left:6px"></div>
           <div style="display:flex;gap:6px;align-items:center;margin-left:auto">
             <button class="btn btn-neutral btn-sm" onclick="attGradeShift(-1)">◀</button>
-            <input type="date" id="att-g-date" onchange="attGradeRender()" style="padding:6px;border:1px solid var(--border);border-radius:8px"/>
+            <input type="date" id="att-g-date" onchange="attGradeSetDate(this.value)" style="padding:6px;border:1px solid var(--border);border-radius:8px"/>
             <button class="btn btn-neutral btn-sm" onclick="attGradeShift(1)">▶</button>
             <button class="btn btn-neutral btn-sm" onclick="attGradeSetDate(todayYmd())">오늘</button>
           </div>
@@ -1662,6 +1662,7 @@ tbody tr:hover td{background:#f8f9ff}
         <div class="att-chips" id="att-g-filter" style="margin:0;padding:10px 20px 0;display:none"></div>
         <div style="padding:0" id="att-g-table"></div>
         <div id="att-g-detail" style="padding:0 20px 16px"></div>
+        <div id="att-g-sms" style="border-top:1px solid var(--border);padding:12px 20px 16px"></div>
       </div>
 
       <div class="card att-fold" style="margin-bottom:16px" id="att-fold-day">
@@ -1698,14 +1699,15 @@ tbody tr:hover td{background:#f8f9ff}
         <div class="card-body">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
             <div class="tog" id="att-sms-on" onclick="this.classList.toggle('on')"></div>
-            <span>결석 처리된 학생의 <b>보호자</b>에게 자동으로 문자를 보냅니다</span>
+            <span>그날 <b>종합 결석</b>(들은 수업 전부 결석)인 학생의 <b>보호자</b>에게 자동으로 문자를 보냅니다</span>
           </div>
-          <div class="ff" style="max-width:260px"><label>발송 시점 — 수업 시작 후 (분)</label><input type="number" id="att-sms-delay" min="0" max="600" step="10" value="60"/></div>
+          <div class="ff" style="max-width:360px"><label>발송 시각 <span style="color:var(--text3);font-weight:400">(쉼표로 구분, 서버 스케줄과 같아야 함)</span></label><input id="att-sms-times" placeholder="17:00, 19:00, 23:00"/></div>
+          <p style="font-size:12px;color:var(--text2);margin:-4px 0 12px">각 시각마다 "그때까지 결석으로 저장된 학생" 중 <b>아직 안 보낸 학생에게만</b> 보냅니다. 17시에 A·B·C, 19시에 A~E가 결석이면 19시엔 D·E에게만 갑니다. 발송 전에 출석으로 고치면 보내지 않습니다.</p>
           <div class="ff"><label>문자 내용 <span style="color:var(--text3);font-weight:400">변수: {학원명} {이름} {반} {날짜} {선생님}</span></label>
             <textarea id="att-sms-tpl" rows="4" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:inherit"></textarea>
             <div id="att-sms-bytes" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
           </div>
-          <p style="font-size:12px;color:var(--text2);margin-bottom:10px">서버가 정해진 시각에 발송하며, 발송 전에 출석으로 고치면 보내지 않습니다. 이미 지난 수업의 결석은 저장 직후 다음 점검 때 발송됩니다.</p>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:10px" id="att-sms-testnote"></p>
           <button class="btn btn-primary" onclick="saveAttSmsSettings()">설정 저장</button>
         </div>
       </div>
@@ -10439,7 +10441,8 @@ function getAtt(){
   const t = a.attendance;
   if(!t.classes) t.classes = [];
   if(!t.records) t.records = {};
-  if(!t.autoSms) t.autoSms = { on:false, delayMin:60, template:ATT_SMS_DEFAULT };
+  if(!t.autoSms) t.autoSms = { on:false, times:['17:00','19:00','23:00'], template:ATT_SMS_DEFAULT };
+  if(!t.autoSms.times) t.autoSms.times=['17:00','19:00','23:00'];
   return t;
 }
 function myTeacherId(){ return currentUser?.role==='teacher' ? (currentUser.teacherId||null) : null; }
@@ -10523,8 +10526,8 @@ function attEditorHtml(opts){
       <div class="att-btns">${Object.keys(ATT_STATUS).map(k=>`<button class="att-b${st===k?' on-'+k:''}" data-st="${k}" onclick="attMark('${s.id}','${k}')">${ATT_STATUS[k]}</button>`).join('')}</div>
     </div>`;
   }).join('');
-  const smsNote = sms.on ? `<div style="font-size:12px;color:var(--text2);margin:4px 0 8px">📱 결석 처리된 학생은 수업 시작(${c.start||'--:--'}) ${sms.delayMin||60}분 후 보호자에게 자동 문자가 갑니다.</div>` : '';
-  const adminBtn = opts?.admin ? `<button class="btn btn-neutral" onclick="attSendAbsentNow()">📱 결석 문자 지금 보내기</button>` : '';
+  const smsNote = sms.on ? `<div style="font-size:12px;color:var(--text2);margin:4px 0 8px">📱 그날 종합 결석인 학생은 ${(sms.times||[]).join(' · ')}에 보호자에게 자동 문자가 갑니다 (이미 보낸 학생 제외).</div>` : '';
+  const adminBtn = '';
   return `
     <div class="att-head"><div><b>${attLevelBadge(c)}${c.name}</b> · ${dateLabel} · ${stus.length}명</div><div>${saved}</div></div>
     <div class="att-head" style="margin-top:-4px"><div id="att-counts"></div>
@@ -10824,21 +10827,69 @@ function initAttendancePage(){
   const me=document.getElementById('att-m-month'); if(!me.value) me.value=todayYmd().slice(0,7);
   attAdminFillClasses();
   if(!_attG.date) _attG.date=todayYmd();
+  if(_absentLog.date!==_attG.date) loadAbsentSmsLog(_attG.date);
   // 자동 문자 설정
   const sms=getAtt().autoSms;
   document.getElementById('att-sms-on').classList.toggle('on', !!sms.on);
-  document.getElementById('att-sms-delay').value = sms.delayMin ?? 60;
+  document.getElementById('att-sms-times').value = (sms.times||[]).join(', ');
+  const tn=document.getElementById('att-sms-testnote'); const sm=currentAcademy.sms||{};
+  tn.innerHTML = sm.testMode ? `🧪 <b>테스트 모드</b>가 켜져 있어 실제 보호자 대신 <b>${sm.testTo||'(테스트 번호 미입력)'}</b>로 발송됩니다. (학원 설정 → 문자 발송에서 해제)` : `실제 보호자 번호로 발송됩니다. 테스트하려면 학원 설정 → 문자 발송에서 테스트 모드를 켜세요.`;
   const tpl=document.getElementById('att-sms-tpl'); tpl.value = sms.template || ATT_SMS_DEFAULT;
   tpl.oninput = attSmsBytes; attSmsBytes();
   attAdminRender();
 }
 function attFold(id){ document.getElementById(id).classList.toggle('open'); }
 
+// ── 결석 문자 현황 (오늘의 출석 카드 하단) ──
+//   서버(absent-sms)가 auto_sms_log 에 rule='absent', target_month=날짜 로 기록 → recent_auto_sms RPC로 읽는다
+let _absentLog = { date:'', rows:[] };
+async function loadAbsentSmsLog(date){
+  if(!_sb || !currentAcademy?.id) return;
+  try{
+    const { data, error } = await _sb.rpc('recent_auto_sms', { p_academy_id: currentAcademy.id, p_limit: 300 });
+    if(error){ console.warn('결석 문자 로그', error.message); return; }
+    const rows=(data||[]).filter(r=>r.rule==='absent' && r.ok!==false && new Date(r.sent_at).toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'})===date);
+    _absentLog={ date, rows };
+  }catch(e){ console.warn(e); }
+  renderAbsentSms();
+}
+function renderAbsentSms(){
+  const box=document.getElementById('att-g-sms'); if(!box) return;
+  const date=_attG.date||todayYmd();
+  const map=attDayByStudent(date, getAtt().classes);
+  const absent=[...map.entries()].filter(([,v])=>v.st==='A').map(([sid])=>getStudent(sid)).filter(Boolean).sort((a,b)=>attGradeOrder(a.grade)-attGradeOrder(b.grade)||a.name.localeCompare(b.name,'ko'));
+  const sms=getAtt().autoSms;
+  if(!absent.length){ box.innerHTML=`<div style="font-size:12px;color:var(--text3)">📱 결석 문자 — 오늘 종합 결석 학생 없음${sms.on?'':' · 자동 발송 꺼짐'}</div>`; return; }
+  const sentAt=sid=>{ const r=(_absentLog.date===date?_absentLog.rows:[]).filter(x=>String(x.student_id)===String(sid)).sort((a,b)=>a.sent_at<b.sent_at?1:-1)[0]; return r? new Date(r.sent_at).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Seoul'}) : null; };
+  const sent=absent.filter(s=>sentAt(s.id)), unsent=absent.filter(s=>!sentAt(s.id));
+  const chip=(s,t)=>`<span style="display:inline-block;border-radius:14px;padding:4px 10px;font-size:12px;margin:2px;border:1px solid ${t?'#10b981':'#ef4444'};color:${t?'#0b7a4f':'#ef4444'};background:${t?'#e6f7f1':'#fdecec'}"><b>${s.name}</b> <small style="opacity:.75">${s.grade||''}${t?' · '+t+' 보냄':' · 미발송'}</small></span>`;
+  const testBadge = currentAcademy.sms?.testMode ? `<span class="badge b-warning" style="margin-left:6px">🧪 테스트 모드 → ${currentAcademy.sms.testTo||'번호 미입력'}</span>` : '';
+  box.innerHTML=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+      <b style="font-size:13px">📱 결석 문자</b><span style="font-size:12px;color:var(--text3)">결석 ${absent.length}명 · 보냄 ${sent.length} · 미발송 ${unsent.length}${sms.on?` · 자동 ${(sms.times||[]).join('/')}`:' · <span style="color:#f59e0b">자동 발송 꺼짐</span>'}</span>${testBadge}
+      <span style="margin-left:auto;display:flex;gap:6px"><button class="btn btn-neutral btn-sm" onclick="loadAbsentSmsLog(_attG.date)">↻</button>${unsent.length?`<button class="btn btn-primary btn-sm" onclick="sendAbsentNow()">미발송 ${unsent.length}명 지금 보내기</button>`:''}</span></div>
+    ${sent.length?`<div style="margin-bottom:4px">${sent.map(s=>chip(s,sentAt(s.id))).join('')}</div>`:''}
+    ${unsent.length?`<div>${unsent.map(s=>chip(s,null)).join('')}</div>`:''}`;
+}
+async function sendAbsentNow(){
+  const date=_attG.date||todayYmd();
+  if(!_smsCredReady){ showToast('학원 설정에서 문자 발송(CoolSMS) 설정을 먼저 해주세요.','error'); return; }
+  const test=currentAcademy.sms?.testMode;
+  if(!confirm(`${date} 종합 결석 중 미발송 학생에게 결석 문자를 보낼까요?${test?'\n\n🧪 테스트 모드: '+(currentAcademy.sms.testTo||'번호 미입력')+' 로 갑니다.':'\n\n실제 보호자 번호로 발송됩니다.'}`)) return;
+  showToast('발송 중…','info');
+  try{
+    const { data, error } = await _sb.functions.invoke('absent-sms', { body:{ academyId: currentAcademy.id, date, manual:true } });
+    if(error){ let msg=error.message; try{ const j=JSON.parse(await error.context?.text()); if(j?.error) msg=j.error; }catch(_){} throw new Error(msg); }
+    if(!data?.ok) throw new Error(data?.error||'발송 실패');
+    showToast(`발송 ${data.sent}명${data.failed?`, 실패 ${data.failed}명`:''}${data.skipped?` (이미 보냄 ${data.skipped})`:''}`, data.failed?'warning':'success');
+  }catch(e){ showToast('결석 문자 발송 실패: '+e.message,'error'); }
+  loadAbsentSmsLog(date);
+}
+
 // ── 오늘의 출석 상황: 학년별 집계 (학생·반 단위 기록 기준) ──
 let _attG={ date:'', sel:null, mode:null, filter:'' };   // sel = {grade, st} / mode = 'num'|'name' (null=자동)
 function attGradeMode(m){ _attG.mode=m; attGradeRender(); }
 function attGradeFilter(f){ _attG.filter=f; attGradeRender(); }
-function attGradeSetDate(d){ if(!d) return; _attG.date=d; _attG.sel=null; document.getElementById('att-g-date').value=d; attGradeRender(); }
+function attGradeSetDate(d){ if(!d) return; _attG.date=d; _attG.sel=null; document.getElementById('att-g-date').value=d; attGradeRender(); loadAbsentSmsLog(d); }
 function attGradeShift(n){ const d=new Date((_attG.date||todayYmd())+'T00:00:00'); d.setDate(d.getDate()+n); attGradeSetDate(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`); }
 function attGradeOrder(g){ const m=/^(초|중|고)(\d)/.exec(g||''); return m ? ({초:0,중:10,고:20})[m[1]]+ +m[2] : 99; }
 function attGradePick(grade, st){
@@ -10854,6 +10905,7 @@ function attGradeRender(){
   const map=attDayByStudent(date, getAtt().classes);
   const items=[...map.entries()].map(([sid,v])=>{ const s=getStudent(sid); return s?{grade:s.grade||'학년 미입력', sid, name:s.name, st:v.st, detail:v.detail}:null; }).filter(Boolean);
   const box=document.getElementById('att-g-table'), det=document.getElementById('att-g-detail');
+  renderAbsentSms();
   if(!items.length){ box.innerHTML=`<div class="att-empty">${d.getMonth()+1}/${d.getDate()} (${ATT_DAYS[d.getDay()]}) 저장된 출석이 없습니다.</div>`; det.innerHTML=''; return; }
   const grades=[...new Set(items.map(i=>i.grade))].sort((a,b)=>attGradeOrder(a)-attGradeOrder(b)||a.localeCompare(b,'ko'));
   const cnt=(list,st)=>st?list.filter(i=>i.st===st).length:list.length;
@@ -11030,7 +11082,8 @@ function attMonthTableHtml(classes, ym, filter, showClass, grade){
 async function saveAttSmsSettings(){
   const sms=getAtt().autoSms;
   sms.on = document.getElementById('att-sms-on').classList.contains('on');
-  sms.delayMin = Math.max(0, parseInt(document.getElementById('att-sms-delay').value)||0);
+  sms.times = document.getElementById('att-sms-times').value.split(/[,\s]+/).map(x=>x.trim()).filter(x=>/^\d{1,2}:\d{2}$/.test(x)).map(x=>x.padStart(5,'0'));
+  if(!sms.times.length) sms.times=['17:00','19:00','23:00'];
   sms.template = document.getElementById('att-sms-tpl').value.trim() || ATT_SMS_DEFAULT;
   if(sms.on && !_smsCredReady){ showToast('학원 설정에서 문자 발송(CoolSMS) 설정을 먼저 해주세요.','warning'); }
   const ok=await saveAcademy();
