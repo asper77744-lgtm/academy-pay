@@ -10450,8 +10450,14 @@ function myTeacherId(){ return currentUser?.role==='teacher' ? (currentUser.teac
 function getAttClass(id){ return getAtt().classes.find(c=>c.id===id); }
 function attClassesFor(teacherId){ return getAtt().classes.filter(c=>!teacherId || c.teacherId===teacherId); }
 function attRecord(date, classId){ return getAtt().records?.[date]?.[classId] || null; }
-function attClassStudents(c){
-  return (c.studentIds||[]).map(getStudent).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+// 출석 대상 학생 — 퇴원생은 제외. date를 주면 그 날짜 이전에 퇴원한 학생만 제외(과거 기록 보존)
+function attStudentInClassOn(s, date){
+  if(s.status!=='withdrawn') return true;
+  if(!date) return false;
+  return !!s.withdrawDate && s.withdrawDate >= date;
+}
+function attClassStudents(c, date){
+  return (c.studentIds||[]).map(getStudent).filter(s=>s && attStudentInClassOn(s, date)).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
 }
 // 학교급 판정: 반 이름의 초/중/고 → 없으면 소속 학생 학년의 다수결
 function attLevel(c){
@@ -10481,7 +10487,7 @@ function attLoadEdit(date, classId){
   const rec = attRecord(date, classId);
   _attEdit.marks = {};
   // 저장된 기록이 없으면 미체크('') 상태로 시작 — 선생님이 직접 눌러야 기록된다
-  if(c) attClassStudents(c).forEach(s=>{ _attEdit.marks[s.id] = rec?.marks?.[s.id] || ''; });
+  if(c) attClassStudents(c, date).forEach(s=>{ _attEdit.marks[s.id] = rec?.marks?.[s.id] || ''; });
 }
 function attMark(sid, st){
   _attEdit.marks[sid] = st; _attEdit.dirty=true;
@@ -10511,7 +10517,7 @@ function attUpdateCounts(){
 function attEditorHtml(opts){
   const c = getAttClass(_attEdit.classId);
   if(!c) return `<div class="att-empty">반을 선택하세요.</div>`;
-  const stus = attClassStudents(c);
+  const stus = attClassStudents(c, _attEdit.date);
   if(!stus.length) return `<div class="att-empty">이 반에 학생이 없습니다.<br>내 반에서 학생을 추가하세요.</div>`;
   const rec = attRecord(_attEdit.date, c.id);
   const d = new Date(_attEdit.date+'T00:00:00');
@@ -10614,7 +10620,7 @@ function openAttClassModal(id){
   // 학생 — 재원생 + 체험중 (이미 포함된 학생은 상태 무관 유지)
   const picked = new Set(c?.studentIds||[]);
   _macStudentsCache = (currentAcademy.students||[])
-    .filter(s=>isActiveStudent(s) || s.status==='trial' || picked.has(s.id))
+    .filter(s=>s.status!=='withdrawn' && (isActiveStudent(s) || s.status==='trial' || picked.has(s.id)))
     .sort((a,b)=>a.name.localeCompare(b.name,'ko'))
     .map(s=>({id:s.id, name:s.name, grade:s.grade||'', sub:[s.school,s.grade].filter(Boolean).join(' '), on:picked.has(s.id)}));
   document.getElementById('mac-stu-q').value='';
@@ -10724,7 +10730,7 @@ function renderTeacherApp(){
   const sorted = classes;   // '내 반' 순서 그대로 (드래그로 바꾼 순서 반영)
   if(sorted.length && !sorted.find(c=>c.id===_attEdit.classId)) attLoadEdit(date, sorted[0].id);
   document.getElementById('ta-chips').innerHTML = sorted.length
-    ? sorted.map(c=>`<div class="att-chip lv-${attLevel(c)}${c.id===_attEdit.classId?' active':''}${attIsToday(c,date)?' today':''}" onclick="attPickClass('${c.id}')">${c.name}<span class="cnt">${(c.studentIds||[]).length}</span></div>`).join('')
+    ? sorted.map(c=>`<div class="att-chip lv-${attLevel(c)}${c.id===_attEdit.classId?' active':''}${attIsToday(c,date)?' today':''}" onclick="attPickClass('${c.id}')">${c.name}<span class="cnt">${attClassStudents(c).length}</span></div>`).join('')
     : '';
   document.getElementById('ta-editor').innerHTML = sorted.length ? attEditorHtml() : `<div class="att-empty">아직 반이 없습니다.<br>아래 <b>내 반</b> 탭에서 반을 만들어주세요.</div>`;
   attUpdateCounts();
@@ -10732,7 +10738,7 @@ function renderTeacherApp(){
   document.getElementById('ta-classes').innerHTML = classes.length
     ? classes.map(c=>`<div class="att-cls-card lv-${attLevel(c)}" data-cid="${c.id}">
         <div class="drag" onpointerdown="attDragStart(event,'${c.id}')">≡</div>
-        <div class="info"><b>${attLevelBadge(c)}${c.name}</b><small>${attDaysLabel(c)} ${c.start||''} · ${(c.studentIds||[]).length}명</small></div>
+        <div class="info"><b>${attLevelBadge(c)}${c.name}</b><small>${attDaysLabel(c)} ${c.start||''} · ${attClassStudents(c).length}명</small></div>
         <button class="btn btn-neutral btn-sm" onclick="openAttClassModal('${c.id}')">편집</button></div>`).join('')
     : `<div class="att-empty">반이 없습니다. 반을 만들고 학생을 넣어주세요.</div>`;
   // 월별 탭 — 기본 전체 반, 반 칩 누르면 그 반만
@@ -10972,7 +10978,7 @@ function attAdminRender(){
   attUpdateCounts();
   // 반 목록
   document.getElementById('att-a-classes').innerHTML = getAtt().classes.length
-    ? getAtt().classes.map(c=>`<tr><td><strong>${attLevelBadge(c)}${c.name}</strong></td><td>${getTeacher(c.teacherId)?.name||'<span style="color:var(--danger)">미배정</span>'}</td><td>${attDaysLabel(c)}</td><td>${c.start||'-'}</td><td>${(c.studentIds||[]).length}명</td>
+    ? getAtt().classes.map(c=>`<tr><td><strong>${attLevelBadge(c)}${c.name}</strong></td><td>${getTeacher(c.teacherId)?.name||'<span style="color:var(--danger)">미배정</span>'}</td><td>${attDaysLabel(c)}</td><td>${c.start||'-'}</td><td>${attClassStudents(c).length}명</td>
         <td><button class="btn btn-neutral btn-sm" onclick="openAttClassModal('${c.id}')">편집</button></td></tr>`).join('')
     : `<tr><td colspan="6" class="empty-row"><p>출석반이 없습니다</p></td></tr>`;
   attAdminMonth();
@@ -10983,7 +10989,7 @@ function attAllDaySummaryHtml(date){
   const d=new Date(date+'T00:00:00');
   const classes=attClassesFor(document.getElementById('att-a-teacher').value||null);
   const map=attDayByStudent(date, classes);
-  const stus=attStudentsOf(classes).filter(s=>map.has(s.id));
+  const stus=attStudentsOf(classes, date).filter(s=>map.has(s.id));
   const rows=stus.map(s=>{ const v=map.get(s.id); return `<tr><td>${s.grade||''}</td><td><strong>${s.name}</strong></td><td style="color:${ATT_COLOR[v.st]};font-weight:700">${ATT_DAY_STATUS[v.st]}</td><td style="color:var(--text2);font-size:12px">${attDetailStr(v.detail)}</td></tr>`; }).join('');
   const unsaved=classes.filter(c=>!getAtt().records[date]?.[c.id] && attIsToday(c,date)).map(c=>c.name);
   return `<div class="att-head"><div><b>전체 반</b> · ${d.getMonth()+1}/${d.getDate()} (${ATT_DAYS[d.getDay()]}) · ${stus.length}명</div><div style="color:var(--text3)">출석을 수정하려면 반을 선택하세요</div></div>
@@ -11023,9 +11029,9 @@ function attDayByStudent(date, classes){
   return map;
 }
 // classes 에 속한 학생 목록(중복 제거) — 학년순 → 이름순
-function attStudentsOf(classes){
+function attStudentsOf(classes, date){
   const set=new Set(); classes.forEach(c=>(c.studentIds||[]).forEach(id=>set.add(id)));
-  return [...set].map(getStudent).filter(Boolean).sort((a,b)=>attGradeOrder(a.grade)-attGradeOrder(b.grade)||(a.grade||'').localeCompare(b.grade||'','ko')||a.name.localeCompare(b.name,'ko'));
+  return [...set].map(getStudent).filter(s=>s && attStudentInClassOn(s, date)).sort((a,b)=>attGradeOrder(a.grade)-attGradeOrder(b.grade)||(a.grade||'').localeCompare(b.grade||'','ko')||a.name.localeCompare(b.name,'ko'));
 }
 function attDetailStr(detail){ return detail.map(d=>`${d.cls} ${ATT_STATUS[d.st]}`).join(', '); }
 
@@ -11055,7 +11061,7 @@ function attMonthTableHtml(classes, ym, filter, showClass, grade){
   const days=[...Array(nDays)].map((_,i)=>`${ym}-${String(i+1).padStart(2,'0')}`);
   const today=todayYmd();
   const byDay=days.map(d=>attDayByStudent(d, classes));
-  const stus=attStudentsOf(classes).filter(s=>!grade || (s.grade||'')===grade);
+  const stus=attStudentsOf(classes, ym+'-01').filter(s=>!grade || (s.grade||'')===grade);
   const rows=[]; let any=false;
   stus.forEach(s=>{
     const tot={P:0,L:0,E:0,PA:0,A:0};
