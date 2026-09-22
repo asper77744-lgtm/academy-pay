@@ -10454,7 +10454,7 @@ function attRecord(date, classId){ return getAtt().records?.[date]?.[classId] ||
 function attStudentInClassOn(s, date){
   if(s.status!=='withdrawn') return true;
   if(!date) return false;
-  return !!s.withdrawDate && s.withdrawDate >= date;
+  return !!s.withdrawDate && s.withdrawDate > date;   // 퇴원일 당일부터 제외
 }
 function attClassStudents(c, date){
   return (c.studentIds||[]).map(getStudent).filter(s=>s && attStudentInClassOn(s, date)).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
