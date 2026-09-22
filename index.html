@@ -10453,8 +10453,8 @@ function attRecord(date, classId){ return getAtt().records?.[date]?.[classId] ||
 // 출석 대상 학생 — 퇴원생은 제외. date를 주면 그 날짜 이전에 퇴원한 학생만 제외(과거 기록 보존)
 function attStudentInClassOn(s, date){
   if(s.status!=='withdrawn') return true;
-  if(!date) return false;
-  return !!s.withdrawDate && s.withdrawDate > date;   // 퇴원일 당일부터 제외
+  if(!date || date >= todayYmd()) return false;       // 오늘·미래 날짜: 퇴원 상태면 무조건 제외 (퇴원일이 미래로 적혀 있어도)
+  return !!s.withdrawDate && s.withdrawDate > date;   // 과거 날짜: 퇴원일 전날까지만 포함
 }
 function attClassStudents(c, date){
   return (c.studentIds||[]).map(getStudent).filter(s=>s && attStudentInClassOn(s, date)).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
