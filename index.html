@@ -1556,6 +1556,23 @@ tbody tr:hover td{background:#f8f9ff}
                 </select>
               </div>
             </div>
+            <!-- 수신자 정책 -->
+            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px 16px;margin-bottom:14px">
+              <div style="font-size:13px;font-weight:700;color:#9a3412;margin-bottom:8px">👨‍👩‍👧 문자 수신자 — <span style="color:#c2410c">보호자 번호로만 발송</span></div>
+              <div style="font-size:11px;color:#9a3412;margin-bottom:10px">미납·수납완료·결석 등 모든 알림은 학생 카드의 <b>보호자 연락처</b>로만 나갑니다. 학생 본인 연락처로는 보내지 않습니다.</div>
+              <div class="frow">
+                <div class="ff" style="margin-bottom:0"><label>보호자가 여러 명이면</label>
+                  <select class="fs" id="cfg-sms-parent-mode" style="width:100%">
+                    <option value="first">첫 번째 보호자(대표)에게만</option>
+                    <option value="all">등록된 보호자 모두에게</option>
+                  </select></div>
+                <div class="ff" style="margin-bottom:0"><label>보호자 번호가 없는 학생은</label>
+                  <select class="fs" id="cfg-sms-no-parent" style="width:100%">
+                    <option value="skip">발송하지 않음 (권장)</option>
+                    <option value="student">학생 번호로 대신 발송</option>
+                  </select></div>
+              </div>
+            </div>
             <!-- 테스트 모드 -->
             <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin-bottom:14px">
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
@@ -1927,6 +1944,7 @@ tbody tr:hover td{background:#f8f9ff}
         <label>보호자 연락처</label>
         <div id="ms-parents-list"></div>
         <button type="button" class="btn btn-neutral btn-sm" onclick="addParentRow()" style="margin-top:6px">+ 보호자 추가</button>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">문자 알림은 <b>보호자 번호로만</b> 발송됩니다. 첫 번째 보호자가 대표 수신자입니다.</div>
       </div>
       <div class="ff"><label>학교명</label><input id="ms-school" placeholder="한빛중학교"/></div>
     </div>
@@ -8178,8 +8196,8 @@ async function notifyPaymentComplete(sid, month){
     const s = getStudent(sid);
     if(!s) return;
 
-    const phone = (s.phone||'').replace(/[^0-9]/g,'');
-    if(!/^0\d{8,10}$/.test(phone)) return;
+    const rcpts = smsRecipients(s);          // 보호자 번호만
+    if(!rcpts.length) return;
 
     // 해당 월이 완납 상태일 때만
     const paid = (currentAcademy.payments||[]).find(
@@ -8196,10 +8214,14 @@ async function notifyPaymentComplete(sid, month){
     };
     const body = applyVars(tpl.body||'', s, paidCtx);
     const kt   = findKakaoTplFor(tpl.id);
-    const ok   = kt ? await callKakaoApi(phone, kt, s, body)
-                    : await callCoolSmsApi(phone, body);
+    let ok=0;
+    for(const r of rcpts){
+      const sent = kt ? await callKakaoApi(r.phone, kt, s, body) : await callCoolSmsApi(r.phone, body);
+      if(sent) ok++;
+      if(rcpts.length>1) await new Promise(res=>setTimeout(res,350));
+    }
     if(ok){
-      logSms(1, kt?'알림톡':'SMS', `${s.name} — 수납 완료 자동 알림`, 'auto');
+      logSms(ok, kt?'알림톡':'SMS', `${s.name} ${rcpts.map(r=>r.who).join('/')} — 수납 완료 자동 알림`, 'auto');
       renderSmsLog();
     }
   }catch(e){
@@ -8877,7 +8899,12 @@ function updateSmsPreview(){
   }
   // receiver info
   const ri=document.getElementById('sms-receiver-preview');
-  if(ri)ri.textContent=`수신자: ${receivers.length}명 (${receivers.slice(0,3).map(s=>s.name).join(', ')}${receivers.length>3?' 외 '+(receivers.length-3)+'명':''})`;
+  if(ri){
+    const noP = receivers.filter(s=>!smsRecipients(s).length);
+    const pm  = (currentAcademy.sms?.parentMode==='all') ? '보호자 전원' : '대표 보호자';
+    ri.innerHTML = `수신자: <b>${receivers.length}명</b> → ${currentAcademy.sms?.testMode?'🧪 테스트 번호':pm+' 번호'} (${receivers.slice(0,3).map(s=>s.name).join(', ')}${receivers.length>3?' 외 '+(receivers.length-3)+'명':''})`
+      + (noP.length ? `<br><span style="color:var(--danger)">⚠ 보호자 번호 없어 제외: ${noP.slice(0,5).map(s=>s.name).join(', ')}${noP.length>5?' 외 '+(noP.length-5)+'명':''}</span>` : '');
+  }
   // SMS preview
   const ps=document.getElementById('sms-preview-sms');const pst=document.getElementById('sms-preview-sms-text');
   if(ps&&pst){ps.style.display=chSms?'':'none';pst.textContent=preview;}
@@ -9280,12 +9307,17 @@ async function sendToMany(list, makeBody, label){
     const s = list[i];
     if(prog) prog.textContent = `발송 중... ${i+1} / ${list.length}  (성공 ${ok}, 실패 ${fail})`;
 
-    const phone = (s.phone||'').replace(/[^0-9]/g,'');
-    if(!/^0\d{8,10}$/.test(phone)){ fail++; failed.push(`${s.name}(번호없음)`); continue; }
+    const rcpts = smsRecipients(s);          // 보호자 번호만 (테스트 모드면 테스트 번호)
+    if(!rcpts.length){ fail++; failed.push(`${s.name}(보호자 번호 없음)`); continue; }
 
     const body = makeBody(s);
-    const sent = await callCoolSmsApi(phone, body);
-    if(sent) ok++; else { fail++; failed.push(s.name); }
+    let any=false;
+    for(const r of rcpts){
+      const sent = await callCoolSmsApi(r.phone, body);
+      if(sent) any=true;
+      if(rcpts.length>1) await new Promise(res=>setTimeout(res,350));
+    }
+    if(any) ok++; else { fail++; failed.push(s.name); }
 
     if(i < list.length-1) await new Promise(r=>setTimeout(r, 350));
   }
@@ -9366,7 +9398,9 @@ function sendSmsTo(sid){
   const already= pay?.amount||0;
   const remain = charge - already;
   const sms    = currentAcademy.sms||{};
-  const toNum  = sms.testMode && sms.testTo ? sms.testTo : (s.phone||'');
+  const rcpts  = smsRecipients(s);
+  if(!rcpts.length){ showToast(`${s.name}: 보호자 번호가 없어 보낼 수 없습니다. 학생 카드에서 보호자 연락처를 등록하세요.`,'error'); return; }
+  const toNum  = rcpts.map(r=>r.phone).join(', ');
 
   _smsPendingActionBase = async (tplIdx)=>{
     const tpl  = (currentAcademy.smsTemplates||[])[tplIdx];
@@ -9377,13 +9411,16 @@ function sendSmsTo(sid){
     if(_smsCredReady){
       // 연결된 알림톡 템플릿이 있으면 알림톡 우선 (실패 시 서버가 문자로 대체)
       const kt = findKakaoTplFor(tpl?.id);
-      const ok = kt
-        ? await callKakaoApi(toNum, kt, s, body)
-        : await callCoolSmsApi(toNum, body);
-      if(ok){
-        logSms(1, kt?'알림톡':'SMS', `${s.name} — ${tpl?.name||'개별 알림'}`);
+      let okCnt=0;
+      for(const r of rcpts){
+        const ok = kt ? await callKakaoApi(r.phone, kt, s, body) : await callCoolSmsApi(r.phone, body);
+        if(ok) okCnt++;
+        if(rcpts.length>1) await new Promise(res=>setTimeout(res,350));
+      }
+      if(okCnt){
+        logSms(okCnt, kt?'알림톡':'SMS', `${s.name} ${rcpts.map(r=>r.who).join('/')} — ${tpl?.name||'개별 알림'}`);
         renderSmsLog();
-        showToast(`${s.name}(${toNum})에게 ${kt?'알림톡':'문자'} 발송 완료!`,'success');
+        showToast(`${s.name} ${rcpts.map(r=>r.label).join('·')}에게 ${kt?'알림톡':'문자'} 발송 완료!`,'success');
       }
     } else {
       // 설정 없으면 시뮬레이션
@@ -9396,11 +9433,33 @@ function sendSmsTo(sid){
 
   confirmSms(
     `📱 ${s.name} 학생 문자 발송`,
-    `수신: <strong>${toNum||'번호 없음'}</strong> &nbsp;|&nbsp; 잔액: <strong style="color:var(--danger)">${remain}만원</strong>`,
+    `수신: <strong>${smsRecipientSummary(s)}</strong> &nbsp;|&nbsp; 잔액: <strong style="color:var(--danger)">${remain}만원</strong>`,
     ()=>_smsPendingActionBase(0),
     s
   );
 }
+
+// ════════════════════════════════════════════════════════
+// 문자 수신자 결정 — 모든 발송 경로가 반드시 이 함수만 사용한다 (s.phone 직접 참조 금지)
+//   정책: 보호자 번호만. sms.parentMode = 'first'(대표 1명) | 'all'(전원)
+//         sms.noParent   = 'skip'(보호자 없으면 안 보냄) | 'student'(학생 번호로 대신)
+//   테스트 모드면 테스트 번호 1건으로 대체
+//   반환: [{phone, who:'보호자'|'학생'|'테스트', label}]   (빈 배열 = 보낼 곳 없음)
+// ════════════════════════════════════════════════════════
+function smsRecipients(s){
+  const sms=currentAcademy.sms||{};
+  const clean=v=>String(v||'').replace(/[^0-9]/g,'');
+  const valid=v=>/^0\d{8,10}$/.test(v);
+  if(sms.testMode){ const t=clean(sms.testTo); return valid(t)?[{phone:t, who:'테스트', label:`테스트(${s?.name||''})`}]:[]; }
+  const ps=(s?.parents&&s.parents.length)?s.parents:(s?.parent?[{phone:s.parent}]:[]);
+  let list=ps.map(p=>({phone:clean(p.phone), who:'보호자', label:(p.name||'보호자')})).filter(p=>valid(p.phone));
+  // 같은 번호 중복 제거
+  const seen=new Set(); list=list.filter(p=>{ if(seen.has(p.phone)) return false; seen.add(p.phone); return true; });
+  if((sms.parentMode||'first')==='first') list=list.slice(0,1);
+  if(!list.length && sms.noParent==='student'){ const t=clean(s?.phone); if(valid(t)) list=[{phone:t, who:'학생', label:'학생'}]; }
+  return list;
+}
+function smsRecipientSummary(s){ const r=smsRecipients(s); return r.length? r.map(x=>`${x.label} ${x.phone.replace(/(\d{3})(\d{3,4})(\d{4})/,'$1-$2-$3')}`).join(', ') : '보호자 번호 없음'; }
 
 // type: 'manual'(수동, 기본) | 'auto'(자동 — 수납완료 알림 등)
 function logSms(cnt, channel, preview, type){
@@ -9487,6 +9546,8 @@ function loadSettings(){
   if(testMode){
     testMode.classList.toggle('on',!!a.sms?.testMode);
     document.getElementById('sms-test-mode-input').style.display=a.sms?.testMode?'':'none';
+    const pm=document.getElementById('cfg-sms-parent-mode'); if(pm) pm.value=a.sms?.parentMode||'first';
+    const np=document.getElementById('cfg-sms-no-parent'); if(np) np.value=a.sms?.noParent||'skip';
   }
   if(document.getElementById('cfg-sms-test-to'))
     document.getElementById('cfg-sms-test-to').value=a.sms?.testTo||'';
@@ -9720,7 +9781,10 @@ function saveSmsSettings(){
   currentAcademy.sms={
     from,
     type:document.getElementById('cfg-sms-type')?.value||'sms',
-    on:!!on, testMode:!!testMode, testTo
+    on:!!on, testMode:!!testMode, testTo,
+    recipient:'parent',                                                     // 항상 보호자 (고정)
+    parentMode: document.getElementById('cfg-sms-parent-mode')?.value||'first',
+    noParent:   document.getElementById('cfg-sms-no-parent')?.value||'skip'
   };
   saveAcademy();updateSmsPreview();
 
@@ -10527,7 +10591,7 @@ function attEditorHtml(opts){
   const rows = stus.map(s=>{
     const st=_attEdit.marks[s.id]||'';
     const grade = s.grade||s.school||'';
-    const noParent = !attParentPhone(s);
+    const noParent = !smsRecipients(s).some(r=>r.who!=='학생');
     return `<div class="att-row${st?'':' unmarked'}" data-att-sid="${s.id}">
       <div class="nm">${s.name}<small>${grade}${noParent?' · <span style="color:#ef4444">보호자 번호 없음</span>':''}</small></div>
       <div class="att-btns">${Object.keys(ATT_STATUS).map(k=>`<button class="att-b${st===k?' on-'+k:''}" data-st="${k}" onclick="attMark('${s.id}','${k}')">${ATT_STATUS[k]}</button>`).join('')}</div>
@@ -10578,11 +10642,11 @@ async function attSendAbsentNow(){
   if(!confirm(`결석 ${absent.length}명의 보호자에게 문자를 보낼까요?\n\n${attSmsBody(tpl, absent[0], c, _attEdit.date)}`)) return;
   let ok=0, fail=0;
   for(const s of absent){
-    const phone = attParentPhone(s);
-    if(!/^0\d{8,10}$/.test(phone)){ fail++; continue; }
-    const sent = await callCoolSmsApi(phone, attSmsBody(tpl, s, c, _attEdit.date));
-    sent ? ok++ : fail++;
-    await new Promise(r=>setTimeout(r,350));
+    const rcpts = smsRecipients(s);
+    if(!rcpts.length){ fail++; continue; }
+    let any=false;
+    for(const r of rcpts){ if(await callCoolSmsApi(r.phone, attSmsBody(tpl, s, c, _attEdit.date))) any=true; await new Promise(res=>setTimeout(res,350)); }
+    any ? ok++ : fail++;
   }
   if(ok) { logSms(ok,'SMS',`결석 알림(${c.name}) — ${ok}명`); }
   showToast(`발송 ${ok}명${fail?`, 실패/번호없음 ${fail}명`:''}`, fail?'warning':'success');
