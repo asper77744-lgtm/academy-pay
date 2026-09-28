@@ -1689,6 +1689,7 @@ tbody tr:hover td{background:#f8f9ff}
             <select id="att-a-teacher" onchange="attAdminFillClasses();attAdminRender()" style="padding:8px;border:1px solid var(--border);border-radius:8px"><option value="">전체 선생님</option></select>
             <select id="att-a-class" onchange="attAdminRender()" style="padding:8px;border:1px solid var(--border);border-radius:8px;min-width:160px"></select>
             <input type="date" id="att-a-date" onchange="attAdminRender()" style="padding:8px;border:1px solid var(--border);border-radius:8px"/>
+            <button class="btn btn-neutral btn-sm" id="att-a-viewas" onclick="attOpenTeacherView()" title="선택한 선생님이 보는 출석 화면(출석·내 반·월별)을 그대로 봅니다">👁 선생님 화면 보기</button>
           </div>
           <div id="att-a-editor"></div>
         </div>
@@ -1744,7 +1745,11 @@ tbody tr:hover td{background:#f8f9ff}
   <div class="ta-top">
     <div class="sb-logo-mark">🎓</div>
     <div style="flex:1;min-width:0"><div class="ta-title" id="ta-title">출석</div><div class="ta-sub" id="ta-sub"></div></div>
-    <button class="sb-logout" onclick="logout()" title="로그아웃" style="background:rgba(255,255,255,.1);border:none;color:#fff;width:34px;height:34px;border-radius:8px;cursor:pointer">⏻</button>
+    <button class="sb-logout" onclick="_taViewAs?closeTeacherView():logout()" title="로그아웃" style="background:rgba(255,255,255,.1);border:none;color:#fff;width:34px;height:34px;border-radius:8px;cursor:pointer">⏻</button>
+  </div>
+  <div id="ta-viewas-bar" style="display:none;align-items:center;gap:10px;background:#fef3c7;color:#92400e;padding:8px 16px;font-size:13px;position:sticky;top:58px;z-index:49">
+    👁 관리자 보기 — <b></b>의 화면입니다. 여기서 저장하면 실제 출석에 반영됩니다.
+    <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="closeTeacherView()">← 관리자 페이지로</button>
   </div>
   <div class="ta-body">
     <!-- 출석 -->
@@ -1782,9 +1787,9 @@ tbody tr:hover td{background:#f8f9ff}
         <div class="pf"><span>이메일</span><span id="ta-me-email"></span></div>
         <div class="ff" style="margin-top:14px"><label>연락처</label><input id="ta-me-phone" placeholder="010-0000-0000" oninput="this.value=formatPhone(this.value)"/></div>
         <button class="btn btn-primary" style="width:100%;padding:12px" onclick="saveTeacherProfile()">저장</button>
-        <button class="btn btn-neutral" style="width:100%;padding:12px;margin-top:8px" onclick="openMyAccount()">🔒 비밀번호 변경 · 정보 수정</button>
+        <button class="btn btn-neutral" id="ta-me-account" style="width:100%;padding:12px;margin-top:8px" onclick="openMyAccount()">🔒 비밀번호 변경 · 정보 수정</button>
       </div>
-      <button class="btn btn-neutral" style="width:100%;padding:12px" onclick="logout()">로그아웃</button>
+      <button class="btn btn-neutral" style="width:100%;padding:12px" onclick="_taViewAs?closeTeacherView():logout()">로그아웃</button>
     </div>
   </div>
   <div class="ta-tabs">
@@ -3164,6 +3169,7 @@ function logout(){
   currentUser=null; currentAcademy=null; _isSuperAdmin=false;
   document.getElementById('app').style.display='none';
   document.getElementById('teacher-app').style.display='none';
+  _taViewAs=null; const vb=document.getElementById('ta-viewas-bar'); if(vb) vb.style.display='none';
   document.getElementById('superadmin-screen').style.display='none';
   // 로그아웃 직전 화면의 스크롤 위치·열린 모달이 남아 로그인 카드가 화면 밖으로 밀리는 문제 방지
   document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open'));
@@ -3284,6 +3290,7 @@ function startRealtimeSync(){
 
 function refreshAll(){
   if(currentUser?.role==='teacher'){ renderTeacherApp(); return; }
+  if(_taViewAs){ renderTeacherApp(); }
   refreshSmsCredState();
   const a=currentAcademy;
   updateDashboard();
@@ -10520,7 +10527,32 @@ function getAtt(){
   if(t.autoSms.times.join()==='17:00,19:00,23:00') t.autoSms.times=['17:00','21:00','23:00'];   // 2026-09-22 스케줄 변경 반영
   return t;
 }
-function myTeacherId(){ return currentUser?.role==='teacher' ? (currentUser.teacherId||null) : null; }
+// 관리자가 특정 선생님의 화면을 그대로 보는 모드 (_taViewAs = teacherId). 저장은 관리자 권한으로 정상 동작.
+let _taViewAs = null;
+function isTeacherView(){ return currentUser?.role==='teacher' || !!_taViewAs; }
+function myTeacherId(){ return currentUser?.role==='teacher' ? (currentUser.teacherId||null) : (_taViewAs||null); }
+function openTeacherView(teacherId){
+  const t=getTeacher(teacherId); if(!t){ showToast('선생님을 선택하세요.','error'); return; }
+  _taViewAs = teacherId;
+  _attEdit = { date:todayYmd(), classId:null, marks:{}, dirty:false };
+  document.getElementById('app').style.display='none';
+  document.getElementById('teacher-app').style.display='block';
+  document.getElementById('ta-date').value=_attEdit.date;
+  const bar=document.getElementById('ta-viewas-bar'); bar.style.display='flex';
+  bar.querySelector('b').textContent = t.name+' 선생님';
+  taTab('att');
+  window.scrollTo(0,0);
+}
+function closeTeacherView(){
+  if(_attEdit.dirty && !confirm('저장하지 않은 출석이 있습니다. 나갈까요?')) return;
+  _taViewAs=null;
+  document.getElementById('ta-viewas-bar').style.display='none';
+  document.getElementById('teacher-app').style.display='none';
+  document.getElementById('app').style.display='block';
+  _attEdit = { date:todayYmd(), classId:null, marks:{}, dirty:false };
+  nav('attendance');
+  window.scrollTo(0,0);
+}
 function getAttClass(id){ return getAtt().classes.find(c=>c.id===id); }
 function attClassesFor(teacherId){ return getAtt().classes.filter(c=>!teacherId || c.teacherId===teacherId); }
 function attRecord(date, classId){ return getAtt().records?.[date]?.[classId] || null; }
@@ -10636,7 +10668,7 @@ async function attSave(){
   }
 }
 function attRerender(){
-  if(currentUser?.role==='teacher') renderTeacherApp(); else attAdminRender();
+  if(isTeacherView()) renderTeacherApp(); else attAdminRender();
 }
 
 // ── 결석 문자 즉시 발송 (관리자 수동) ──
@@ -10676,7 +10708,7 @@ function attSmsBody(tpl, s, c, date){
 let _macStudentsCache = [];
 function openAttClassModal(id){
   const c = id ? getAttClass(id) : null;
-  const isTeacher = currentUser.role==='teacher';
+  const isTeacher = isTeacherView();
   document.getElementById('mac-title').textContent = c ? '📚 출석반 편집' : '📚 출석반 만들기';
   document.getElementById('mac-id').value = c?.id||'';
   document.getElementById('mac-name').value = c?.name||'';
@@ -10751,7 +10783,7 @@ async function saveAttClass(){
   macCount();
   const id = document.getElementById('mac-id').value;
   const name = document.getElementById('mac-name').value.trim();
-  const teacherId = currentUser.role==='teacher' ? myTeacherId() : document.getElementById('mac-teacher').value;
+  const teacherId = isTeacherView() ? myTeacherId() : document.getElementById('mac-teacher').value;
   if(!name){ showToast('반 이름을 입력하세요.','error'); return; }
   if(!teacherId){ showToast('담당 선생님을 선택하세요.','error'); return; }
   const days = [...document.querySelectorAll('#mac-days .att-daybtn.on')].map(e=>+e.dataset.d);
@@ -10794,9 +10826,10 @@ function taTab(t){
   renderTeacherApp();
 }
 function renderTeacherApp(){
-  if(!currentUser || currentUser.role!=='teacher') return;
+  if(!currentUser || !isTeacherView()) return;
   const t = getTeacher(myTeacherId());
-  document.getElementById('ta-sub').textContent = `${currentAcademy.name} · ${t?.name||currentUser.name} 선생님`;
+  document.getElementById('ta-sub').textContent = `${currentAcademy.name} · ${t?.name||currentUser.name} 선생님${_taViewAs?' (관리자 보기)':''}`;
+  const acctBtn=document.getElementById('ta-me-account'); if(acctBtn) acctBtn.style.display=_taViewAs?'none':'';
   // 출석 탭
   const tid = myTeacherId();
   const classes = attClassesFor(tid);
@@ -11044,6 +11077,13 @@ function attSmsBytes(){
   const b=(typeof smsByteLength==='function')?smsByteLength(v):v.length*2;
   document.getElementById('att-sms-bytes').textContent = `${b} byte · ${b>90?'LMS':'SMS'} (변수 치환 전 기준)`;
 }
+function attOpenTeacherView(){
+  let tid=document.getElementById('att-a-teacher').value;
+  if(!tid){ const c=getAttClass(document.getElementById('att-a-class').value); tid=c?.teacherId||''; }
+  if(!tid){ showToast('선생님을 먼저 선택하세요.','warning'); return; }
+  if(_attEdit.dirty && !confirm('저장하지 않은 출석이 있습니다. 이동할까요?')) return;
+  openTeacherView(tid);
+}
 function attAdminFillClasses(){
   const tid=document.getElementById('att-a-teacher').value;
   const cs=document.getElementById('att-a-class');
@@ -11069,7 +11109,7 @@ function attAdminRender(){
   // 반 목록
   document.getElementById('att-a-classes').innerHTML = getAtt().classes.length
     ? getAtt().classes.map(c=>`<tr><td><strong>${attLevelBadge(c)}${c.name}</strong></td><td>${getTeacher(c.teacherId)?.name||'<span style="color:var(--danger)">미배정</span>'}</td><td>${attDaysLabel(c)}</td><td>${c.start||'-'}</td><td>${attClassStudents(c).length}명</td>
-        <td><button class="btn btn-neutral btn-sm" onclick="openAttClassModal('${c.id}')">편집</button></td></tr>`).join('')
+        <td style="white-space:nowrap"><button class="btn btn-neutral btn-sm" onclick="openAttClassModal('${c.id}')">편집</button> ${c.teacherId?`<button class="btn btn-neutral btn-sm" onclick="openTeacherView('${c.teacherId}')" title="선생님 화면 보기">👁</button>`:''}</td></tr>`).join('')
     : `<tr><td colspan="6" class="empty-row"><p>출석반이 없습니다</p></td></tr>`;
   attAdminMonth();
   attGradeRender();
