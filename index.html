@@ -1718,8 +1718,11 @@ tbody tr:hover td{background:#f8f9ff}
             <div class="tog" id="att-sms-on" onclick="this.classList.toggle('on')"></div>
             <span>그날 <b>종합 결석</b>(들은 수업 전부 결석)인 학생의 <b>보호자</b>에게 자동으로 문자를 보냅니다</span>
           </div>
-          <div class="ff" style="max-width:360px"><label>발송 시각 <span style="color:var(--text3);font-weight:400">(쉼표로 구분, 서버 스케줄과 같아야 함)</span></label><input id="att-sms-times" placeholder="17:00, 21:00, 23:00"/></div>
-          <p style="font-size:12px;color:var(--text2);margin:-4px 0 12px">각 시각마다 "그때까지 결석으로 저장된 학생" 중 <b>아직 안 보낸 학생에게만</b> 보냅니다. 17시에 A·B·C, 19시에 A~E가 결석이면 19시엔 D·E에게만 갑니다. 발송 전에 출석으로 고치면 보내지 않습니다.</p>
+          <div class="ff"><label>발송 시각 <span style="color:var(--text3);font-weight:400">(정각 기준, 원하는 만큼 추가)</span></label>
+            <div id="att-sms-times-list" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center"></div>
+            <button class="btn btn-neutral btn-sm" onclick="attSmsTimeAdd()" style="margin-top:8px">+ 시간 추가</button>
+          </div>
+          <p style="font-size:12px;color:var(--text2);margin:-4px 0 12px">각 시각마다 "그때까지 결석으로 저장된 학생" 중 <b>아직 안 보낸 학생에게만</b> 보냅니다. 18시에 A·B·C, 21시에 A~E가 결석이면 21시엔 D·E에게만 갑니다. <b>마지막 시각 이후에 저장된 결석은 그날 보내지 않습니다</b>(다음 날로 넘어가지도 않음). 발송 전에 출석으로 고치면 보내지 않습니다.</p>
           <div class="ff"><label>문자 내용 <span style="color:var(--text3);font-weight:400">변수: {학원명} {이름} {반} {날짜} {선생님}</span></label>
             <textarea id="att-sms-tpl" rows="4" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-family:inherit"></textarea>
             <div id="att-sms-bytes" style="font-size:11px;color:var(--text3);margin-top:4px"></div>
@@ -10909,7 +10912,7 @@ function initAttendancePage(){
   // 자동 문자 설정
   const sms=getAtt().autoSms;
   document.getElementById('att-sms-on').classList.toggle('on', !!sms.on);
-  document.getElementById('att-sms-times').value = (sms.times||[]).join(', ');
+  attSmsTimesRender(sms.times||[]);
   const tn=document.getElementById('att-sms-testnote'); const sm=currentAcademy.sms||{};
   tn.innerHTML = sm.testMode ? `🧪 <b>테스트 모드</b>가 켜져 있어 실제 보호자 대신 <b>${sm.testTo||'(테스트 번호 미입력)'}</b>로 발송됩니다. (학원 설정 → 문자 발송에서 해제)` : `실제 보호자 번호로 발송됩니다. 테스트하려면 학원 설정 → 문자 발송에서 테스트 모드를 켜세요.`;
   const tpl=document.getElementById('att-sms-tpl'); tpl.value = sms.template || ATT_SMS_DEFAULT;
@@ -10917,6 +10920,22 @@ function initAttendancePage(){
   attAdminRender();
 }
 function attFold(id){ document.getElementById(id).classList.toggle('open'); }
+
+// ── 결석 문자 발송 시각 목록 (시간 단위, 추가/삭제) ──
+function attSmsTimesRender(times){
+  const box=document.getElementById('att-sms-times-list'); if(!box) return;
+  const opts=[...Array(24)].map((_,h)=>`${String(h).padStart(2,'0')}:00`);
+  box.innerHTML = times.length
+    ? times.map(t=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#f7f8fb;border:1px solid var(--border);border-radius:8px;padding:4px 6px">
+        <select style="padding:6px;border:1px solid var(--border);border-radius:6px;background:#fff">${opts.map(o=>`<option value="${o}"${o===t?' selected':''}>${o}</option>`).join('')}</select>
+        <button class="btn btn-neutral btn-sm" title="삭제" onclick="this.parentElement.remove()" style="padding:4px 8px;color:var(--danger)">🗑</button></span>`).join('')
+    : `<span style="font-size:12px;color:var(--text3)">발송 시각이 없습니다 — "+ 시간 추가"</span>`;
+}
+function attSmsTimeAdd(){
+  const cur=[...document.querySelectorAll('#att-sms-times-list select')].map(e=>e.value);
+  const next = cur.length ? `${String(Math.min(23, parseInt(cur[cur.length-1])+2)).padStart(2,'0')}:00` : '18:00';
+  attSmsTimesRender([...cur, next]);
+}
 
 // ── 결석 문자 현황 (오늘의 출석 카드 하단) ──
 //   서버(absent-sms)가 auto_sms_log 에 rule='absent', target_month=날짜 로 기록 → recent_auto_sms RPC로 읽는다
@@ -11160,8 +11179,8 @@ function attMonthTableHtml(classes, ym, filter, showClass, grade){
 async function saveAttSmsSettings(){
   const sms=getAtt().autoSms;
   sms.on = document.getElementById('att-sms-on').classList.contains('on');
-  sms.times = document.getElementById('att-sms-times').value.split(/[,\s]+/).map(x=>x.trim()).filter(x=>/^\d{1,2}:\d{2}$/.test(x)).map(x=>x.padStart(5,'0'));
-  if(!sms.times.length) sms.times=['17:00','21:00','23:00'];
+  sms.times = [...new Set([...document.querySelectorAll('#att-sms-times-list select')].map(e=>e.value))].sort();
+  if(sms.on && !sms.times.length){ showToast('발송 시각을 하나 이상 추가하세요.','error'); return; }
   sms.template = document.getElementById('att-sms-tpl').value.trim() || ATT_SMS_DEFAULT;
   if(sms.on && !_smsCredReady){ showToast('학원 설정에서 문자 발송(CoolSMS) 설정을 먼저 해주세요.','warning'); }
   const ok=await saveAcademy();
