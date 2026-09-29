@@ -8231,7 +8231,7 @@ async function notifyPaymentComplete(sid, month){
       if(rcpts.length>1) await new Promise(res=>setTimeout(res,350));
     }
     if(ok){
-      logSms(ok, kt?'알림톡':'SMS', `${s.name} ${rcpts.map(r=>r.who).join('/')} — 수납 완료 자동 알림`, 'auto');
+      logSms(ok, kt?'알림톡':'SMS', `${s.name} ${rcpts.map(r=>r.who+' '+smsFmtPhone(r.phone)).join(', ')} — 수납 완료 자동 알림`, 'auto');
       renderSmsLog();
     }
   }catch(e){
@@ -9428,7 +9428,7 @@ function sendSmsTo(sid){
         if(rcpts.length>1) await new Promise(res=>setTimeout(res,350));
       }
       if(okCnt){
-        logSms(okCnt, kt?'알림톡':'SMS', `${s.name} ${rcpts.map(r=>r.who).join('/')} — ${tpl?.name||'개별 알림'}`);
+        logSms(okCnt, kt?'알림톡':'SMS', `${s.name} ${rcpts.map(r=>r.who+' '+smsFmtPhone(r.phone)).join(', ')} — ${tpl?.name||'개별 알림'}`);
         renderSmsLog();
         showToast(`${s.name} ${rcpts.map(r=>r.label).join('·')}에게 ${kt?'알림톡':'문자'} 발송 완료!`,'success');
       }
@@ -9476,6 +9476,12 @@ function smsTestPrefix(s, r){
   const ph=(r?.phone||'').replace(/(\d{3})(\d{3,4})(\d{4})/,'$1-****-$3');
   return `[테스트] 실제 수신: ${s?.name||''} ${r?.who||''}${r?.label&&r.label!==r.who?'('+r.label+')':''} ${ph}\n`;
 }
+// 로그 표시용: "보호자 010-1234-5678" / 여러 명이면 "보호자 010-…, 보호자 010-…"
+function smsFmtPhone(p){ return String(p||'').replace(/(\d{3})(\d{3,4})(\d{4})/,'$1-$2-$3'); }
+function smsFmtTo(who, phone){
+  const ws=String(who||'').split('/'), ps=String(phone||'').split(',');
+  return ps.filter(Boolean).map((p,i)=>`${ws[i]||ws[0]||''} ${smsFmtPhone(p)}`).join(', ') || String(who||'');
+}
 function smsRecipientSummary(s){ const r=smsRecipients(s); const t=currentAcademy.sms?.testMode?' <span style="color:#1e40af">(🧪 테스트 모드 → '+(currentAcademy.sms.testTo||'번호 미입력')+'로 감)</span>':''; return (r.length? r.map(x=>`${x.label} ${x.phone.replace(/(\d{3})(\d{3,4})(\d{4})/,'$1-$2-$3')}`).join(', ') : '보호자 번호 없음')+t; }
 
 // type: 'manual'(수동, 기본) | 'auto'(자동 — 수납완료 알림 등)
@@ -9493,6 +9499,7 @@ const AUTO_RULE_LABEL = {
   'auto-sms2':'미납 3일 후 알림',
   'auto-sms3':'미납 7일 후 재알림',
   'auto-sms4':'수납 완료 알림',
+  'absent':'결석 알림',
 };
 let _autoSmsLog = [];
 async function loadAutoSmsLog(){
@@ -9506,7 +9513,8 @@ async function loadAutoSmsLog(){
       sentAt: r.sent_at,
       cnt: 1,
       channel: r.channel==='ATA' ? '알림톡' : (r.channel||'SMS'),
-      preview: `${nameOf(r.student_id)} — ${AUTO_RULE_LABEL[r.rule] || (String(r.rule).startsWith('over-') ? `미납 ${String(r.rule).slice(5)}일 후 알림` : r.rule)}`,
+      // 수신자 표기: 서버가 to_who/to_phone 을 기록했으면 "보호자 010-1234-5678", 없으면(구 로그) 표시 생략
+      preview: `${nameOf(r.student_id)}${r.to_who?' '+smsFmtTo(r.to_who, r.to_phone):''} — ${AUTO_RULE_LABEL[r.rule] || (String(r.rule).startsWith('over-') ? `미납 ${String(r.rule).slice(5)}일 후 알림` : r.rule)}`,
       status: r.ok===false ? '실패' : '성공',
       type: 'auto',
     }));
