@@ -1031,7 +1031,7 @@ tbody tr:hover td{background:#f8f9ff}
             <option value="date">입금일 기준</option>
           </select>
           <select class="fs" id="pay-f-month" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 기간</option></select>
-          <select class="fs" id="pay-f-status" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 상태</option><option value="paid">납부완료</option><option value="partial">부분납부</option><option value="pending">미납</option></select>
+          <select class="fs" id="pay-f-status" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 상태</option><option value="paid">납부완료</option><option value="partial">부분납부</option><option value="pending">미납</option><option value="cr-yes">🧾 현금영수증 발행</option><option value="cr-no">🧾 현금영수증 미발행 (현금·이체)</option></select>
           <select class="fs" id="pay-f-method" onchange="renderPayments()" style="font-size:13px;padding:8px 10px"><option value="">전체 방법</option><option>현금</option><option>계좌이체</option><option>카드</option></select>
           <input class="si" id="pay-q" placeholder="이름 / 전화번호 / 입금자명 검색..." oninput="renderPayments()" style="flex:1;font-size:14px"/>
         </div>
@@ -1800,6 +1800,31 @@ tbody tr:hover td{background:#f8f9ff}
   </div>
 </div>
 
+<!-- ══ 현금영수증 (수납 행에서 바로 기록) ══ -->
+<div class="modal-overlay" id="m-cash-receipt">
+  <div class="modal" style="max-width:440px">
+    <h2>🧾 현금영수증</h2>
+    <input type="hidden" id="cr-pid"/>
+    <div id="cr-head" style="font-size:13px;color:var(--text2);margin-bottom:12px"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:10px"><input type="checkbox" id="cr-on" onchange="document.getElementById('cr-fields').style.display=this.checked?'':'none'" style="width:17px;height:17px"/> 발행함</label>
+    <div id="cr-fields">
+      <div class="frow">
+        <div class="ff"><label>승인번호</label><input id="cr-no" placeholder="예) 123456789"/></div>
+        <div class="ff"><label>발행 식별번호</label><input id="cr-id" placeholder="휴대폰 또는 사업자번호"/></div>
+      </div>
+      <div class="frow">
+        <div class="ff"><label>발행일</label><input id="cr-date" type="date"/></div>
+        <div class="ff"><label>구분</label><select id="cr-type"><option value="소득공제">소득공제용</option><option value="지출증빙">지출증빙용</option></select></div>
+      </div>
+      <div class="ff"><label>메모</label><input id="cr-memo" placeholder="예) 홈택스 수기 발행"/></div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-neutral" onclick="closeModal('m-cash-receipt')">취소</button>
+      <button class="btn btn-primary" onclick="saveCashReceipt()">저장</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ 내 정보 / 비밀번호 변경 (모든 역할 공용) ══ -->
 <div class="modal-overlay" id="m-my-account">
   <div class="modal" style="max-width:440px">
@@ -2319,6 +2344,23 @@ tbody tr:hover td{background:#f8f9ff}
     <div class="frow">
       <div class="ff"><label>납부일 *</label><input id="qp-date" type="date"/></div>
       <div class="ff"></div>
+    </div>
+
+    <!-- 현금영수증 (현금·계좌이체일 때만) -->
+    <div id="qp-cr-section" style="display:none;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;padding:12px 14px;margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#5b21b6;cursor:pointer;margin-bottom:8px">
+        <input type="checkbox" id="qp-cr-on" onchange="document.getElementById('qp-cr-fields').style.display=this.checked?'':'none'" style="width:16px;height:16px"/> 🧾 현금영수증 발행함
+      </label>
+      <div id="qp-cr-fields" style="display:none">
+        <div class="frow">
+          <div class="ff" style="margin-bottom:6px"><label style="color:#5b21b6">승인번호</label><input id="qp-cr-no" placeholder="예) 123456789" style="width:100%;padding:8px 10px;border:1.5px solid #ddd6fe;border-radius:8px;font-size:13px;font-family:inherit;outline:none"/></div>
+          <div class="ff" style="margin-bottom:6px"><label style="color:#5b21b6">발행 식별번호 <span style="font-weight:400;color:var(--text3)">(휴대폰/사업자)</span></label><input id="qp-cr-id" placeholder="010-0000-0000" style="width:100%;padding:8px 10px;border:1.5px solid #ddd6fe;border-radius:8px;font-size:13px;font-family:inherit;outline:none"/></div>
+        </div>
+        <div class="frow">
+          <div class="ff" style="margin-bottom:0"><label style="color:#5b21b6">발행일</label><input id="qp-cr-date" type="date" style="width:100%;padding:8px 10px;border:1.5px solid #ddd6fe;border-radius:8px;font-size:13px;font-family:inherit;outline:none"/></div>
+          <div class="ff" style="margin-bottom:0"><label style="color:#5b21b6">구분</label><select id="qp-cr-type" style="width:100%;padding:8px 10px;border:1.5px solid #ddd6fe;border-radius:8px;font-size:13px;font-family:inherit;background:#fff"><option value="소득공제">소득공제용</option><option value="지출증빙">지출증빙용</option></select></div>
+        </div>
+      </div>
     </div>
 
     <!-- 메모 (여러 줄 · 자동 확장) -->
@@ -6498,6 +6540,8 @@ function renderPayments(){
   // 상태 필터 — '미납'을 고르면 부분납부(잔액이 남은 건)도 함께 본다.
   // 원장님 입장에서 "아직 덜 받은 건"이 곧 미납이기 때문.
   const matchStatus=p=>{
+    if(status==='cr-yes') return !!p.cashReceipt?.issued;
+    if(status==='cr-no')  return !p.cashReceipt?.issued && (p.method==='현금'||p.method==='계좌이체') && (p.amount||0)>0;
     if(!status) return true;
     if(status==='pending') return p.status==='pending' || p.status==='partial';
     return p.status===status;
@@ -6599,7 +6643,7 @@ function renderPayments(){
         <td style="color:var(--text3)">-</td>
         <td><strong style="color:#3b82f6">${fmt(p.amount)}만원</strong></td>
         <td style="color:var(--text3)">-</td>
-        <td>${ml}</td>
+        <td>${ml}${crBadge(p)}</td>
         <td style="color:var(--text2);font-size:12px">${p.date}</td>
         <td><span class="badge ${sb[p.status]}">${sl[p.status]}</span></td>
         <td style="white-space:nowrap">
@@ -6622,7 +6666,7 @@ function renderPayments(){
       <td>${p.charge}만원</td>
       <td><strong>${p.amount}만원</strong></td>
       <td style="color:${remain>0?'var(--danger)':'var(--text3)'}">${remain>0?remain+'만원':'-'}</td>
-      <td>${methodLabel}${prepaidBadge}</td>
+      <td>${methodLabel}${prepaidBadge}${crBadge(p)}</td>
       <td style="color:var(--text2);font-size:12px">
         ${p.date}
         ${(p.history&&p.history.length>1)?`<br><span style="font-size:10px;color:var(--text3)" data-tip="${p.history.map(h=>`${h.date} ${h.amount}만`).join(' / ')}">🧾 ${p.history.length}회 분납</span>`:''}
@@ -6953,6 +6997,7 @@ function editPayment(id){
         document.getElementById('qp-date').value = p.date||now().toISOString().slice(0,10);
         document.getElementById('qp-note').value = p.note||'';
         autoGrow(document.getElementById('qp-note'));
+        qpFillCashReceipt(p.cashReceipt);
 
         // 버튼 강제 활성화
         const btn = document.getElementById('qp-confirm-btn');
@@ -7481,6 +7526,7 @@ function openQuickPayModal(sid, month, unpaidAmt, preferUnpaid){
   document.getElementById('qp-student-name').textContent = s.name;
   document.getElementById('qp-date').value               = now().toISOString().slice(0,10);
   document.getElementById('qp-note').value               = '';
+  qpFillCashReceipt(null);
   autoGrow(document.getElementById('qp-note'));
   document.getElementById('qp-depositor').value          = '';
   document.getElementById('qp-depositor-search').value   = '';
@@ -7732,6 +7778,8 @@ function selectPayMethod(btn){
   const isBank  = _qpSelectedMethod === '계좌이체';
   document.getElementById('qp-local-pay-section').style.display = isLocal ? '' : 'none';
   document.getElementById('qp-bank-section').style.display      = isBank  ? '' : 'none';
+  // 현금영수증 칸은 현금·계좌이체일 때만
+  const crSec=document.getElementById('qp-cr-section'); if(crSec) crSec.style.display = (isBank||_qpSelectedMethod==='현금') ? '' : 'none';
   if(isLocal){
     const sid = document.getElementById('qp-student-id').value;
     showDepositorHistory(sid);
@@ -8123,6 +8171,7 @@ async function confirmQuickPay(){
       method: _qpSelectedMethod,
       note: (note+(isPrepay?' [선납]':'')).trim(),
       status, depositor: depositor||'', prepaid: isPrepay,
+      cashReceipt: qpReadCashReceipt(existing?.cashReceipt),
     };
 
     // 이번 입금 건 (수정 모드에서는 이력을 새로 쓴다)
@@ -11233,6 +11282,57 @@ async function saveAttSmsSettings(){
   if(sms.on && !_smsCredReady){ showToast('학원 설정에서 문자 발송(CoolSMS) 설정을 먼저 해주세요.','warning'); }
   const ok=await saveAcademy();
   if(ok!==false){ showToast('결석 문자 설정이 저장되었습니다.','success'); attAdminRender(); }
+}
+
+// ════════ 현금영수증 ════════
+//   payment.cashReceipt = { issued:true, no, idNo, date, type:'소득공제'|'지출증빙', memo }
+//   현금·계좌이체 수납에만 의미가 있다. 카드는 카드사 영수증이 있으므로 칸을 보이지 않는다.
+function qpReadCashReceipt(prev){
+  const on=document.getElementById('qp-cr-on');
+  if(!on || document.getElementById('qp-cr-section').style.display==='none') return prev||null;
+  if(!on.checked) return null;
+  return { issued:true, no:document.getElementById('qp-cr-no').value.trim(), idNo:document.getElementById('qp-cr-id').value.trim(),
+           date:document.getElementById('qp-cr-date').value||document.getElementById('qp-date').value||todayYmd(),
+           type:document.getElementById('qp-cr-type').value, memo:prev?.memo||'' };
+}
+function qpFillCashReceipt(cr){
+  const on=document.getElementById('qp-cr-on'); if(!on) return;
+  on.checked=!!cr?.issued;
+  document.getElementById('qp-cr-fields').style.display=on.checked?'':'none';
+  document.getElementById('qp-cr-no').value=cr?.no||'';
+  document.getElementById('qp-cr-id').value=cr?.idNo||'';
+  document.getElementById('qp-cr-date').value=cr?.date||'';
+  document.getElementById('qp-cr-type').value=cr?.type||'소득공제';
+}
+function crBadge(p){
+  const need=(p.method==='현금'||p.method==='계좌이체') && (p.amount||0)>0;
+  if(p.cashReceipt?.issued) return ` <span class="badge" style="background:#ede9fe;color:#5b21b6;cursor:pointer" data-tip="현금영수증 ${p.cashReceipt.no?'승인 '+p.cashReceipt.no:''} ${p.cashReceipt.date||''}" onclick="event.stopPropagation();openCashReceipt('${p.id}')">🧾 발행</span>`;
+  if(need) return ` <span class="badge" style="background:#fff7ed;color:#c2410c;cursor:pointer;opacity:.8" data-tip="현금영수증 미발행 — 클릭해서 기록" onclick="event.stopPropagation();openCashReceipt('${p.id}')">🧾 미발행</span>`;
+  return '';
+}
+function openCashReceipt(pid){
+  const p=currentAcademy.payments.find(x=>x.id===pid); if(!p) return;
+  const s=getStudent(p.studentId); const cr=p.cashReceipt||{};
+  document.getElementById('cr-pid').value=pid;
+  document.getElementById('cr-head').innerHTML=`<b>${s?.name||'-'}</b> · ${p.month} · ${p.method||''} ${fmt(p.amount)}만원 · 납부일 ${p.date||''}`;
+  const on=document.getElementById('cr-on'); on.checked=!!cr.issued;
+  document.getElementById('cr-fields').style.display=on.checked?'':'none';
+  document.getElementById('cr-no').value=cr.no||'';
+  document.getElementById('cr-id').value=cr.idNo||'';
+  document.getElementById('cr-date').value=cr.date||p.date||todayYmd();
+  document.getElementById('cr-type').value=cr.type||'소득공제';
+  document.getElementById('cr-memo').value=cr.memo||'';
+  openModal('m-cash-receipt');
+}
+async function saveCashReceipt(){
+  const pid=document.getElementById('cr-pid').value;
+  const p=currentAcademy.payments.find(x=>x.id===pid); if(!p) return;
+  if(document.getElementById('cr-on').checked){
+    p.cashReceipt={ issued:true, no:document.getElementById('cr-no').value.trim(), idNo:document.getElementById('cr-id').value.trim(),
+      date:document.getElementById('cr-date').value||p.date||todayYmd(), type:document.getElementById('cr-type').value, memo:document.getElementById('cr-memo').value.trim() };
+  } else p.cashReceipt=null;
+  const ok=await saveAcademy();
+  if(ok!==false){ closeModal('m-cash-receipt'); showToast('현금영수증 정보가 저장되었습니다.','success'); refreshAll(); }
 }
 
 // ════════ 내 정보 / 비밀번호 변경 (관리자·부운영자·선생님 공용) ════════
