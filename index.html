@@ -3491,7 +3491,7 @@ function _gpTargetGrades(){
 }
 
 function _gpTableCss(){
-  return `
+  return `td.memo{font-size:10px;letter-spacing:-.2px;white-space:nowrap}
   .gp-sheet{margin-bottom:22px}
   .gp-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:6px}
   .gp-title{font-size:15px}
@@ -3553,7 +3553,7 @@ function _gpBuildGradeTable(grade, monthYm, includeSum){
       ${subjTds}
       <td class="num">${disc?('-'+_gpWon(disc)):''}</td>
       <td class="num tot">${_gpWon(tot)}</td>
-      <td></td><td>${monthLabel}</td><td></td>
+      <td></td><td>${monthLabel}</td><td class="memo">${s.cashReceiptId?`🧾 ${s.cashReceiptId}${s.cashReceiptType==='지출증빙'?' (증빙)':''}`:''}</td>
     </tr>`;
   }).join('');
 
