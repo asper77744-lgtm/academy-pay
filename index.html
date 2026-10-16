@@ -2305,7 +2305,9 @@ tbody tr:hover td{background:#f8f9ff}
 
     <!-- 납부 금액 -->
     <div class="frow">
-      <div class="ff"><label>청구금액 (만원)</label><input id="qp-charge-disp" type="number" readonly style="background:var(--surface2);color:var(--text2)"/></div>
+      <div class="ff"><label>청구금액 (만원) <button type="button" class="btn btn-neutral btn-sm" id="qp-charge-reset" onclick="qpChargeToCurrent()" style="display:none;margin-left:6px;padding:2px 8px;font-size:11px;vertical-align:middle" title="학생 카드의 현재 수강료로 맞춥니다">현재 수강료로</button></label>
+        <input id="qp-charge-disp" type="number" readonly oninput="qpChargeEdited()" style="background:var(--surface2);color:var(--text2)"/>
+        <div id="qp-charge-hint" style="display:none;font-size:11px;color:#c2410c;margin-top:4px"></div></div>
       <div class="ff"><label id="qp-amount-label">납부금액 (만원) *</label><input id="qp-amount" type="number" placeholder="0" oninput="qpCalcRemain()"/></div>
     </div>
     <div style="font-size:12px;text-align:right;margin-bottom:12px" id="qp-remain-info">잔액: -</div>
@@ -6986,8 +6988,10 @@ function editPayment(id){
         // 금액
         const chargeVal = p.charge||calcTotalFee(s);
         document.getElementById('qp-charge').value      = chargeVal;
-        document.getElementById('qp-charge-disp').value = chargeVal;
+        const cd=document.getElementById('qp-charge-disp');
+        cd.value = chargeVal; cd.readOnly=false; cd.style.background='#fff'; cd.style.color='var(--text)';
         document.getElementById('qp-amount').value      = p.amount||0;
+        qpChargeEdited();
         qpCalcRemain();
 
         // 납부 방법
@@ -7541,6 +7545,8 @@ function openQuickPayModal(sid, month, unpaidAmt, preferUnpaid){
   const s = getStudent(sid); if(!s) return;
 
   document.getElementById('qp-student-id').value        = sid;
+  { const cd=document.getElementById('qp-charge-disp'); cd.readOnly=true; cd.style.background='var(--surface2)'; cd.style.color='var(--text2)';
+    document.getElementById('qp-charge-reset').style.display='none'; document.getElementById('qp-charge-hint').style.display='none'; }
   document.getElementById('qp-student-name').textContent = s.name;
   document.getElementById('qp-date').value               = now().toISOString().slice(0,10);
   document.getElementById('qp-note').value               = '';
@@ -11317,6 +11323,26 @@ function qpReadCashReceipt(prev){
   return { issued:true, no:document.getElementById('qp-cr-no').value.trim(), idNo:document.getElementById('qp-cr-id').value.trim(),
            date:document.getElementById('qp-cr-date').value||document.getElementById('qp-date').value||todayYmd(),
            type:document.getElementById('qp-cr-type').value, memo:prev?.memo||'' };
+}
+// 편집 모드에서 청구액을 손으로 고칠 수 있게 한다. 학생 카드의 현재 수강료와 다르면 안내 + 맞춤 버튼.
+function qpChargeEdited(){
+  const s=getStudent(document.getElementById('qp-student-id').value); if(!s) return;
+  const cur=calcTotalFee(s), v=parseFloat(document.getElementById('qp-charge-disp').value)||0;
+  document.getElementById('qp-charge').value=v;
+  const hint=document.getElementById('qp-charge-hint'), btn=document.getElementById('qp-charge-reset');
+  const diff = v!==cur;
+  hint.style.display=diff?'':'none'; btn.style.display=diff?'':'none';
+  if(diff) hint.textContent=`이 기록의 청구액(${fmt(v)}만원)이 학생 카드의 현재 수강료(${fmt(cur)}만원)와 다릅니다. 수강 과목이 바뀐 경우 "현재 수강료로"를 누르세요.`;
+  if(typeof qpCalcRemain==='function') qpCalcRemain();
+}
+function qpChargeToCurrent(){
+  const s=getStudent(document.getElementById('qp-student-id').value); if(!s) return;
+  const cur=calcTotalFee(s);
+  const amtEl=document.getElementById('qp-amount');
+  const wasFull = (parseFloat(amtEl.value)||0) === (parseFloat(document.getElementById('qp-charge-disp').value)||0);
+  document.getElementById('qp-charge-disp').value=cur;
+  if(wasFull) amtEl.value=cur;     // 전액 납부 상태였으면 납부금액도 새 청구액으로
+  qpChargeEdited();
 }
 // 체크하면 학생 카드에 저장된 현금영수증 번호·구분, 납부일을 자동으로 채운다 (빈 칸만)
 function msCrUseParent(){
