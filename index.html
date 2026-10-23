@@ -464,6 +464,26 @@ tbody tr:hover td{background:#f8f9ff}
 .att-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;-webkit-overflow-scrolling:touch}
 .att-chip{flex:0 0 auto;padding:8px 14px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:13px;cursor:pointer;white-space:nowrap}
 .att-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sms-tabs{display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:16px}
+.sms-tab{padding:10px 18px;font-size:14px;font-weight:600;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.sms-tab:hover{color:var(--text)}
+.sms-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.sms-tab-cnt{font-size:11px;background:#eef1fd;color:var(--accent);border-radius:10px;padding:1px 7px;margin-left:4px}
+.sms-pane{display:none}.sms-pane.active{display:block}
+.sms-day{border-top:1px solid var(--border)}
+.sms-day-head{display:flex;align-items:center;gap:10px;padding:10px 20px;background:#f7f8fb;cursor:pointer;user-select:none;font-size:13px}
+.sms-day-head b{font-size:14px}
+.sms-day-head .tog-ico{color:var(--text3);transition:transform .15s}
+.sms-day.open .sms-day-head .tog-ico{transform:rotate(90deg)}
+.sms-day-body{display:none}.sms-day.open .sms-day-body{display:block}
+.sms-grp{padding:6px 20px 10px}
+.sms-grp-head{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;padding:6px 0 4px}
+.sms-grp-head .pill{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px}
+.sms-row{display:grid;grid-template-columns:62px 1fr auto;gap:10px;align-items:center;padding:5px 0 5px 8px;font-size:13px;border-left:2px solid var(--border)}
+.sms-row .t{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace}
+.sms-row .who{color:var(--text2);font-size:12px}
+.sms-row.fail{border-left-color:var(--danger)}
+@media(max-width:768px){ .sms-tab{padding:9px 10px;font-size:13px} .sms-row{grid-template-columns:52px 1fr auto} }
 .att-chip .cnt{opacity:.6;font-size:11px;margin-left:4px}
 /* 학교급 색 — 초:초록 / 중:주황 / 고:파랑 */
 .lv-e{--lv:#10b981;--lvbg:#e6f7f1}.lv-m{--lv:#f59e0b;--lvbg:#fdf1dc}.lv-h{--lv:#3b82f6;--lvbg:#e5efff}.lv-x{--lv:#94a3b8;--lvbg:#f1f5f9}
@@ -1355,7 +1375,14 @@ tbody tr:hover td{background:#f8f9ff}
         </div>
       </div></div>
 
-      <div style="display:grid;grid-template-columns:1.1fr 0.9fr;gap:16px;align-items:start">
+      <!-- 탭 -->
+      <div class="sms-tabs" id="sms-tabs">
+        <div class="sms-tab active" data-tab="compose" onclick="smsTab('compose')">✏️ 메시지 작성</div>
+        <div class="sms-tab" data-tab="rules" onclick="smsTab('rules')">⚡ 자동 발송 규칙</div>
+        <div class="sms-tab" data-tab="log" onclick="smsTab('log')">📋 발송 내역 <span class="sms-tab-cnt" id="sms-tab-log-cnt"></span></div>
+      </div>
+
+      <div class="sms-pane active" id="sms-pane-compose">
         <!-- 작성 패널 -->
         <div class="card"><div class="card-head">
           <h3>✏️ 메시지 작성</h3>
@@ -1471,9 +1498,9 @@ tbody tr:hover td{background:#f8f9ff}
             <button class="btn btn-neutral" onclick="saveSmsTemplate()">💾 저장</button>
           </div>
         </div></div>
+      </div>
 
-        <!-- 우측: 발송내역 + 자동발송 -->
-        <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="sms-pane" id="sms-pane-rules">
           <div class="card"><div class="card-head"><h3>⚡ 자동 발송 규칙</h3><span style="font-size:11px;color:var(--text2)">토글 클릭 시 자동 저장</span></div><div class="card-body" style="padding:0 16px 8px">
             <!-- 수납일 전날 -->
             <div class="setting-row" style="flex-wrap:wrap;gap:6px;padding:10px 0">
@@ -1505,16 +1532,21 @@ tbody tr:hover td{background:#f8f9ff}
                 ⚠️ 템플릿을 선택하지 않으면 토글이 켜져 있어도 발송되지 않습니다. · 규칙 변경은 즉시 저장됩니다.
               </div>
           </div></div>
+      </div>
 
-          <div class="card"><div class="card-head"><h3>📋 발송 내역</h3></div>
-            <div style="padding:0;max-height:400px;overflow-y:auto"><table><thead><tr>
-              <th style="position:sticky;top:0;background:var(--surface);z-index:1">일시</th>
-              <th style="position:sticky;top:0;background:var(--surface);z-index:1">채널</th>
-              <th style="position:sticky;top:0;background:var(--surface);z-index:1">구분</th>
-              <th style="position:sticky;top:0;background:var(--surface);z-index:1">수신자</th>
-              <th style="position:sticky;top:0;background:var(--surface);z-index:1">상태</th>
-            </tr></thead><tbody id="sms-log-tbody"></tbody></table></div>
+      <div class="sms-pane" id="sms-pane-log">
+        <div class="card">
+          <div class="card-head" style="flex-wrap:wrap;gap:10px">
+            <h3>📋 발송 내역</h3>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-left:auto">
+              <div class="att-chips" id="sms-log-range" style="margin:0;padding:0"></div>
+              <input id="sms-log-q" placeholder="이름·번호 검색" oninput="renderSmsLog()" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;width:150px"/>
+              <button class="btn btn-neutral btn-sm" onclick="loadAutoSmsLog()">↻</button>
+            </div>
           </div>
+          <div style="padding:10px 20px 0;display:flex;gap:6px;flex-wrap:wrap" class="att-chips" id="sms-log-cat"></div>
+          <div id="sms-log-summary" style="padding:8px 20px 0;font-size:12px;color:var(--text2)"></div>
+          <div id="sms-log-body" style="padding:8px 0 4px"></div>
         </div>
       </div>
     </div>
@@ -9589,34 +9621,90 @@ async function loadAutoSmsLog(){
       // 수신자 표기: 서버가 to_who/to_phone 을 기록했으면 "보호자 010-1234-5678", 없으면(구 로그) 표시 생략
       preview: `${nameOf(r.student_id)}${r.to_who?' '+smsFmtTo(r.to_who, r.to_phone):''} — ${AUTO_RULE_LABEL[r.rule] || (String(r.rule).startsWith('over-') ? `미납 ${String(r.rule).slice(5)}일 후 알림` : r.rule)}`,
       status: r.ok===false ? '실패' : '성공',
-      type: 'auto',
+      type: 'auto', rule: r.rule,
     }));
     renderSmsLog();
   }catch(e){ console.error('자동발송 내역 조회 실패:', e); }
 }
 
+function smsTab(t){
+  document.querySelectorAll('#sms-tabs .sms-tab').forEach(e=>e.classList.toggle('active', e.dataset.tab===t));
+  document.querySelectorAll('.sms-pane').forEach(e=>e.classList.toggle('active', e.id==='sms-pane-'+t));
+  if(t==='log') renderSmsLog();
+}
+
+// ── 발송 내역: 날짜별 접기 + 종류별 묶음 + 기간/종류/검색 필터 ──
+//   종류(cat): absent 결석 / paid 수납완료 / unpaid 미납·수납일 / manual 수동(직접·전체·개별) / other
+const SMS_CAT = {
+  absent:{ label:'결석 알림',   bg:'#fdecec', fg:'#b91c1c' },
+  paid:  { label:'수납 완료',   bg:'#e6f7f1', fg:'#0b7a4f' },
+  unpaid:{ label:'미납·수납일', bg:'#fdf1dc', fg:'#b45309' },
+  manual:{ label:'수동 발송',   bg:'#eef2f7', fg:'#475569' },
+  other: { label:'기타',        bg:'#f1f5f9', fg:'#64748b' },
+};
+function smsCatOf(l){
+  const p=(l.preview||'');
+  if(l.rule==='absent' || /결석/.test(p)) return 'absent';
+  if(l.rule==='auto-sms4' || /수납 완료/.test(p)) return 'paid';
+  if(l.type==='auto' || /자동/.test(p) || /미납|수납일/.test(p) && l.type!=='manual') return 'unpaid';
+  if(l.type==='manual' || !l.type) return 'manual';
+  return 'other';
+}
+let _smsLogRange='7', _smsLogCat='';
+function smsLogRange(r){ _smsLogRange=r; renderSmsLog(); }
+function smsLogCat(c){ _smsLogCat=c; renderSmsLog(); }
+function smsLogToggleDay(id){ document.getElementById(id)?.classList.toggle('open'); }
+
 function renderSmsLog(){
   if(typeof renderSmsStats==='function') renderSmsStats();
-  const el=document.getElementById('sms-log-tbody');if(!el)return;
-  // 앱 발송(수동·수납완료)과 서버 자동발송(미납 알림 등)을 합쳐 시간순으로 보여준다
-  const tsOf = (x)=>{ const t = Date.parse(x.sentAt || ''); return isNaN(t) ? 0 : t; };
-  const log = [ ...(currentAcademy.smsLog||[]), ...(_autoSmsLog||[]) ]
-    .sort((a,b)=> tsOf(b) - tsOf(a));
-  el.innerHTML=log.length?log.map(l=>{
-    // 옛 기록엔 type이 없으니 문구로 추정 (‘자동’ 포함 시 자동)
-    const isAuto = l.type ? l.type==='auto' : /자동/.test(l.preview||'');
-    const typeBadge = isAuto
-      ? `<span style="background:#ede9fe;color:#6d28d9;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">🤖 자동</span>`
-      : `<span style="background:#eef2f7;color:#475569;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap">✋ 수동</span>`;
-    const isKakao = (l.channel||'').includes('카카오')||(l.channel||'').includes('알림톡');
-    return `<tr>
-      <td style="font-size:11px;color:var(--text2);white-space:nowrap">${l.date}</td>
-      <td><span class="badge ${isKakao?'b-warning':'b-info'}">${l.channel||'SMS'}</span></td>
-      <td>${typeBadge}</td>
-      <td>${l.cnt}명<br><span style="font-size:11px;color:var(--text3)">${l.preview}</span></td>
-      <td><span class="badge b-success">${l.status}</span></td>
-    </tr>`;
-  }).join(''):`<tr><td colspan="5" class="empty-row"><div class="ei">📭</div><p>발송 내역 없음</p></td></tr>`;
+  const body=document.getElementById('sms-log-body'); if(!body) return;
+  const tsOf=x=>{ const t=Date.parse(x.sentAt||''); return isNaN(t)?0:t; };
+  const dayOf=x=>{ const t=tsOf(x); return t? new Date(t).toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'}) : (x.date||'').slice(0,10); };
+  const all=[...(currentAcademy.smsLog||[]), ...(_autoSmsLog||[])].map(l=>({...l, _cat:smsCatOf(l), _day:dayOf(l), _ts:tsOf(l)}));
+
+  // 기간 칩
+  const today=todayYmd();
+  const ago=n=>{ const d=new Date(today+'T00:00:00'); d.setDate(d.getDate()-n); return d.toLocaleDateString('sv-SE'); };
+  const ranges=[['today','오늘'],['7','7일'],['30','30일'],['all','전체']];
+  const minDay = _smsLogRange==='today'?today : _smsLogRange==='all'?'' : ago(parseInt(_smsLogRange)-1);
+  document.getElementById('sms-log-range').innerHTML = ranges.map(([k,l])=>`<div class="att-chip${_smsLogRange===k?' active':''}" style="padding:5px 11px;font-size:12px" onclick="smsLogRange('${k}')">${l}</div>`).join('');
+
+  const q=(document.getElementById('sms-log-q')?.value||'').trim().replace(/-/g,'');
+  const inRange=all.filter(l=>!minDay || l._day>=minDay);
+  // 종류 칩 (기간 내 건수)
+  const catCnt={}; inRange.forEach(l=>{ catCnt[l._cat]=(catCnt[l._cat]||0)+(Number(l.cnt)||1); });
+  document.getElementById('sms-log-cat').innerHTML =
+    `<div class="att-chip${!_smsLogCat?' active':''}" style="padding:5px 11px;font-size:12px" onclick="smsLogCat('')">전체 <span style="opacity:.6">${inRange.reduce((a,l)=>a+(Number(l.cnt)||1),0)}</span></div>` +
+    Object.entries(SMS_CAT).filter(([k])=>catCnt[k]).map(([k,c])=>`<div class="att-chip${_smsLogCat===k?' active':''}" style="padding:5px 11px;font-size:12px;${_smsLogCat===k?'':'color:'+c.fg+';border-color:'+c.fg+'40;background:'+c.bg}" onclick="smsLogCat('${k}')">${c.label} <span style="opacity:.6">${catCnt[k]}</span></div>`).join('');
+
+  const list=inRange.filter(l=>(!_smsLogCat||l._cat===_smsLogCat) && (!q || (l.preview||'').replace(/-/g,'').includes(q))).sort((a,b)=>b._ts-a._ts);
+  const total=list.reduce((a,l)=>a+(Number(l.cnt)||1),0), fail=list.filter(l=>l.status==='실패').length;
+  document.getElementById('sms-log-summary').innerHTML = list.length ? `${total}건${fail?` · <span style="color:var(--danger)">실패 ${fail}</span>`:''}` : '';
+  const tabCnt=document.getElementById('sms-tab-log-cnt'); if(tabCnt){ const tc=all.filter(l=>l._day===today).reduce((a,l)=>a+(Number(l.cnt)||1),0); tabCnt.textContent=tc?`오늘 ${tc}`:''; tabCnt.style.display=tc?'':'none'; }
+  if(!list.length){ body.innerHTML=`<div class="att-empty">발송 내역이 없습니다</div>`; return; }
+
+  // 날짜별 → 종류별
+  const byDay=new Map(); list.forEach(l=>{ if(!byDay.has(l._day)) byDay.set(l._day,[]); byDay.get(l._day).push(l); });
+  const dayLabel=d=>{ if(!d) return '날짜 없음'; const x=new Date(d+'T00:00:00'); const tag=d===today?' <span class="badge b-info">오늘</span>':d===ago(1)?' <span class="badge b-gray">어제</span>':''; return `${x.getMonth()+1}월 ${x.getDate()}일 (${ATT_DAYS[x.getDay()]})${tag}`; };
+  let first=true;
+  body.innerHTML=[...byDay.entries()].map(([d,items])=>{
+    const cnt=items.reduce((a,l)=>a+(Number(l.cnt)||1),0), f=items.filter(l=>l.status==='실패').length;
+    const cats={}; items.forEach(l=>{ cats[l._cat]=(cats[l._cat]||0)+(Number(l.cnt)||1); });
+    const catPills=Object.entries(cats).map(([k,n])=>`<span class="pill" style="background:${SMS_CAT[k].bg};color:${SMS_CAT[k].fg};font-size:11px;padding:2px 8px;border-radius:10px">${SMS_CAT[k].label} ${n}</span>`).join(' ');
+    const id='smsday-'+d.replace(/-/g,'');
+    const open=first; first=false;
+    const groups=Object.keys(SMS_CAT).filter(k=>cats[k]).map(k=>{
+      const rows=items.filter(l=>l._cat===k).map(l=>{
+        const t=l._ts? new Date(l._ts).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Seoul'}) : '';
+        const ch=(l.channel||'SMS'); const isK=/카카오|알림톡/.test(ch);
+        return `<div class="sms-row${l.status==='실패'?' fail':''}"><span class="t">${t}</span><span><span class="who">${l.preview||''}</span>${(Number(l.cnt)||1)>1?` <span class="badge b-gray">${l.cnt}명</span>`:''}</span><span><span class="badge ${isK?'b-warning':'b-info'}" style="font-size:10px">${ch}</span>${l.status==='실패'?' <span class="badge b-danger" style="font-size:10px">실패</span>':''}</span></div>`;
+      }).join('');
+      return `<div class="sms-grp"><div class="sms-grp-head"><span class="pill" style="background:${SMS_CAT[k].bg};color:${SMS_CAT[k].fg}">${SMS_CAT[k].label}</span><span style="color:var(--text3);font-weight:400">${cats[k]}건</span></div>${rows}</div>`;
+    }).join('');
+    return `<div class="sms-day${open?' open':''}" id="${id}">
+      <div class="sms-day-head" onclick="smsLogToggleDay('${id}')"><span class="tog-ico">▸</span><b>${dayLabel(d)}</b><span style="color:var(--text3)">${cnt}건${f?` · <span style="color:var(--danger)">실패 ${f}</span>`:''}</span><span style="margin-left:auto;display:flex;gap:4px;flex-wrap:wrap">${catPills}</span></div>
+      <div class="sms-day-body">${groups}</div></div>`;
+  }).join('');
 }
 
 // ════════════════════════════════════════════════════════
