@@ -9658,8 +9658,12 @@ function smsLogToggleDay(id){ document.getElementById(id)?.classList.toggle('ope
 function renderSmsLog(){
   if(typeof renderSmsStats==='function') renderSmsStats();
   const body=document.getElementById('sms-log-body'); if(!body) return;
-  const tsOf=x=>{ const t=Date.parse(x.sentAt||''); return isNaN(t)?0:t; };
-  const dayOf=x=>{ const t=tsOf(x); return t? new Date(t).toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'}) : (x.date||'').slice(0,10); };
+  // 옛 앱 로그에는 sentAt이 없고 date('2026. 10. 23. 오후 6:00:05')만 있다 → 그 문자열도 파싱한다
+  const parseKo=str=>{ const m=/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.(?:\s*(오전|오후)\s*(\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(str||''); if(!m) return 0;
+    let h=m[5]?parseInt(m[5]):0; if(m[4]==='오후'&&h<12) h+=12; if(m[4]==='오전'&&h===12) h=0;
+    return new Date(+m[1], +m[2]-1, +m[3], h, m[6]?+m[6]:0, m[7]?+m[7]:0).getTime(); };
+  const tsOf=x=>{ const t=Date.parse(x.sentAt||''); return isNaN(t)? parseKo(x.date) : t; };
+  const dayOf=x=>{ const t=tsOf(x); if(!t) return ''; return x.sentAt ? new Date(t).toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'}) : new Date(t).toLocaleDateString('sv-SE'); };
   const all=[...(currentAcademy.smsLog||[]), ...(_autoSmsLog||[])].map(l=>({...l, _cat:smsCatOf(l), _day:dayOf(l), _ts:tsOf(l)}));
 
   // 기간 칩
@@ -9685,7 +9689,7 @@ function renderSmsLog(){
 
   // 날짜별 → 종류별
   const byDay=new Map(); list.forEach(l=>{ if(!byDay.has(l._day)) byDay.set(l._day,[]); byDay.get(l._day).push(l); });
-  const dayLabel=d=>{ if(!d) return '날짜 없음'; const x=new Date(d+'T00:00:00'); const tag=d===today?' <span class="badge b-info">오늘</span>':d===ago(1)?' <span class="badge b-gray">어제</span>':''; return `${x.getMonth()+1}월 ${x.getDate()}일 (${ATT_DAYS[x.getDay()]})${tag}`; };
+  const dayLabel=d=>{ if(!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return '날짜 없음'; const x=new Date(d+'T00:00:00'); const tag=d===today?' <span class="badge b-info">오늘</span>':d===ago(1)?' <span class="badge b-gray">어제</span>':''; return `${x.getMonth()+1}월 ${x.getDate()}일 (${ATT_DAYS[x.getDay()]})${tag}`; };
   let first=true;
   body.innerHTML=[...byDay.entries()].map(([d,items])=>{
     const cnt=items.reduce((a,l)=>a+(Number(l.cnt)||1),0), f=items.filter(l=>l.status==='실패').length;
