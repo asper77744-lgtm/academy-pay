@@ -483,7 +483,13 @@ tbody tr:hover td{background:#f8f9ff}
 .sms-row .t{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace}
 .sms-row .who{color:var(--text2);font-size:12px}
 .sms-row.fail{border-left-color:var(--danger)}
-@media(max-width:768px){ .sms-tab{padding:9px 10px;font-size:13px} .sms-row{grid-template-columns:52px 1fr auto} }
+@media(max-width:768px){
+  .sms-tab{padding:9px 10px;font-size:13px}
+  .sms-row{grid-template-columns:52px 1fr auto}
+  #sms-pane-log .card-head{flex-direction:column;align-items:stretch}
+  #sms-pane-log .card-head>div{margin-left:0!important}
+  #sms-pane-log #sms-log-q{flex:1;width:auto!important;min-width:0}
+}
 .att-chip .cnt{opacity:.6;font-size:11px;margin-left:4px}
 /* 학교급 색 — 초:초록 / 중:주황 / 고:파랑 */
 .lv-e{--lv:#10b981;--lvbg:#e6f7f1}.lv-m{--lv:#f59e0b;--lvbg:#fdf1dc}.lv-h{--lv:#3b82f6;--lvbg:#e5efff}.lv-x{--lv:#94a3b8;--lvbg:#f1f5f9}
@@ -1377,12 +1383,12 @@ tbody tr:hover td{background:#f8f9ff}
 
       <!-- 탭 -->
       <div class="sms-tabs" id="sms-tabs">
-        <div class="sms-tab active" data-tab="compose" onclick="smsTab('compose')">✏️ 메시지 작성</div>
+        <div class="sms-tab active" data-tab="log" onclick="smsTab('log')">📋 발송 내역 <span class="sms-tab-cnt" id="sms-tab-log-cnt"></span></div>
         <div class="sms-tab" data-tab="rules" onclick="smsTab('rules')">⚡ 자동 발송 규칙</div>
-        <div class="sms-tab" data-tab="log" onclick="smsTab('log')">📋 발송 내역 <span class="sms-tab-cnt" id="sms-tab-log-cnt"></span></div>
+        <div class="sms-tab" data-tab="compose" onclick="smsTab('compose')">✏️ 메시지 작성</div>
       </div>
 
-      <div class="sms-pane active" id="sms-pane-compose">
+      <div class="sms-pane" id="sms-pane-compose">
         <!-- 작성 패널 -->
         <div class="card"><div class="card-head">
           <h3>✏️ 메시지 작성</h3>
@@ -1534,7 +1540,7 @@ tbody tr:hover td{background:#f8f9ff}
           </div></div>
       </div>
 
-      <div class="sms-pane" id="sms-pane-log">
+      <div class="sms-pane active" id="sms-pane-log">
         <div class="card">
           <div class="card-head" style="flex-wrap:wrap;gap:10px">
             <h3>📋 발송 내역</h3>
@@ -3461,7 +3467,7 @@ function nav(name,el){
   // 페이지별 초기화
   if(name==='office') initOfficePage();
   if(name==='gradepay') initGradePayPage();
-  if(name==='sms'){   loadAutoSmsLog();   // 서버 자동발송 내역을 불러와 합쳐 보여준다
+  if(name==='sms'){   renderSmsLog(); loadAutoSmsLog();   // 앱 로그 먼저 그리고, 서버 자동발송 내역을 불러와 합친다
                       loadSmsBalance(); renderSmsStats(); }
   if(name==='attendance') initAttendancePage();
   // 모바일 topbar 제목 업데이트
