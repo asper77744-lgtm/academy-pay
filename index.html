@@ -6587,8 +6587,10 @@ function calcRemain(){
 function getPayStatus(charge,amount){return amount>=charge?'paid':amount>0?'partial':'pending'}
 
 function renderPayments(){
-  const q=document.getElementById('pay-q').value.toLowerCase();
-  const month=document.getElementById('pay-f-month').value;
+  const q=document.getElementById('pay-q').value.toLowerCase().trim();
+  // 검색어가 있으면 월 필터를 무시하고 전체 기간을 보여준다 — "홍길동" 검색 = 홍길동의 납부 이력 전체
+  const monthSel=document.getElementById('pay-f-month').value;
+  const month = q ? '' : monthSel;
   const status=document.getElementById('pay-f-status').value;
   const method=document.getElementById('pay-f-method').value;
   const {payments,students}=currentAcademy;
@@ -6673,6 +6675,7 @@ function renderPayments(){
   });
 
   renderPaySummary(list, month, status, basis);
+  renderPaySearchLedger(q, monthSel);
   const sb={paid:'b-success',partial:'b-warning',pending:'b-danger'};
   const sl={paid:'납부완료',partial:'부분납부',pending:'미납'};
   document.getElementById('pay-tbody').innerHTML=list.length?list.map(p=>{
@@ -6960,6 +6963,69 @@ function cmpBy(a, b, dir){
     ? a-b
     : String(a).localeCompare(String(b));
   return dir==='asc' ? r : -r;
+}
+
+// ── 검색 시 학생별 납부 이력 요약 카드 ──
+//   이름/번호로 학생이 1~3명으로 좁혀지면 표 위에 "달별 납부 상태 타임라인 + 입금 이력"을 보여준다.
+function renderPaySearchLedger(q, monthSel){
+  let box=document.getElementById('pay-search-ledger');
+  if(!box){
+    const tbl=document.querySelector('#pay-tbody')?.closest('.tbl-wrap, table');
+    if(!tbl) return;
+    box=document.createElement('div'); box.id='pay-search-ledger';
+    tbl.parentNode.insertBefore(box, tbl);
+  }
+  if(!q){ box.innerHTML=''; box.style.display='none'; return; }
+  const qd=q.replace(/-/g,'');
+  const matched=(currentAcademy.students||[]).filter(s=>
+    (s.name||'').toLowerCase().includes(q) ||
+    (s.phone||'').replace(/-/g,'').includes(qd) ||
+    ((s.parents||[]).some(pp=>(pp.phone||'').replace(/-/g,'').includes(qd)))
+  ).slice(0,3);
+  if(!matched.length){ box.innerHTML=''; box.style.display='none'; return; }
+  box.style.display='';
+  const cur=ym();
+  const note = monthSel ? `<span style="font-size:11px;color:var(--text3);margin-left:8px">검색 중에는 월 필터(${monthSel})를 무시하고 전체 기간을 표시합니다</span>` : '';
+  box.innerHTML = matched.map(s=>{
+    const pays=(currentAcademy.payments||[]).filter(p=>p.studentId===s.id);
+    const unpaid=getUnpaidMonths(s);
+    const unpaidSet=new Set(unpaid.map(u=>u.month));
+    // 달 범위: 가장 오래된 기록 ~ 가장 늦은 기록/이번달 중 큰 것
+    const months=[...new Set([...pays.map(p=>p.month), ...unpaid.map(u=>u.month), cur])].filter(Boolean).sort();
+    const first=months[0]; const last=months[months.length-1];
+    const span=[]; { let [y,m]=first.split('-').map(Number); const [ly,lm]=last.split('-').map(Number);
+      while(y<ly || (y===ly && m<=lm)){ span.push(`${y}-${String(m).padStart(2,'0')}`); m++; if(m>12){m=1;y++;} } }
+    const cells=span.slice(-18).map(mo=>{
+      const p=pays.find(x=>x.month===mo);
+      let st='none', label='';
+      if(p && p.waived) st='waived';
+      else if(p && p.status==='paid') st='paid';
+      else if(p && p.status==='partial') st='partial';
+      else if(unpaidSet.has(mo)) st='unpaid';
+      const col={paid:'#10b981',partial:'#f59e0b',unpaid:'#ef4444',waived:'#94a3b8',none:'#e5e7eb'}[st];
+      const tip=p?`${mo} · 청구 ${p.charge}만 / 납부 ${p.amount}만 · ${p.date||''}${p.method?' · '+p.method:''}`:(st==='unpaid'?`${mo} · 미납`:`${mo} · 기록 없음`);
+      const pre = p && mo>cur ? '🔖' : '';
+      return `<div title="${tip}" style="text-align:center;min-width:34px"><div style="height:22px;border-radius:5px;background:${col};color:#fff;font-size:10px;line-height:22px;font-weight:700;${mo===cur?'outline:2px solid var(--accent);outline-offset:1px;':''}">${p?p.amount:''}${pre}</div><div style="font-size:9px;color:var(--text3);margin-top:2px">${Number(mo.slice(5))}월</div></div>`;
+    }).join('');
+    const paidTotal=pays.reduce((a,p)=>a+(p.amount||0),0);
+    const unpaidTotal=unpaid.reduce((a,u)=>a+u.unpaid,0);
+    // 최근 입금 이력 (회차 단위, 최신 5건)
+    const hist=pays.flatMap(p=>getPayHistory(p).map(h=>({...h, month:p.month}))).filter(h=>h.date).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
+    const histHtml=hist.length?hist.map(h=>`<span style="display:inline-block;background:#f7f8fb;border:1px solid var(--border);border-radius:12px;padding:2px 9px;font-size:11px;margin:2px 2px 0 0">${h.date} <b>${h.amount}만</b> <span style="color:var(--text3)">${h.month}분${h.method?' · '+h.method:''}${h.depositor?' · '+h.depositor:''}</span></span>`).join(''):'<span style="font-size:11px;color:var(--text3)">입금 이력 없음</span>';
+    return `<div style="margin:0 0 10px;padding:12px 16px;background:#fff;border:1.5px solid var(--accent);border-radius:12px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
+        <strong style="font-size:15px">${s.name}</strong><span style="font-size:12px;color:var(--text2)">${s.grade||''} · ${getEnrollments(s).map(e=>e.subject).filter(Boolean).join('+')||'-'} · 월 ${calcTotalFee(s)}만원</span>
+        <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+          <span class="badge b-success">납부 누계 ${fmt(paidTotal)}만</span>
+          ${unpaidTotal?`<span class="badge b-danger">미납 ${fmt(unpaidTotal)}만 (${unpaid.length}개월)</span>`:`<span class="badge b-gray">미납 없음</span>`}
+          <button class="btn btn-neutral btn-sm" onclick="showStudentHistory('${s.id}')">📜 전체 이력</button>
+        </span>
+      </div>
+      <div style="display:flex;gap:4px;overflow-x:auto;padding-bottom:4px">${cells}</div>
+      <div style="font-size:10px;color:var(--text3);margin:4px 0 6px">■ 초록 완납 · 노랑 부분 · 빨강 미납 · 회색 면제 · 테두리 = 이번 달 · 🔖 선납 · 칸 위에 마우스를 올리면 상세${note}</div>
+      <div><span style="font-size:11px;color:var(--text2);font-weight:600">최근 입금</span> ${histHtml}</div>
+    </div>`;
+  }).join('');
 }
 
 function renderPaySummary(list, month, status, basis){
@@ -7543,6 +7609,7 @@ function searchDepositorUnpaid(){
         <div style="font-size:13px;font-weight:700;color:var(--accent)">${r.fee}만원</div>
         <div style="font-size:11px;color:${dayColor};font-weight:600">${dayTxt}</div>
         <div style="font-size:11px;color:var(--accent);margin-top:4px;font-weight:600">${actionLabel}</div>
+        <button class="btn btn-neutral btn-sm" style="margin-top:6px;padding:3px 8px;font-size:11px" onclick="event.stopPropagation();showStudentHistory('${r.s.id}')">📜 납부 이력</button>
       </div>
     </div>`;
   }).join('');
