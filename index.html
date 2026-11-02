@@ -4496,6 +4496,7 @@ function showMonthUnpaid(my){
       <td>${stBadge}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-success btn-sm" onclick="closeModal('m-month-unpaid');openQuickPayModal('${r.s.id}','${my}',${r.unpaid},true)">수납처리</button>
+        <button class="btn btn-neutral btn-sm" style="margin-left:4px" title="이 달 청구액 조정 / 면제" onclick="closeModal('m-month-unpaid');openChargeAdjust('${r.s.id}','${my}')">조정·면제</button>
         <button class="btn btn-neutral btn-sm" style="margin-left:4px" onclick="closeModal('m-month-unpaid');showStudentHistory('${r.s.id}')">📜</button>
       </td>
     </tr>`;
@@ -7340,7 +7341,17 @@ function getTrackedMonths(){
 // 수강료가 발생하기 시작한 달.
 //   체험 기간은 수강료 대상이 아니므로, 정식 전환일(start)이 있으면 그 달부터 센다.
 //   'YYYY-MM' 또는 값을 알 수 없으면 '' 반환.
+// 체험만 하고 정식 전환 없이 끝난 학생(미전환·고민중·진행중 상태로 종료/퇴원)은 과금 대상이 아니다.
+function isNeverBilled(s){
+  if(!s) return false;
+  if(s.trialResult==='converted') return false;
+  const hadTrial = !!s.trialStart || s.status==='trial' || s.status==='trial_end' || s.trialResult==='not_converted' || s.trialResult==='considering';
+  if(!hadTrial) return false;
+  // 체험 중이거나, 체험 후 전환 없이 종료/퇴원 → 청구 없음
+  return s.status==='trial' || s.status==='trial_end' || s.status==='withdrawn' || s.trialResult==='not_converted';
+}
 function getBillingStartMonth(s){
+  if(isNeverBilled(s)) return '9999-12';   // 어떤 달도 과금 시작 전 → 청구·미납·재원 집계에서 모두 제외
   const cands = [];
   if(s.trialResult==='converted' && s.start) cands.push(s.start.slice(0,7));
   if(s.enrollDate) cands.push(s.enrollDate.slice(0,7));
