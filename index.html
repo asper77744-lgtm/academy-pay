@@ -2295,6 +2295,31 @@ tbody tr:hover td{background:#f8f9ff}
   </div>
 </div>
 
+<!-- 통계: 특정 달 미납 내역 -->
+<div class="modal-overlay" id="m-month-unpaid">
+  <div class="modal" style="width:680px">
+    <h2>⚠️ <span id="mu-title"></span> 미납 내역</h2>
+    <div id="mu-summary" style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px"></div>
+    <div style="max-height:52vh;overflow:auto;border:1px solid var(--border);border-radius:8px">
+      <table style="width:100%;font-size:13px">
+        <thead><tr>
+          <th style="position:sticky;top:0;background:var(--surface);z-index:1">학생</th>
+          <th style="position:sticky;top:0;background:var(--surface);z-index:1">과목</th>
+          <th style="position:sticky;top:0;background:var(--surface);z-index:1">청구</th>
+          <th style="position:sticky;top:0;background:var(--surface);z-index:1">납부</th>
+          <th style="position:sticky;top:0;background:var(--surface);z-index:1">미납</th>
+          <th style="position:sticky;top:0;background:var(--surface);z-index:1">상태</th>
+          <th style="position:sticky;top:0;background:var(--surface);z-index:1"></th>
+        </tr></thead>
+        <tbody id="mu-tbody"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button class="btn btn-neutral" onclick="closeModal('m-month-unpaid')">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="m-month-detail">
   <div class="modal" style="width:640px">
     <h2>📋 <span id="md-title"></span> 수납 상세</h2>
@@ -4150,7 +4175,7 @@ function renderStats(){
         <td>${m}월${isCur?' <span style="font-size:10px;color:var(--accent)">(이번달)</span>':''}</td>
         <td>${fmt(charge)}만원</td>
         <td><strong style="color:${paid?'var(--success)':'var(--text3)'}">${paid?fmt(paid)+'만원':'-'}</strong></td>
-        <td style="color:${unpaid?'var(--danger)':'var(--text3)'}">${unpaid?fmt(unpaid)+'만원':'-'}</td>
+        <td style="color:${unpaid?'var(--danger)':'var(--text3)'}">${unpaid?`<a onclick="showMonthUnpaid('${my}')" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" title="클릭하면 미납 학생 목록">${fmt(unpaid)}만원</a>`:'-'}</td>
         <td><span class="badge ${r>=80?'b-success':r>=50?'b-warning':'b-danger'}">${r}%</span></td>
         <td>${stdCnt?stdCnt+'명':'-'}</td>
       </tr>`;
@@ -4426,6 +4451,56 @@ function monthBillingTotals(my){
     cnt++;
   });
   return { charge, paid, unpaid, cnt };
+}
+
+// 통계 월별 표의 '미납총액' 클릭 → 그 달 미납 학생 목록 (monthBillingTotals와 동일 규칙)
+function monthUnpaidRows(my){
+  const cur = ym();
+  const pays = currentAcademy.payments||[];
+  const rows=[];
+  (currentAcademy.students||[]).forEach(s=>{
+    const start = getBillingStartMonth(s);
+    if(start && my < start) return;
+    const wd = (s.withdrawDate||'').slice(0,7);
+    if(wd && my > wd) return;
+    if(my===cur){ if(!isActiveStudent(s)) return; }
+    else if(!isActiveStudent(s) && s.status!=='withdrawn') return;
+    const p = pays.find(x=>x.studentId===s.id && x.month===my);
+    if(p && p.waived) return;
+    const c  = (p && p.charge!=null && (p.charge>0 || p.chargeAdjusted)) ? p.charge : calcTotalFee(s);
+    const pd = p ? (p.amount||0) : 0;
+    const un = Math.max(0, c - pd);
+    if(un<=0) return;
+    rows.push({ s, p, charge:c, paid:pd, unpaid:un });
+  });
+  return rows.sort((a,b)=>b.unpaid-a.unpaid || a.s.name.localeCompare(b.s.name,'ko'));
+}
+function showMonthUnpaid(my){
+  const rows=monthUnpaidRows(my);
+  const [y,m]=my.split('-');
+  document.getElementById('mu-title').textContent=`${y}년 ${Number(m)}월`;
+  const total=rows.reduce((a,r)=>a+r.unpaid,0);
+  const partial=rows.filter(r=>r.paid>0).length;
+  document.getElementById('mu-summary').innerHTML=`미납 <b style="color:var(--danger)">${fmt(total)}만원</b> · <b>${rows.length}명</b>${partial?` (부분납부 ${partial}명 포함)`:''}
+    <span style="color:var(--text3);margin-left:8px">— ${Number(m)}월 청구분 중 아직 받지 못한 금액. 다른 달 입금은 포함하지 않습니다.</span>`;
+  document.getElementById('mu-tbody').innerHTML = rows.length ? rows.map(r=>{
+    const subj=getEnrollments(r.s).map(e=>e.subject).filter(Boolean).join('+')||'-';
+    const isW=r.s.status==='withdrawn';
+    const stBadge = r.paid>0 ? '<span class="badge b-warning">부분납부</span>' : (r.p ? '<span class="badge b-danger">미납</span>' : '<span class="badge b-danger" style="opacity:.75">기록 없음</span>');
+    return `<tr>
+      <td><strong>${r.s.name}</strong>${isW?' <span class="badge b-gray" style="font-size:10px">퇴원</span>':''}<br><span style="font-size:11px;color:var(--text3)">${r.s.grade||''}</span></td>
+      <td style="font-size:12px;color:var(--text2)">${subj}</td>
+      <td>${fmt(r.charge)}만</td>
+      <td style="color:${r.paid?'var(--text)':'var(--text3)'}">${r.paid?fmt(r.paid)+'만':'-'}</td>
+      <td style="color:var(--danger);font-weight:700">${fmt(r.unpaid)}만</td>
+      <td>${stBadge}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-success btn-sm" onclick="closeModal('m-month-unpaid');openQuickPayModal('${r.s.id}','${my}',${r.unpaid},true)">수납처리</button>
+        <button class="btn btn-neutral btn-sm" style="margin-left:4px" onclick="closeModal('m-month-unpaid');showStudentHistory('${r.s.id}')">📜</button>
+      </td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="7" class="empty-row"><p>미납 학생이 없습니다</p></td></tr>`;
+  openModal('m-month-unpaid');
 }
 
 function renderBarChart(id, payments, year, expectedRevenue=0, carried=0){
