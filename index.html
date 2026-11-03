@@ -802,7 +802,7 @@ tbody tr:hover td{background:#f8f9ff}
         <button class="sb-logout" onclick="openMyAccount()" title="내 정보" style="margin-right:4px">⚙</button>
         <button class="sb-logout" onclick="logout()" title="로그아웃">⏻</button>
       </div>
-      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px">v2026-08-06m</div>
+      <div id="app-version" style="font-size:10px;color:rgba(255,255,255,.4);text-align:center;padding:6px 0 2px;letter-spacing:.3px"><span id="app-version-txt"></span></div>
     </div>
   </nav>
 
@@ -2777,6 +2777,7 @@ const S = {
 
 const now = ()=>new Date();
 const ym = (d=now())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+const APP_VERSION = 'v2026-11-03a';   // 배포 시 갱신 — 사이드바 하단·콘솔에 표시되어 새 파일이 적용됐는지 바로 확인
 const uid = ()=>'id'+Date.now()+Math.random().toString(36).slice(2,6);
 const fmt = (n)=>Number(n).toLocaleString('ko-KR');
 
@@ -7577,12 +7578,17 @@ function searchDepositorUnpaid(){
       (p.name||'').toLowerCase().includes(qClean)
     );
 
-    // 입금자명 검색 (계좌이체 + 지역화폐)
-    const depositorMatch = payments.some(p=>
-      p.studentId===s.id &&
-      (p.method==='계좌이체'||p.method==='지역화폐') &&
-      (p.depositor||'').toLowerCase().includes(qClean)
-    );
+    // 입금자명 검색 (계좌이체 + 지역화폐) — 레코드 입금자 + 분납 회차 입금자 + 직접 저장한 입금자(regionDepositors)
+    //   "정*기(4427)" 은 '4427', '정기', '정*기' 어느 것으로도 찾히게 별표·괄호를 뺀 형태도 비교한다
+    const labelHit = d => { const nd=String(d||'').toLowerCase().replace(/[\s\-]/g,''); return nd.includes(qClean) || nd.replace(/[*()]/g,'').includes(qClean); };
+    const depositorLabels = new Set();
+    payments.forEach(p=>{
+      if(p.studentId!==s.id) return;
+      if((p.method==='계좌이체'||p.method==='지역화폐') && labelHit(p.depositor)) depositorLabels.add((p.method||'')+'|'+p.depositor);
+      (p.history||[]).forEach(h=>{ if((h.method==='계좌이체'||h.method==='지역화폐') && labelHit(h.depositor)) depositorLabels.add((h.method||'')+'|'+h.depositor); });
+    });
+    (s.regionDepositors||[]).forEach(d=>{ if(labelHit(d)) depositorLabels.add('저장|'+d); });
+    const depositorMatch = depositorLabels.size>0;
 
     if(stuMatch || parentMatches.length || depositorMatch){
       const enrs   = getEnrollments(s);
@@ -7600,17 +7606,12 @@ function searchDepositorUnpaid(){
       }));
       // 입금자명 매칭 표시
       if(depositorMatch){
-        const depositorPays = payments.filter(p=>
-          p.studentId===s.id &&
-          (p.method==='계좌이체'||p.method==='지역화폐') &&
-          (p.depositor||'').toLowerCase().includes(qClean)
-        );
         const seen = new Set();
-        depositorPays.forEach(p=>{
-          if(p.depositor && !seen.has(p.depositor)){
-            seen.add(p.depositor);
-            matchedNumbers.push({label:p.method+' 입금자', name:p.depositor, phone:'', depositor:true});
-          }
+        depositorLabels.forEach(key=>{
+          const [m, d] = key.split('|');
+          if(!d || seen.has(d)) return;
+          seen.add(d);
+          matchedNumbers.push({label: m==='저장' ? '저장된 입금자' : m+' 입금자', name:d, phone:'', depositor:true});
         });
       }
 
@@ -11792,7 +11793,8 @@ if('serviceWorker' in navigator){
 if(window.caches && caches.keys){
   caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});
 }
-console.log('[AcademyPay] v2026-08-06m (서비스워커 미사용)');
+console.log('[AcademyPay] '+APP_VERSION+' (서비스워커 미사용)');
+document.getElementById('app-version-txt').textContent = APP_VERSION;
 </script>
 </body>
 </html>
