@@ -8259,8 +8259,28 @@ function searchDepositors(){
   if(!q){ resultsEl.style.display='none'; return; }
   const qClean = q.replace(/-/g,'');
   const results = [];
-  const history = (currentAcademy.payments||[]).filter(p=>p.method==='지역화폐'&&p.depositor).map(p=>p.depositor);
-  [...new Set(history)].filter(d=>d.toLowerCase().includes(q))
+  const sid = document.getElementById('qp-student-id')?.value;
+  // 라벨 매칭: 공백/하이픈 무시, "정*기(4427)"는 '4427', '정*기', '정기' 어느 것으로도 찾히게
+  const norm = v => String(v||'').toLowerCase().replace(/[\s\-]/g,'');
+  const matchLabel = d => { const nd=norm(d); return nd.includes(qClean) || nd.replace(/[*()]/g,'').includes(qClean); };
+
+  // 0) 이 학생에게 미리 저장해 둔 입금자 (regionDepositors) — 가장 위
+  const cur = sid ? getStudent(sid) : null;
+  ((cur&&cur.regionDepositors)||[]).filter(matchLabel)
+    .forEach(d=>results.push({ displayText:`[저장] ${cur.name} · ${d}`, depositorLabel:d }));
+  // 0-1) 다른 학생에게 저장된 입금자도 (형제 등)
+  (currentAcademy.students||[]).forEach(st=>{
+    if(cur && st.id===cur.id) return;
+    (st.regionDepositors||[]).filter(matchLabel).forEach(d=>results.push({ displayText:`[저장] ${st.name} · ${d}`, depositorLabel:d }));
+  });
+
+  // 1) 과거 지역화폐 납부 이력 (레코드 + 분납 회차 이력)
+  const history = [];
+  (currentAcademy.payments||[]).forEach(p=>{
+    if(p.method==='지역화폐'&&p.depositor) history.push(p.depositor);
+    (p.history||[]).forEach(h=>{ if(h.method==='지역화폐'&&h.depositor) history.push(h.depositor); });
+  });
+  [...new Set(history)].filter(matchLabel)
     .forEach(d=>results.push({ displayText:`[이력] ${d}`, depositorLabel:d }));
   (currentAcademy.students||[]).filter(s=>isActiveStudent(s)).forEach(s=>{
     const stuPhone=(s.phone||'').replace(/-/g,'');
