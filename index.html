@@ -2777,7 +2777,7 @@ const S = {
 
 const now = ()=>new Date();
 const ym = (d=now())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-const APP_VERSION = 'v2026-11-03a';   // 배포 시 갱신 — 사이드바 하단·콘솔에 표시되어 새 파일이 적용됐는지 바로 확인
+const APP_VERSION = 'v2026-11-03b';   // 배포 시 갱신 — 사이드바 하단·콘솔에 표시되어 새 파일이 적용됐는지 바로 확인
 const uid = ()=>'id'+Date.now()+Math.random().toString(36).slice(2,6);
 const fmt = (n)=>Number(n).toLocaleString('ko-KR');
 
@@ -7000,7 +7000,7 @@ function showMonthDetail(my){
 }
 
 // ── 표 정렬 ────────────────────────────────────────
-let _paySort    = { key:'date',  dir:'asc' };   // 수납내역: 일자 오름차순
+let _paySort    = { key:'date',  dir:'desc' };  // 수납내역: 일자 내림차순 (최신이 위)
 let _unpaidSort = { key:'payday', dir:'asc' };  // 미납관리: 수납일 오름차순
 
 // 정렬 가능한 표 헤더를 갱신한다 (요소는 그대로 두고 내용만 바꾼다)
@@ -7019,7 +7019,7 @@ function paintSortTh(id, label, key, state, fn){
 
 function setPaySort(key){
   if(_paySort.key===key) _paySort.dir = _paySort.dir==='asc' ? 'desc' : 'asc';
-  else _paySort = { key, dir:'asc' };
+  else _paySort = { key, dir: key==='date'||key==='month' ? 'desc' : 'asc' };   // 날짜류는 최신부터
   renderPayments();
 }
 
