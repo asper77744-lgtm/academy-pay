@@ -2777,7 +2777,7 @@ const S = {
 
 const now = ()=>new Date();
 const ym = (d=now())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-const APP_VERSION = 'v2026-11-03b';   // 배포 시 갱신 — 사이드바 하단·콘솔에 표시되어 새 파일이 적용됐는지 바로 확인
+const APP_VERSION = 'v2026-11-04a';   // 배포 시 갱신 — 사이드바 하단·콘솔에 표시되어 새 파일이 적용됐는지 바로 확인
 const uid = ()=>'id'+Date.now()+Math.random().toString(36).slice(2,6);
 const fmt = (n)=>Number(n).toLocaleString('ko-KR');
 
@@ -8559,7 +8559,7 @@ function initOfficePage(){
   // 기본 포함 칩
   const fixedEl = document.getElementById('office-fixed-chips');
   if(fixedEl && !fixedEl.hasChildNodes()){
-    ['번호','이름','연락처','학년','학교','등록일','퇴원일','상태'].forEach(label=>{
+    ['번호','이름','학년','학교','등록일','퇴원일','상태'].forEach(label=>{
       const span = document.createElement('span');
       span.textContent = label;
       span.style.cssText = 'padding:3px 10px;border-radius:20px;font-size:12px;background:var(--accent);color:#fff';
@@ -8570,7 +8570,7 @@ function initOfficePage(){
   // 추가 선택 칩
   const extraEl = document.getElementById('office-extra-chips');
   if(extraEl && !extraEl.hasChildNodes()){
-    [{id:'col-subject',label:'교습과목'},{id:'col-class',label:'담당반'},
+    [{id:'col-phone',label:'학생 연락처'},{id:'col-subject',label:'교습과목'},{id:'col-class',label:'담당반'},
      {id:'col-fee',label:'수강료'},{id:'col-payday',label:'결제일'},
      {id:'col-birth',label:'생년월일'},{id:'col-parent',label:'보호자연락처'},
      {id:'col-memo',label:'메모'}
@@ -8663,11 +8663,13 @@ function printStudentLedger(){
   const showPayday  = chk('col-payday');
   const showBirth   = chk('col-birth');
   const showParent  = chk('col-parent');
+  const showPhone   = chk('col-phone');
   const showMemo    = chk('col-memo');
 
   // 헤더
-  const headers = ['번호','이름','연락처','학년','학교','등록일','퇴원일','상태'];
-  if(showBirth)   headers.splice(3,0,'생년월일');
+  const headers = ['번호','이름','학년','학교','등록일','퇴원일','상태'];
+  if(showBirth)   headers.splice(2,0,'생년월일');
+  if(showPhone)   headers.splice(2,0,'연락처');
   if(showSubject) headers.push('교습과목');
   if(showClass)   headers.push('담당반');
   if(showFee)     headers.push('수강료');
@@ -8687,8 +8689,8 @@ function printStudentLedger(){
     const cells = [
       `<td style="text-align:center">${i+1}</td>`,
       `<td><strong>${s.name}</strong></td>`,
-      `<td>${s.phone||'-'}</td>`,
     ];
+    if(showPhone) cells.push(`<td>${s.phone||'-'}</td>`);
     if(showBirth) cells.push(`<td>${s.birth||'-'}</td>`);
     cells.push(
       `<td>${s.grade||'-'}</td>`,
