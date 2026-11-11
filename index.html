@@ -2777,7 +2777,7 @@ const S = {
 
 const now = ()=>new Date();
 const ym = (d=now())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-const APP_VERSION = 'v2026-11-04a';   // 배포 시 갱신 — 사이드바 하단·콘솔에 표시되어 새 파일이 적용됐는지 바로 확인
+const APP_VERSION = 'v2026-11-11a';   // 배포 시 갱신 — 사이드바 하단·콘솔에 표시되어 새 파일이 적용됐는지 바로 확인
 const uid = ()=>'id'+Date.now()+Math.random().toString(36).slice(2,6);
 const fmt = (n)=>Number(n).toLocaleString('ko-KR');
 
@@ -8046,11 +8046,15 @@ function showDepositorHistory(sid){
   // 2) 수동으로 미리 저장해 둔 입금자 (학생별 regionDepositors)
   const saved = ((s&&s.regionDepositors)||[]).map(d=>({ label:d, sub:'저장', manual:true }));
 
-  // 병합 + 중복 제거 (라벨 기준). 실제 이력에 있으면 그것을 우선(삭제 버튼 없음).
+  // 숨긴 이력 입금자 (hiddenDepositors) — 수납 기록은 그대로 두고 이 목록에서만 뺀다
+  const hidden = new Set((s&&s.hiddenDepositors)||[]);
+
+  // 병합 + 중복 제거 (라벨 기준). 실제 이력에 있으면 그것을 우선.
   const seen = new Set();
   const items = [];
   [...derived, ...saved].forEach(it=>{
     if(!it.label || seen.has(it.label)) return;
+    if(!it.manual && hidden.has(it.label)) return;
     seen.add(it.label);
     items.push(it);
   });
@@ -8061,9 +8065,10 @@ function showDepositorHistory(sid){
   const chips = items.map(it=>{
     const safe = it.label.replace(/'/g,"\\'");
     const del  = it.manual
-      ? `<span onclick="event.stopPropagation();removeRegionDepositor('${sid}','${safe}')" title="삭제"
+      ? `<span onclick="event.stopPropagation();removeRegionDepositor('${sid}','${safe}')" title="저장 목록에서 삭제"
            style="margin-left:6px;color:#c0392b;font-weight:700;cursor:pointer">×</span>`
-      : '';
+      : `<span onclick="event.stopPropagation();hideDerivedDepositor('${sid}','${safe}')" title="이 목록에서 숨기기 (과거 수납 기록은 그대로)"
+           style="margin-left:6px;color:#b0b0b0;font-weight:700;cursor:pointer">×</span>`;
     return `<button type="button" onclick="selectDepositorHistory('${safe}')"
       style="padding:5px 10px;border:1.5px solid #ffe082;border-radius:20px;background:#fff;font-size:12px;cursor:pointer;font-family:inherit;color:#795548;transition:all .15s"
       onmouseover="this.style.background='#ffe082'" onmouseout="this.style.background='#fff'">
@@ -8110,6 +8115,15 @@ function addRegionDepositor(sid){
 }
 
 // 수동 저장한 지역화폐 입금자 삭제
+// 과거 수납 기록에서 끌어온 입금자를 '이전 입금자 이력' 칩에서 숨긴다.
+//   기록 자체는 바꾸지 않는다 (잘못 적힌 입금자명은 수납내역에서 그 건을 편집해 고친다).
+function hideDerivedDepositor(sid, label){
+  const s = getStudent(sid); if(!s) return;
+  if(!confirm(`"${label}" 을(를) 이전 입금자 목록에서 숨길까요?\n\n과거 수납 기록은 그대로 남습니다. 입금자명 자체가 틀렸다면 수납내역에서 그 건을 편집하세요.`)) return;
+  s.hiddenDepositors = [...new Set([...(s.hiddenDepositors||[]), label])];
+  saveAcademy();
+  showDepositorHistory(sid);
+}
 function removeRegionDepositor(sid, label){
   const s = getStudent(sid);
   if(!s || !Array.isArray(s.regionDepositors)) return;
