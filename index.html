@@ -1850,7 +1850,7 @@ tbody tr:hover td{background:#f8f9ff}
     <div id="cr-fields">
       <div class="frow">
         <div class="ff"><label>승인번호</label><input id="cr-no" placeholder="예) 123456789"/></div>
-        <div class="ff"><label>발행 식별번호</label><input id="cr-id" placeholder="휴대폰 또는 사업자번호"/></div>
+        <div class="ff"><label>발행 식별번호</label><input id="cr-id" placeholder="010-0000-0000 또는 123-45-67890" inputmode="numeric" oninput="this.value=formatCrId(this.value)" style="letter-spacing:.5px"/></div>
       </div>
       <div class="frow">
         <div class="ff"><label>발행일</label><input id="cr-date" type="date"/></div>
@@ -2026,7 +2026,7 @@ tbody tr:hover td{background:#f8f9ff}
       <label style="color:#5b21b6;display:flex;align-items:center;gap:6px">🧾 현금영수증 번호
         <span style="font-weight:400;color:var(--text3)">휴대폰 또는 사업자번호 — 현금·계좌이체 수납 시 자동 입력</span></label>
       <div class="ms-cr-grid" style="display:grid;grid-template-columns:1fr auto 150px;gap:8px;align-items:center">
-        <input id="ms-cr-id" placeholder="010-0000-0000 또는 123-45-67890" inputmode="numeric" autocomplete="off" style="min-width:0"/>
+        <input id="ms-cr-id" placeholder="010-0000-0000 또는 123-45-67890" inputmode="numeric" autocomplete="off" oninput="this.value=formatCrId(this.value)" style="min-width:0;letter-spacing:.5px"/>
         <button type="button" class="btn btn-neutral btn-sm" onclick="msCrUseParent()" style="white-space:nowrap">보호자 번호 넣기</button>
         <select id="ms-cr-type"><option value="소득공제">소득공제용</option><option value="지출증빙">지출증빙용</option></select>
       </div>
@@ -2432,7 +2432,7 @@ tbody tr:hover td{background:#f8f9ff}
       <div id="qp-cr-fields" style="display:none">
         <div class="frow">
           <div class="ff" style="margin-bottom:6px"><label style="color:#5b21b6">승인번호</label><input id="qp-cr-no" placeholder="예) 123456789" style="width:100%;padding:8px 10px;border:1.5px solid #ddd6fe;border-radius:8px;font-size:13px;font-family:inherit;outline:none"/></div>
-          <div class="ff" style="margin-bottom:6px"><label style="color:#5b21b6">발행 식별번호 <span style="font-weight:400;color:var(--text3)">(휴대폰/사업자)</span></label><input id="qp-cr-id" placeholder="010-0000-0000" style="width:100%;padding:8px 10px;border:1.5px solid #ddd6fe;border-radius:8px;font-size:13px;font-family:inherit;outline:none"/></div>
+          <div class="ff" style="margin-bottom:6px"><label style="color:#5b21b6">발행 식별번호 <span style="font-weight:400;color:var(--text3)">(휴대폰/사업자)</span></label><input id="qp-cr-id" placeholder="010-0000-0000 또는 123-45-67890" inputmode="numeric" oninput="this.value=formatCrId(this.value)" style="width:100%;padding:8px 10px;border:1.5px solid #ddd6fe;border-radius:8px;font-size:13px;font-family:inherit;outline:none;letter-spacing:.5px"/></div>
         </div>
         <div class="frow">
           <div class="ff" style="margin-bottom:0"><label style="color:#5b21b6">발행일</label><input id="qp-cr-date" type="date" style="width:100%;padding:8px 10px;border:1.5px solid #ddd6fe;border-radius:8px;font-size:13px;font-family:inherit;outline:none"/></div>
@@ -2777,11 +2777,19 @@ const S = {
 
 const now = ()=>new Date();
 const ym = (d=now())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-const APP_VERSION = 'v2026-11-11a';   // 배포 시 갱신 — 사이드바 하단·콘솔에 표시되어 새 파일이 적용됐는지 바로 확인
+const APP_VERSION = 'v2026-11-11b';   // 배포 시 갱신 — 사이드바 하단·콘솔에 표시되어 새 파일이 적용됐는지 바로 확인
 const uid = ()=>'id'+Date.now()+Math.random().toString(36).slice(2,6);
 const fmt = (n)=>Number(n).toLocaleString('ko-KR');
 
 // 전화번호 자동 포맷팅
+// 현금영수증 식별번호 표시용: 휴대폰은 010-1234-5678, 사업자번호(10자리, 0으로 시작 안 함)는 123-45-67890
+function formatCrId(val){
+  const d = String(val||'').replace(/\D/g,'');
+  if(!d) return String(val||'');
+  if(d.length===10 && !d.startsWith('0')) return d.slice(0,3)+'-'+d.slice(3,5)+'-'+d.slice(5);   // 사업자
+  if(d.startsWith('0')) return formatPhone(d);                                                   // 휴대폰/지역번호
+  return d;
+}
 function formatPhone(val){
   const d = val.replace(/\D/g,''); // 숫자만 추출
   if(d.length <= 3)  return d;
@@ -3619,7 +3627,7 @@ function _gpBuildGradeTable(grade, monthYm, includeSum){
       ${subjTds}
       <td class="num">${disc?('-'+_gpWon(disc)):''}</td>
       <td class="num tot">${_gpWon(tot)}</td>
-      <td></td><td>${monthLabel}</td><td class="memo">${s.cashReceiptId?`🧾 ${s.cashReceiptId}${s.cashReceiptType==='지출증빙'?' (증빙)':''}`:''}</td>
+      <td></td><td>${monthLabel}</td><td class="memo">${s.cashReceiptId?`🧾 ${formatCrId(s.cashReceiptId)}${s.cashReceiptType==='지출증빙'?' (증빙)':''}`:''}</td>
     </tr>`;
   }).join('');
 
@@ -5291,7 +5299,7 @@ function editStudent(id){
   document.getElementById('ms-trial-end').value    =s.trialEnd||'';
   document.getElementById('ms-trial-result').value =s.trialResult||'';
   document.getElementById('ms-trial-memo').value   =s.trialMemo||'';
-  document.getElementById('ms-cr-id').value   = s.cashReceiptId||'';
+  document.getElementById('ms-cr-id').value   = formatCrId(s.cashReceiptId||'');
   document.getElementById('ms-cr-type').value = s.cashReceiptType||'소득공제';
   // withdraw
   document.getElementById('ms-withdraw-date').value   =s.withdrawDate||'';
@@ -11650,7 +11658,7 @@ function qpCrToggle(on){
   if(!on) return;
   const s=getStudent(document.getElementById('qp-student-id').value);
   const idEl=document.getElementById('qp-cr-id'), tyEl=document.getElementById('qp-cr-type'), dtEl=document.getElementById('qp-cr-date');
-  if(!idEl.value && s?.cashReceiptId) idEl.value=s.cashReceiptId;
+  if(!idEl.value && s?.cashReceiptId) idEl.value=formatCrId(s.cashReceiptId);
   if(s?.cashReceiptType) tyEl.value=s.cashReceiptType;
   if(!dtEl.value) dtEl.value=document.getElementById('qp-date').value||todayYmd();
   if(!idEl.value) idEl.focus();
@@ -11658,7 +11666,7 @@ function qpCrToggle(on){
 function qpCrHint(){
   const h=document.getElementById('qp-cr-hint'); if(!h) return;
   const s=getStudent(document.getElementById('qp-student-id').value);
-  h.textContent = s?.cashReceiptId ? `저장된 번호: ${s.cashReceiptId} (${s.cashReceiptType||'소득공제'})` : '학생 카드에 저장된 번호 없음 — 여기 입력하면 저장됩니다';
+  h.textContent = s?.cashReceiptId ? `저장된 번호: ${formatCrId(s.cashReceiptId)} (${s.cashReceiptType||'소득공제'})` : '학생 카드에 저장된 번호 없음 — 여기 입력하면 저장됩니다';
 }
 function qpFillCashReceipt(cr){
   const on=document.getElementById('qp-cr-on'); if(!on) return;
@@ -11666,7 +11674,7 @@ function qpFillCashReceipt(cr){
   document.getElementById('qp-cr-fields').style.display=on.checked?'':'none';
   qpCrHint();
   document.getElementById('qp-cr-no').value=cr?.no||'';
-  document.getElementById('qp-cr-id').value=cr?.idNo||'';
+  document.getElementById('qp-cr-id').value=formatCrId(cr?.idNo||'');
   document.getElementById('qp-cr-date').value=cr?.date||'';
   document.getElementById('qp-cr-type').value=cr?.type||'소득공제';
 }
@@ -11684,7 +11692,7 @@ function openCashReceipt(pid){
   const on=document.getElementById('cr-on'); on.checked=!!cr.issued;
   document.getElementById('cr-fields').style.display=on.checked?'':'none';
   document.getElementById('cr-no').value=cr.no||'';
-  document.getElementById('cr-id').value=cr.idNo||s?.cashReceiptId||'';
+  document.getElementById('cr-id').value=formatCrId(cr.idNo||s?.cashReceiptId||'');
   document.getElementById('cr-date').value=cr.date||p.date||todayYmd();
   document.getElementById('cr-type').value=cr.type||s?.cashReceiptType||'소득공제';
   document.getElementById('cr-memo').value=cr.memo||'';
