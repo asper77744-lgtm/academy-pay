@@ -2776,8 +2776,41 @@ const S = {
 };
 
 const now = ()=>new Date();
+
+// ── 날짜 넘어감 감지 ─────────────────────────────────────────
+//   탭을 켜둔 채 퇴근하고 다음 날 이어서 쓰면 '오늘' 기준 화면(오늘의 출석, 출석 편집 날짜, 월 필터 등)이
+//   어제 날짜에 멈춰 있다. 탭이 다시 보이거나 1분마다 확인해서 날짜가 바뀌었으면 오늘로 되돌리고 다시 그린다.
+let _bootDay = new Date().toLocaleDateString('sv-SE');
+function checkDayRollover(){
+  const today = new Date().toLocaleDateString('sv-SE');
+  if(today === _bootDay) return;
+  const prev = _bootDay; _bootDay = today;
+  if(!window.currentAcademy || !window.currentUser) return;
+  try{
+    // 출석: 선생님 앱 / 관리자 페이지의 날짜 상태를 오늘로
+    if(typeof _attEdit!=='undefined' && _attEdit){
+      if(_attEdit.dirty){ showToast(`날짜가 ${today}로 바뀌었습니다. 저장하지 않은 출석이 있어 화면은 그대로 두었습니다 — 저장 후 "오늘"을 누르세요.`,'warning'); return; }
+      _attEdit.date = today;
+      const td=document.getElementById('ta-date'); if(td) td.value=today;
+      const ad=document.getElementById('att-a-date'); if(ad) ad.value=today;
+    }
+    if(typeof _attG!=='undefined' && _attG){ _attG.date=today; _attG.sel=null; const g=document.getElementById('att-g-date'); if(g) g.value=today; }
+    if(typeof _taMon!=='undefined' && _taMon){ _taMon.ym=today.slice(0,7); }
+    const mm=document.getElementById('att-m-month'); if(mm) mm.value=today.slice(0,7);
+    // 수납내역 월 필터: 달이 바뀌었으면 이번 달로
+    if(prev.slice(0,7)!==today.slice(0,7)){ _payMonthInit=false; }
+    // 전체 다시 그리기
+    if(typeof refreshAll==='function') refreshAll();
+    if(typeof isTeacherView==='function' && isTeacherView() && typeof renderTeacherApp==='function') renderTeacherApp();
+    if(document.getElementById('page-attendance')?.classList.contains('active') && typeof initAttendancePage==='function') initAttendancePage();
+    showToast(`날짜가 바뀌어 오늘(${today.slice(5).replace('-','/')}) 기준으로 화면을 새로 고쳤습니다.`,'info');
+  }catch(e){ console.warn('day rollover', e); }
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') checkDayRollover(); });
+window.addEventListener('focus', checkDayRollover);
+setInterval(checkDayRollover, 60*1000);
 const ym = (d=now())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-const APP_VERSION = 'v2026-11-11b';   // 배포 시 갱신 — 사이드바 하단·콘솔에 표시되어 새 파일이 적용됐는지 바로 확인
+const APP_VERSION = 'v2026-11-13a';   // 배포 시 갱신 — 사이드바 하단·콘솔에 표시되어 새 파일이 적용됐는지 바로 확인
 const uid = ()=>'id'+Date.now()+Math.random().toString(36).slice(2,6);
 const fmt = (n)=>Number(n).toLocaleString('ko-KR');
 
