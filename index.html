@@ -1440,7 +1440,7 @@ tbody tr:hover td{background:#f8f9ff}
                   style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;outline:none"/>
               </div>
               <div class="ff" style="margin-bottom:10px">
-                <label style="font-size:12px;font-weight:600">내용 <span style="color:var(--text3);font-weight:400">(변수: {학원명} {이름} {납부월} {금액} {수납일} · 미납 알림은 {납부월}=밀린 달 목록, {금액}=누적 미납액)</span></label>
+                <label style="font-size:12px;font-weight:600">내용 <span style="color:var(--text3);font-weight:400">(변수: {학원명} {이름} {납부월} {금액} {수납일} {선납잔액} · 미납 알림은 {납부월}=밀린 달 목록, {금액}=누적 미납액 · {선납잔액}=수납완료 알림 시 다음 달로 넘어간 선납액)</span></label>
                 <textarea id="tpl-new-body" rows="4" placeholder="안녕하세요, {학원명}입니다.&#10;{이름} 학생의 {납부월} 수강료 {금액}만원이 미납되어 있습니다.&#10;수납일은 매월 {수납일}일입니다.&#10;확인 부탁드립니다."
                   style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:12px;font-family:inherit;outline:none;resize:vertical"></textarea>
               </div>
@@ -2810,7 +2810,7 @@ document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState=
 window.addEventListener('focus', checkDayRollover);
 setInterval(checkDayRollover, 60*1000);
 const ym = (d=now())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-const APP_VERSION = 'v2026-11-13a';   // 배포 시 갱신 — 사이드바 하단·콘솔에 표시되어 새 파일이 적용됐는지 바로 확인
+const APP_VERSION = 'v2026-11-18a';   // 배포 시 갱신 — 사이드바 하단·콘솔에 표시되어 새 파일이 적용됐는지 바로 확인
 const uid = ()=>'id'+Date.now()+Math.random().toString(36).slice(2,6);
 const fmt = (n)=>Number(n).toLocaleString('ko-KR');
 
@@ -8568,8 +8568,13 @@ async function notifyPaymentComplete(sid, month){
       monthLabel: fmtMonthsKo([month]),
       amount: (paid.charge!=null && (paid.charge>0 || paid.chargeAdjusted)) ? paid.charge : (paid.amount||0),
       count: 1,
+      prepaidBal: prepaidBalanceAfter(sid, month),
     };
-    const body = applyVars(tpl.body||'', s, paidCtx);
+    let body = applyVars(tpl.body||'', s, paidCtx);
+    // 선납 잔액이 있는데 템플릿이 {선납잔액}을 쓰지 않으면 안내 문장을 자동으로 덧붙인다.
+    if(paidCtx.prepaidBal>0 && !/{선납잔액}/.test(tpl.body||'')){
+      body += `\n(선납 잔액 ${paidCtx.prepaidBal}만원은 다음 달 수강료에 반영됩니다)`;
+    }
     const kt   = findKakaoTplFor(tpl.id);
     let ok=0;
     for(const r of rcpts){
@@ -9238,7 +9243,17 @@ function applyVars(tpl, student, ctx){
     .replace(/{미납개월수}/g, ctx?ctx.count:'')
     .replace(/{전화번호}/g, currentAcademy.phone||'')
     .replace(/{과목}/g,   cls?.subject||'')
+    .replace(/{선납잔액}/g, ctx&&ctx.prepaidBal!=null ? ctx.prepaidBal : 0)
     .replace(/{수납일}/g, payDay); // ← 추가
+}
+
+// 특정 달 이후(미래 달)에 미리 들어가 있는 선납 잔액 합계 (만원)
+//   초과 납부분은 confirmQuickPay에서 다음 달 기록으로 자동 분리되므로
+//   "이번 달보다 뒤의 달에 쌓여 있는 납부액"이 곧 선납 잔액이다.
+function prepaidBalanceAfter(sid, month){
+  return (currentAcademy.payments||[])
+    .filter(p=>p.studentId===sid && p.month>month && (p.amount||0)>0)
+    .reduce((a,p)=>a+(p.amount||0),0);
 }
 
 function updateSmsPreview(){
@@ -9447,7 +9462,7 @@ function editTemplate(id){
         style="width:100%;padding:7px 10px;border:1.5px solid var(--accent);border-radius:7px;font-size:13px;font-family:inherit;outline:none"/>
     </div>
     <div class="ff" style="margin-bottom:8px">
-      <label style="font-size:12px;font-weight:600">내용 <span style="color:var(--text3);font-weight:400">(변수: {학원명} {이름} {납부월} {금액} {수납일} · 미납 알림은 {납부월}=밀린 달 목록, {금액}=누적 미납액)</span></label>
+      <label style="font-size:12px;font-weight:600">내용 <span style="color:var(--text3);font-weight:400">(변수: {학원명} {이름} {납부월} {금액} {수납일} {선납잔액} · 미납 알림은 {납부월}=밀린 달 목록, {금액}=누적 미납액 · {선납잔액}=수납완료 알림 시 다음 달로 넘어간 선납액)</span></label>
       <textarea id="tpl-edit-body-${id}" rows="4"
         style="width:100%;padding:8px 10px;border:1.5px solid var(--accent);border-radius:7px;font-size:12px;font-family:inherit;outline:none;resize:vertical">${t.body}</textarea>
     </div>
